@@ -1,0 +1,12 @@
+[package]
+name = "lance_sync_client"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tokio = { workspace = true }
+lancedb = { workspace = true }
+anyhow = { workspace = true }

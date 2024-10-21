@@ -12,6 +12,7 @@ Inside the `rust` folder, you'll find:
 
 * `test_library` - a minimal test library with some Rust code marked for export via FFI.
 * `test_autobind` - the same library, but with `csbindgen` linked to a build script to auto-generate bindings for the C# side.
+* `hello_lancedb` - a simple example of using `lancedb` from Rust (verifying that the environment works).
 
 These will generate `.so` files in `rust/target/debug` (or `release` if you enable
 build optimizations) when you run `cargo build`.

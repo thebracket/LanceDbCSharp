@@ -9,7 +9,7 @@ edition = "2021"
 members = [
     "test_library", # Minimal test to check that FFI is working.
     "test_autobind", # Minimal test to make sure `csbindgen` works.
-    "hello_lancedb", # Quick Rust test to make sure that LanceDb itself is working.
+    "hello_lancedb", "lance_sync_client", # Quick Rust test to make sure that LanceDb itself is working.
 ]
 
 [workspace.dependencies]
