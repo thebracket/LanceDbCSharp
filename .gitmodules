@@ -1,0 +1,3 @@
+[submodule "vendor/lancedb"]
+	path = vendor/lancedb
+	url = https://github.com/lancedb/lancedb.git

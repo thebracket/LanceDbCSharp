@@ -2,10 +2,11 @@ Placeholder.
 
 ## Current Status
 
-The initial repo has two folders:
+The initial repo has a few folders:
 
 * `cs/` - C# code
 * `rust/` - Rust code
+* `vendor/` - contains Git submodule for `lancedb`.
 
 Inside the `rust` folder, you'll find:
 
