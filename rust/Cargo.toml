@@ -6,7 +6,17 @@ edition = "2021"
 [dependencies]
 
 [workspace]
-members = [ "test_autobind",
-    "test_library", # Minimal test to check that FFI is working
+members = [
+    "test_library", # Minimal test to check that FFI is working.
+    "test_autobind", # Minimal test to make sure `csbindgen` works.
+    "hello_lancedb", # Quick Rust test to make sure that LanceDb itself is working.
 ]
 
+[workspace.dependencies]
+lancedb = { path = "../vendor/lancedb/rust/lancedb" }
+tokio = { version = "1", features = ["full"] }
+futures = "0.3.31"
+anyhow = "1"
+# Note that we have to be careful to match the version Lance is using
+arrow-array = "52.2"
+arrow-schema = "52.2"

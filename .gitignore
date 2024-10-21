@@ -6,4 +6,5 @@ cs/hello_ffi/**/[Bb]in
 cs/hello_ffi/**/[Oo]bj
 cs/hello_ffi/.idea
 .idea
+rust/data
 
