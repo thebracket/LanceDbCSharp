@@ -10,3 +10,6 @@ crate-type = ["cdylib"]
 tokio = { workspace = true }
 lancedb = { workspace = true }
 anyhow = { workspace = true }
+arrow-array = { workspace = true }
+arrow-schema = { workspace = true }
+arrow-ipc = { workspace = true }

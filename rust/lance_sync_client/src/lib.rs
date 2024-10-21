@@ -16,6 +16,7 @@ const MAX_COMMANDS: usize = 100;
 
 mod event_loop;
 mod connection_handle;
+mod testing;
 
 pub use event_loop::setup;
 pub use event_loop::shutdown;

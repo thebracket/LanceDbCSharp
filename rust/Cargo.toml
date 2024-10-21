@@ -20,3 +20,4 @@ anyhow = "1"
 # Note that we have to be careful to match the version Lance is using
 arrow-array = "52.2"
 arrow-schema = "52.2"
+arrow-ipc = "52.2"
