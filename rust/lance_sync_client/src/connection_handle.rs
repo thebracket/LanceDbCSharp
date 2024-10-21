@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::atomic::AtomicI64;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use lancedb::{connect, Connection};
 
 pub(crate) struct ConnectionHandle(pub(crate) i64); // Unique identifier for the connection
