@@ -1,0 +1,12 @@
+[package]
+name = "lancedb_cs_workspace"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[workspace]
+members = [ "test_autobind",
+    "test_library", # Minimal test to check that FFI is working
+]
+

@@ -1,0 +1,9 @@
+rust/Cargo.lock
+rust/target
+rust/test_autobind/dotnet
+rust/.idea
+cs/hello_ffi/**/[Bb]in
+cs/hello_ffi/**/[Oo]bj
+cs/hello_ffi/.idea
+.idea
+
