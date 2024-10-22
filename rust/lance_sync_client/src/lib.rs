@@ -17,7 +17,13 @@ const MAX_COMMANDS: usize = 100;
 mod event_loop;
 mod connection_handle;
 mod testing;
+pub(crate) mod batch_handler;
+mod table_handler;
 
 pub use event_loop::setup;
 pub use event_loop::shutdown;
 pub use event_loop::connect;
+pub use event_loop::submit_record_batch;
+pub use event_loop::disconnect;
+pub use event_loop::free_record_batch;
+pub use event_loop::create_table;

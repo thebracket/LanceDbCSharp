@@ -40,4 +40,8 @@ impl ConnectionFactory {
         self.connections.remove(&handle.0);
         Ok(())
     }
+
+    pub(crate) fn get_connection(&self, connection_handle: ConnectionHandle) -> Option<&Connection> {
+        self.connections.get(&connection_handle.0)
+    }
 }
