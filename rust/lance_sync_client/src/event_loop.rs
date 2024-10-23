@@ -26,8 +26,6 @@ enum LanceSetupErrors {
     ThreadSpawnError = -1,
 }
 
-
-
 /// This static variable holds the sender for the LanceDB command.
 pub(crate) static COMMAND_SENDER: OnceLock<Sender<LanceDbCommand>> = OnceLock::new();
 
