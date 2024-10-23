@@ -13,3 +13,4 @@ anyhow = { workspace = true }
 arrow-array = { workspace = true }
 arrow-schema = { workspace = true }
 arrow-ipc = { workspace = true }
+futures = { workspace = true }

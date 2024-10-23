@@ -1,4 +1,6 @@
+use std::sync::Arc;
 use crate::batch_handler::RecBatch;
+use crate::connection_handle::ConnectionHandle;
 
 /// Commands that can be sent to the LanceDB event-loop.
 #[derive(Debug)]
@@ -35,6 +37,33 @@ pub(crate) enum LanceDbCommand {
         connection_handle: i64,
         record_batch_handle: i64,
         reply_sender: tokio::sync::oneshot::Sender<i64>,
+    },
+
+    /// Simple "nearest" query.
+    QueryNearest {
+        limit: u64,
+        vector: Vec<f32>,
+        connection: ConnectionHandle,
+        table: String,
+        reply_sender: tokio::sync::oneshot::Sender<i64>,
+    },
+
+    /// Request to remove a binary blob from memory.
+    FreeBlob {
+        handle: i64,
+        reply_sender: tokio::sync::oneshot::Sender<i64>,
+    },
+
+    /// Query the length of a blob
+    BlobLen {
+        handle: i64,
+        reply_sender: tokio::sync::oneshot::Sender<Option<isize>>,
+    },
+
+    /// Get Blob Pointer
+    GetBlobPointer {
+        handle: i64,
+        reply_sender: tokio::sync::oneshot::Sender<Option<Arc<Vec<u8>>>>,
     },
 
     /// Gracefully shut down the event-loop.

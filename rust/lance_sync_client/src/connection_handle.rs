@@ -3,6 +3,7 @@ use std::sync::atomic::AtomicI64;
 use anyhow::Result;
 use lancedb::{connect, Connection};
 
+#[derive(Debug, Copy, Clone)]
 pub(crate) struct ConnectionHandle(pub(crate) i64); // Unique identifier for the connection
 
 pub(crate) struct ConnectionFactory {

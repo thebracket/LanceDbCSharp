@@ -23,4 +23,12 @@ impl TableHandler {
         self.tables.insert(table_name.to_string(), table);
         Ok(())
     }
+
+    pub async fn get_table(&self, db: &Connection, table_name: &str) -> Result<Table> {
+        let table = db.open_table(table_name)
+            .execute()
+            .await
+            .inspect_err(|e| eprintln!("Error opening table: {e:?}"))?;
+        Ok(table)
+    }
 }

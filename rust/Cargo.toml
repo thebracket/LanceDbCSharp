@@ -13,7 +13,7 @@ members = [
 ]
 
 [workspace.dependencies]
-lancedb = { path = "../vendor/lancedb/rust/lancedb" }
+lancedb = { version = "0.11.0" } # Pinned to a released version to avoid breaking changes.
 tokio = { version = "1", features = ["full"] }
 futures = "0.3.31"
 anyhow = "1"

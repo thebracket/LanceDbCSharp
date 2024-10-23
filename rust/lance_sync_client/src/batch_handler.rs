@@ -36,4 +36,21 @@ impl BatchHandler {
     pub(crate) fn take_batch(&mut self, handle: i64) -> Option<RecBatch> {
         self.batches.remove(&handle)
     }
+
+    pub(crate) fn get_batch(&self, handle: i64) -> Option<&RecBatch> {
+        self.batches.get(&handle)
+    }
+
+    pub(crate) fn batch_as_bytes(&self, handle: i64) -> Vec<u8> {
+        let batches = self.batches.get(&handle).unwrap();
+        let mut buf = vec![];
+        {
+            let mut fw = arrow_ipc::writer::FileWriter::try_new(&mut buf, &batches[0].as_ref().unwrap().schema()).unwrap();
+            for record in batches.iter() {
+                fw.write(&record.as_ref().unwrap()).unwrap();
+            }
+            fw.finish().unwrap();
+        } // Scope to ensure that fw is dropped
+        buf
+    }
 }
