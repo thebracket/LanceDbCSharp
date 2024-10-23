@@ -1,6 +1,7 @@
 use crate::batch_handler::RecBatch;
 
 /// Commands that can be sent to the LanceDB event-loop.
+#[derive(Debug)]
 pub(crate) enum LanceDbCommand {
     /// Request to create a new connection to the database.
     ConnectionRequest{

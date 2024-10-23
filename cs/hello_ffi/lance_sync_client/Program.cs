@@ -95,11 +95,11 @@ System.Console.WriteLine("Disconnect: " + d);
 r = shutdown();
 System.Console.WriteLine("Shutdown: " + r);
 
-RecordBatch CreateRecordBatch(Schema schema, int TOTAL, int DIM)
+RecordBatch CreateRecordBatch(Schema schema, int total, int dim)
 {
     // Step 1: Create Int32Array for the "id" field
     var idBuilder = new Int32Array.Builder();
-    for (int i = 0; i < TOTAL; i++)
+    for (int i = 0; i < total; i++)
     {
         idBuilder.Append(i);
     }
@@ -110,7 +110,7 @@ RecordBatch CreateRecordBatch(Schema schema, int TOTAL, int DIM)
     // a. Create the child float array for the FixedSizeListArray
     var floatBuilder = new FloatArray.Builder();
 
-    for (int i = 0; i < TOTAL * DIM; i++)
+    for (int i = 0; i < total * dim; i++)
     {
         floatBuilder.Append(1.0f); // Sample value as 1.0
     }
@@ -118,10 +118,10 @@ RecordBatch CreateRecordBatch(Schema schema, int TOTAL, int DIM)
     var floatArray = floatBuilder.Build();
 
     // b. Create the FixedSizeListArray
-    var vectorType = new FixedSizeListType(new Field("item", FloatType.Default, nullable: true), listSize: DIM);
+    var vectorType = new FixedSizeListType(new Field("item", FloatType.Default, nullable: true), listSize: dim);
     var vectorArrayData = new ArrayData(
         vectorType,
-        length: TOTAL,
+        length: total,
         nullCount: 0,
         buffers: new[] { ArrowBuffer.Empty }, // No null bitmap buffer, assuming all are valid
         children: new[] { floatArray.Data });
@@ -130,7 +130,7 @@ RecordBatch CreateRecordBatch(Schema schema, int TOTAL, int DIM)
 
     // Step 3: Create RecordBatch
     var arrays = new IArrowArray[] { idArray, vectorArray };
-    var recordBatch = new RecordBatch(schema, arrays, length: TOTAL);
+    var recordBatch = new RecordBatch(schema, arrays, length: total);
 
     return recordBatch;
 }

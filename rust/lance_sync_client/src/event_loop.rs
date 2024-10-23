@@ -9,6 +9,7 @@ use std::ffi::c_char;
 use std::io::Cursor;
 use crate::MAX_COMMANDS;
 use std::sync::OnceLock;
+use anyhow::Context;
 use arrow_array::RecordBatchIterator;
 use arrow_ipc::reader::FileReader;
 use tokio::sync::mpsc::{channel, Sender};
@@ -29,6 +30,14 @@ enum LanceSetupErrors {
 
 /// This static variable holds the sender for the LanceDB command.
 pub(crate) static COMMAND_SENDER: OnceLock<Sender<LanceDbCommand>> = OnceLock::new();
+
+async fn send_reply<T>(tx: tokio::sync::oneshot::Sender<T>, response: T)
+where T: std::fmt::Debug
+{
+    if let Err(e) = tx.send(response) {
+        eprintln!("Error sending reply: {:?}", e);
+    }
+}
 
 async fn event_loop() {
     let (tx, mut rx) = channel::<LanceDbCommand>(MAX_COMMANDS);
@@ -52,15 +61,11 @@ async fn event_loop() {
                 let result = connection_factory.create_connection(&uri).await;
                 match result {
                     Ok(handle) => {
-                        if let Err(e) = reply_sender.send(handle.0) {
-                            eprintln!("Error sending connection handle: {:?}", e);
-                        }
+                        send_reply(reply_sender, handle.0).await;
                     }
                     Err(e) => {
                         eprintln!("Error creating connection: {:?}", e);
-                        if let Err(e) = reply_sender.send(-1) {
-                            eprintln!("Error sending connection handle: {:?}", e);
-                        }
+                        send_reply(reply_sender, -1).await;
                     }
                 }
             }
@@ -68,33 +73,42 @@ async fn event_loop() {
                 let result = connection_factory.disconnect(ConnectionHandle(handle));
                 match result {
                     Ok(_) => {
-                        if let Err(e) = reply_sender.send(0) {
-                            eprintln!("Error sending disconnect reply: {:?}", e);
-                        }
+                        send_reply(reply_sender, 0).await;
                     }
                     Err(e) => {
                         eprintln!("Error disconnecting: {:?}", e);
-                        if let Err(e) = reply_sender.send(-1) {
-                            eprintln!("Error sending disconnect reply: {:?}", e);
-                        }
+                        send_reply(reply_sender, -1).await;
                     }
                 }
             }
             LanceDbCommand::SendRecordBatch { batch, reply_sender } => {
                 let handle = batch_handler.add_batch(batch);
-                reply_sender.send(handle).unwrap();
+                send_reply(reply_sender, handle).await;
             }
             LanceDbCommand::FreeRecordBatch { handle, reply_sender } => {
                 batch_handler.free_if_exists(handle);
-                reply_sender.send(0).unwrap();
+                send_reply(reply_sender, 0).await;
             }
             LanceDbCommand::CreateTable { name, connection_handle, record_batch_handle, reply_sender,  } => {
-                let cnn = connection_factory.get_connection(ConnectionHandle(connection_handle)).unwrap();
-                let data = batch_handler.take_batch(record_batch_handle).unwrap();
-                let schema = data[0].as_ref().unwrap().schema().clone();
-                let data = RecordBatchIterator::new(data, schema);
-                table_handler.add_table(&name, cnn, data).await;
-                reply_sender.send(0).unwrap();
+                let mut result = -1;
+                if let Some(cnn) = connection_factory.get_connection(ConnectionHandle(connection_handle)) {
+                    if let Some(data) = batch_handler.take_batch(record_batch_handle) {
+                        // TODO: Accessing the 1st record is temporary; we need to be storing the schema with the batch
+                        if let Ok(record) = data[0].as_ref() {
+                            let schema = record.schema().clone();
+                            let data = RecordBatchIterator::new(data, schema);
+                            if let Err(e) = table_handler.add_table(&name, cnn, data).await {
+                                eprintln!("Error creating table: {:?}", e);
+                            }
+                            result = 0;
+                        }
+                    } else {
+                        eprintln!("Record batch handle {record_batch_handle} not found.");
+                    }
+                } else {
+                    eprintln!("Connection handle {connection_handle} not found.");
+                }
+                send_reply(reply_sender, result).await;
             }
             LanceDbCommand::Quit => {
                 println!("Received quit command. Shutting down.");
@@ -115,12 +129,17 @@ pub extern "C" fn setup() -> i32 {
     let result = std::thread::Builder::new()
         .name("lance_sync_client".to_string())
         .spawn(|| {
-            tokio::runtime::Builder::new_multi_thread()
+            match tokio::runtime::Builder::new_multi_thread()
                 .worker_threads(4)
                 .enable_all()
-                .build()
-                .unwrap()
-                .block_on(event_loop());
+                .build() {
+                Ok(runtime) => {
+                    runtime.block_on(event_loop());
+                }
+                Err(e) => {
+                    eprintln!("Error creating runtime: {:?}", e);
+                }
+            }
         });
 
     match result {
@@ -132,16 +151,23 @@ pub extern "C" fn setup() -> i32 {
     }
 }
 
+fn send_command(command: LanceDbCommand) -> anyhow::Result<()> {
+    let tx = COMMAND_SENDER.get()
+        .context("Command sender not set up - command channel is closed.")?;
+    tx.blocking_send(command)
+        .inspect_err(|e| eprintln!("Error sending command: {:?}", e))?;
+    Ok(())
+}
+
 /// Shuts down the event-loop. This function should be called
 /// before the program exits (or the library is unloaded).
 /// In practice, regular tear-down will stop the event-loop
 /// anyway - but this avoids any leakage.
 #[no_mangle]
-pub extern "C" fn shutdown() {
-    if let Some(tx) = COMMAND_SENDER.get() {
-        if let Err(e) = tx.blocking_send(LanceDbCommand::Quit) {
-            eprintln!("Error sending quit command: {:?}", e);
-        }
+pub extern "C" fn shutdown() -> i32 {
+    match send_command(LanceDbCommand::Quit) {
+        Ok(_) => 0,
+        Err(_) => -1,
     }
 }
 
@@ -157,18 +183,19 @@ pub extern "C" fn shutdown() {
 pub extern "C" fn connect(uri: *const c_char) -> i64 {
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
     let uri = unsafe { std::ffi::CStr::from_ptr(uri).to_string_lossy().to_string() };
-    if let Some(tx) = COMMAND_SENDER.get() {
-        tx.blocking_send(LanceDbCommand::ConnectionRequest {
-            uri,
-            reply_sender: reply_tx,
-        }).unwrap();
+    eprintln!("Connecting to: {uri}");
 
-        let reply = reply_rx.blocking_recv().unwrap();
-        reply
-    } else {
-        eprintln!("Command sender not set up.");
+    if send_command(LanceDbCommand::ConnectionRequest {
+        uri,
+        reply_sender: reply_tx,
+    }).is_err() {
         return -1;
-    }
+    };
+
+    reply_rx.blocking_recv().unwrap_or_else(|e| {
+        eprintln!("Error receiving connection handle: {:?}", e);
+        -1
+    })
 }
 
 /// Disconnect from a LanceDB database. This function will close the
@@ -182,16 +209,17 @@ pub extern "C" fn connect(uri: *const c_char) -> i64 {
 #[no_mangle]
 pub extern "C" fn disconnect(handle: i64) -> i64 {
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
-    if let Some(tx) = COMMAND_SENDER.get() {
-        tx.blocking_send(LanceDbCommand::Disconnect {
-            handle,
-            reply_sender: reply_tx,
-        }).unwrap();
-        reply_rx.blocking_recv().unwrap()
-    } else {
-        eprintln!("Command sender not set up.");
-        -1
+    if send_command(LanceDbCommand::Disconnect {
+        handle,
+        reply_sender: reply_tx,
+    }).is_err() {
+        return -1;
     }
+
+    reply_rx.blocking_recv().unwrap_or_else(|e| {
+        eprintln!("Error receiving disconnection response: {:?}", e);
+        -1
+    })
 }
 
 #[no_mangle]
@@ -206,13 +234,16 @@ pub extern "C" fn submit_record_batch(batch: *const u8, len: usize) -> i64 {
         println!("Received {} record batches.", batches.len());
 
         let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
-        if let Some(tx) = COMMAND_SENDER.get() {
-            tx.blocking_send(LanceDbCommand::SendRecordBatch {
-                batch: batches,
-                reply_sender: reply_tx,
-            }).unwrap();
-            return reply_rx.blocking_recv().unwrap();
+        if send_command(LanceDbCommand::SendRecordBatch {
+            batch: batches,
+            reply_sender: reply_tx,
+        }).is_err() {
+            return -1;
         }
+        return reply_rx.blocking_recv().unwrap_or_else(|e| {
+            eprintln!("Error receiving record batch response: {:?}", e);
+            -1
+        });
     }
     0
 }
@@ -220,32 +251,32 @@ pub extern "C" fn submit_record_batch(batch: *const u8, len: usize) -> i64 {
 #[no_mangle]
 pub extern "C" fn free_record_batch(handle: i64) -> i64 {
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
-    if let Some(tx) = COMMAND_SENDER.get() {
-        tx.blocking_send(LanceDbCommand::FreeRecordBatch {
-            handle,
-            reply_sender: reply_tx,
-        }).unwrap();
-        reply_rx.blocking_recv().unwrap()
-    } else {
-        eprintln!("Command sender not set up.");
-        -1
+    if send_command(LanceDbCommand::FreeRecordBatch {
+        handle,
+        reply_sender: reply_tx,
+    }).is_err() {
+        return -1;
     }
+    reply_rx.blocking_recv().unwrap_or_else(|e| {
+        eprintln!("Error receiving free record batch response: {:?}", e);
+        -1
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn create_table(name: *const c_char, connection_handle: i64, record_batch_handle: i64) -> i64 {
     let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
-    if let Some(tx) = COMMAND_SENDER.get() {
-        tx.blocking_send(LanceDbCommand::CreateTable {
-            name,
-            connection_handle,
-            record_batch_handle,
-            reply_sender: reply_tx,
-        }).unwrap();
-        reply_rx.blocking_recv().unwrap()
-    } else {
-        eprintln!("Command sender not set up.");
-        -1
+    if send_command(LanceDbCommand::CreateTable {
+        name,
+        connection_handle,
+        record_batch_handle,
+        reply_sender: reply_tx,
+    }).is_err() {
+        return -1;
     }
+    reply_rx.blocking_recv().unwrap_or_else(|e| {
+        eprintln!("Error receiving create table response: {:?}", e);
+        -1
+    })
 }
