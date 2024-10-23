@@ -20,7 +20,8 @@ impl ConnectionFactory {
 
     pub(crate) async fn create_connection(&mut self, uri: &str) -> Result<ConnectionHandle> {
         // Connect to the database
-        let connection = connect(uri).execute().await?;
+        let connection = connect(uri).execute().await
+            .inspect_err(|e| eprintln!("Error acquiring connection: {e:?}"))?;
 
         // Obtain a new connection to LanceDB
         let new_handle_id = self.next_handle.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
