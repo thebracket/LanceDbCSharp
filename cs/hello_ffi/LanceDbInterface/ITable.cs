@@ -48,6 +48,7 @@ namespace LanceDbInterface
         void CompactFiles();
         Task CompactFilesAsync(CancellationToken token = default);
 
+        ILanceQueryBuilder Search();
         ILanceQueryBuilder Search(Apache.Arrow.Array vector, string vectorColumnName, QueryType queryType = QueryType.Auto);
         ILanceQueryBuilder Search(Apache.Arrow.ChunkedArray vectors, string vectorColumnName, QueryType queryType = QueryType.Auto);
 
