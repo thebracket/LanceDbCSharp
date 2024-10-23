@@ -1,11 +1,17 @@
-FROM rust:1.82.0 AS rust_builder
-WORKDIR /usr/src
+# Use "cargo chef" to improve build times after the first one.
+FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
+WORKDIR /app
+
+FROM chef AS planner
 COPY rust .
+RUN cargo chef prepare --recipe-path recipe.json
 
-# Install the necessary dependencies
+FROM chef AS rust_builder
+WORKDIR /usr/src
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --recipe-path recipe.json
+COPY rust .
 RUN apt-get update && apt-get install -y libssl-dev pkg-config protobuf-compiler
-
-# We'll use --release later, let's keep debug info for now
 RUN cargo build --package lance_sync_client
 
 ### Dotnet layer
