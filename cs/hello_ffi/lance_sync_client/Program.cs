@@ -9,7 +9,8 @@ using Apache.Arrow.Ipc;
 using Apache.Arrow.Types;
 
 // Path to the shared library
-const string DllName = "../../../../../../rust/target/debug/liblance_sync_client.so";
+//const string DllName = "../../../../../../rust/target/debug/liblance_sync_client.so";
+const string DllName = "liblance_sync_client.so";
 
 [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 static extern int setup();
