@@ -28,3 +28,7 @@ pub use event_loop::submit_record_batch;
 pub use event_loop::disconnect;
 pub use event_loop::free_record_batch;
 pub use event_loop::create_table;
+pub use event_loop::query_nearest_to;
+pub use event_loop::free_blob;
+pub use event_loop::blob_len;
+pub use event_loop::get_blob_data;
