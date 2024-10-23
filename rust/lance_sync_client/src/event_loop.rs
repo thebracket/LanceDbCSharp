@@ -277,6 +277,10 @@ pub extern "C" fn disconnect(handle: i64) -> i64 {
     })
 }
 
+/// Submit a record batch to batch storage. This does NOT submit it to the
+/// database, it makes it available for use in other functions.
+///
+/// Be sure to call `free_record_batch` when you're done with the batch.
 #[no_mangle]
 pub extern "C" fn submit_record_batch(batch: *const u8, len: usize) -> i64 {
     // Convert "batch" to a slice of bytes
@@ -303,6 +307,11 @@ pub extern "C" fn submit_record_batch(batch: *const u8, len: usize) -> i64 {
     0
 }
 
+/// Free a record batch from memory. This function should be called
+/// when you're done with a record batch.
+///
+/// There's no harm in calling this on a batch that has already been
+/// freed.
 #[no_mangle]
 pub extern "C" fn free_record_batch(handle: i64) -> i64 {
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
@@ -318,6 +327,8 @@ pub extern "C" fn free_record_batch(handle: i64) -> i64 {
     })
 }
 
+/// Create a table in the database. This function will create a table
+/// with the given name, using the connection and record batch provided.
 #[no_mangle]
 pub extern "C" fn create_table(name: *const c_char, connection_handle: i64, record_batch_handle: i64) -> i64 {
     let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
@@ -336,6 +347,7 @@ pub extern "C" fn create_table(name: *const c_char, connection_handle: i64, reco
     })
 }
 
+/// Query the database for the nearest records to a given vector.
 #[no_mangle]
 pub extern "C" fn query_nearest_to(connection_handle: i64, limit: u64, vector: *const f32, vector_len: usize, table_name: *const c_char) -> i64 {
     // Convert "vector" to a vector of f32
@@ -361,6 +373,8 @@ pub extern "C" fn query_nearest_to(connection_handle: i64, limit: u64, vector: *
     })
 }
 
+/// Free a blob from memory. This function should be called when you're
+/// done with a blob.
 #[no_mangle]
 pub extern "C" fn free_blob(handle: i64) -> i64 {
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
@@ -376,6 +390,9 @@ pub extern "C" fn free_blob(handle: i64) -> i64 {
     })
 }
 
+/// Get the length of a blob. This is necessary because the C ABI
+/// makes returning both a pointer and a length difficult, and "out"
+/// parameters in FFI can be dangerous.
 #[no_mangle]
 pub extern "C" fn blob_len(handle: i64) -> i64 {
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Option<isize>>();
@@ -392,6 +409,17 @@ pub extern "C" fn blob_len(handle: i64) -> i64 {
     reply.unwrap_or(-1) as i64
 }
 
+/// Get a pointer to the data in a blob. This function will return
+/// a pointer to the data in the blob, or null if the blob does not
+/// exist.
+///
+/// The data is guaranteed to be valid until `free_blob` is called.
+///
+/// Do NOT free the pointer returned by this function. It remains
+/// owned by the Rust side.
+///
+/// Do NOT call `free_blob` while you are still using the pointer.
+/// That will lead to undefined behavior.
 #[no_mangle]
 pub extern "C" fn get_blob_data(handle: i64) -> *const u8 {
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Option<std::sync::Arc<Vec<u8>>>>();

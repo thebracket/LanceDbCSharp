@@ -37,6 +37,7 @@ impl BatchHandler {
         self.batches.remove(&handle)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_batch(&self, handle: i64) -> Option<&RecBatch> {
         self.batches.get(&handle)
     }

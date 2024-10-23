@@ -4,7 +4,7 @@ use std::sync::atomic::AtomicI64;
 
 pub struct BlobHandler {
     next_id: AtomicI64,
-    blobs: HashMap<i64, Arc<Vec<u8>>>
+    blobs: HashMap<i64, Arc<Vec<u8>>> // Note that we're storing an ARC - reference counted. This is to allow safe transition between threads, and ensure cleanup only happens after there are no more references. But because the map holds a reference, cleanup will never happen until we ask for it.
 }
 
 impl BlobHandler {
