@@ -32,3 +32,4 @@ pub use event_loop::query_nearest_to;
 pub use event_loop::free_blob;
 pub use event_loop::blob_len;
 pub use event_loop::get_blob_data;
+pub use event_loop::get_error_message;

@@ -1,34 +1,42 @@
 use std::collections::HashMap;
+use std::sync::atomic::AtomicI64;
 use lancedb::{Connection, Table};
 use lancedb::arrow::IntoArrow;
 use anyhow::Result;
 
 pub struct TableHandler {
-    tables: HashMap<String, Table>,
+    next_handle: AtomicI64,
+    tables: HashMap<i64, Table>,
 }
 
 impl TableHandler {
     pub fn new() -> Self {
         Self {
+            next_handle: AtomicI64::new(0),
             tables: HashMap::new(),
         }
     }
 
-    pub async fn add_table(&mut self, table_name: &str, db: &Connection, data: impl IntoArrow) -> Result<()> {
+    pub async fn add_table(&mut self, table_name: &str, db: &Connection, data: impl IntoArrow) -> Result<i64> {
         let table = db.create_table(table_name, data)
             .execute()
             .await
             .inspect_err(|e| eprintln!("Error creating table: {e:?}"))
             ?;
-        self.tables.insert(table_name.to_string(), table);
-        Ok(())
+        let next_handle = self.next_handle.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.tables.insert(next_handle, table);
+        Ok(next_handle)
     }
 
-    pub async fn get_table(&self, db: &Connection, table_name: &str) -> Result<Table> {
-        let table = db.open_table(table_name)
+    pub async fn get_table_from_cache(&self, table_handle: i64) -> Result<Table> {
+        /*let table = db.open_table(table_name)
             .execute()
             .await
             .inspect_err(|e| eprintln!("Error opening table: {e:?}"))?;
         Ok(table)
+         */
+        self.tables.get(&table_handle)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("Table not found"))
     }
 }

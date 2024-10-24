@@ -43,8 +43,7 @@ pub(crate) enum LanceDbCommand {
     QueryNearest {
         limit: u64,
         vector: Vec<f32>,
-        connection: ConnectionHandle,
-        table: String,
+        table_handle: i64,
         reply_sender: tokio::sync::oneshot::Sender<i64>,
     },
 
