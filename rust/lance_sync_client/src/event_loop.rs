@@ -4,12 +4,15 @@
 //! through a message-passing interface.
 
 mod command;
+mod helpers;
+mod lifecycle;
+mod connection;
+mod errors;
 
 use std::ffi::c_char;
 use std::io::Cursor;
 use crate::MAX_COMMANDS;
 use std::sync::OnceLock;
-use anyhow::Context;
 use arrow_array::RecordBatchIterator;
 use arrow_ipc::reader::FileReader;
 use futures::TryStreamExt;
@@ -19,15 +22,13 @@ use crate::connection_handle::{ConnectionFactory, ConnectionHandle};
 use crate::event_loop::command::LanceDbCommand;
 use crate::batch_handler::BatchHandler;
 use crate::blob_handler::BlobHandler;
+use crate::event_loop::helpers::send_command;
 use crate::table_handler::TableHandler;
 
-/// This enum represents the possible errors that can occur during
-/// the setup of the LanceDB event-loop.
-#[repr(i32)]
-enum LanceSetupErrors {
-    Ok = 0,
-    ThreadSpawnError = -1,
-}
+pub use lifecycle::{setup, shutdown};
+pub use connection::{connect, disconnect};
+pub use errors::get_error_message;
+use crate::event_loop::errors::add_error;
 
 /// This static variable holds the sender for the LanceDB command.
 pub(crate) static COMMAND_SENDER: OnceLock<Sender<LanceDbCommand>> = OnceLock::new();
@@ -70,7 +71,8 @@ async fn event_loop() {
                     }
                     Err(e) => {
                         eprintln!("Error creating connection: {:?}", e);
-                        send_reply(reply_sender, -1).await;
+                        let error_index = add_error(e.to_string());
+                        send_reply(reply_sender, error_index).await;
                     }
                 }
             }
@@ -102,10 +104,16 @@ async fn event_loop() {
                         if let Ok(record) = data[0].as_ref() {
                             let schema = record.schema().clone();
                             let data = RecordBatchIterator::new(data, schema);
-                            if let Err(e) = table_handler.add_table(&name, cnn, data).await {
-                                eprintln!("Error creating table: {:?}", e);
+                            match table_handler.add_table(&name, cnn, data).await {
+                                Ok(handle) => {
+                                    result = handle;
+                                }
+                                Err(e) => {
+                                    let error_index = add_error(e.to_string());
+                                    eprintln!("Error creating table: {:?}", e);
+                                    result = error_index;
+                                }
                             }
-                            result = 0;
                         }
                     } else {
                         eprintln!("Record batch handle {record_batch_handle} not found.");
@@ -115,41 +123,37 @@ async fn event_loop() {
                 }
                 send_reply(reply_sender, result).await;
             }
-            LanceDbCommand::QueryNearest { limit, vector, connection, table, reply_sender } => {
+            LanceDbCommand::QueryNearest { limit, vector, table_handle, reply_sender } => {
                 let mut result = -1;
-                if let Some(cnn) = connection_factory.get_connection(connection) {
-                    if let Ok(table) = table_handler.get_table(cnn, &table).await {
-                        if let Ok(query_builder) = table
-                            .query()
-                            .limit(limit as usize)
-                            .nearest_to(vector) {
-                            if let Ok(query) = query_builder.execute().await {
-                                let records = query.try_collect::<Vec<_>>()
-                                    .await;
-                                if let Ok(records) = records {
-                                    let batch = records
-                                        .into_iter()
-                                        .map(|r| Ok(r))
-                                        .collect::<Vec<_>>();
-                                    // TODO: This is really inefficient
-                                    let batch_handle = batch_handler.add_batch(batch);
-                                    let blob = batch_handler.batch_as_bytes(batch_handle);
-                                    let blob_handle = blob_handler.add_blob(blob);
-                                    result = blob_handle;
-                                }
-                                // Do something with it
-                                //println!("{:?}", query.try_collect::<Vec<_>>().await);
-                            } else {
-                                eprintln!("Error executing query.");
+                if let Ok(table) = table_handler.get_table_from_cache(table_handle).await {
+                    if let Ok(query_builder) = table
+                        .query()
+                        .limit(limit as usize)
+                        .nearest_to(vector) {
+                        if let Ok(query) = query_builder.execute().await {
+                            let records = query.try_collect::<Vec<_>>()
+                                .await;
+                            if let Ok(records) = records {
+                                let batch = records
+                                    .into_iter()
+                                    .map(|r| Ok(r))
+                                    .collect::<Vec<_>>();
+                                // TODO: This is really inefficient
+                                let batch_handle = batch_handler.add_batch(batch);
+                                let blob = batch_handler.batch_as_bytes(batch_handle);
+                                let blob_handle = blob_handler.add_blob(blob);
+                                result = blob_handle;
                             }
+                            // Do something with it
+                            //println!("{:?}", query.try_collect::<Vec<_>>().await);
                         } else {
-                            eprintln!("Error creating query.");
+                            eprintln!("Error executing query.");
                         }
                     } else {
-                        eprintln!("Table {table} not found.");
+                        eprintln!("Error creating query.");
                     }
                 } else {
-                    eprintln!("Connection handle {} not found.", connection.0);
+                    eprintln!("Table {table_handle} not found.");
                 }
                 send_reply(reply_sender, result).await;
             }
@@ -174,109 +178,6 @@ async fn event_loop() {
     println!("Event loop shutting down.");
 }
 
-/// Spawns a new thread and starts an event-loop ready
-/// to work with LanceDB. This function **must** be called before other
-/// functions in this library are called.
-///
-/// Return values: 0 for success, -1 if an error occurred.
-#[no_mangle]
-pub extern "C" fn setup() -> i32 {
-    let result = std::thread::Builder::new()
-        .name("lance_sync_client".to_string())
-        .spawn(|| {
-            match tokio::runtime::Builder::new_multi_thread()
-                .worker_threads(4)
-                .enable_all()
-                .build() {
-                Ok(runtime) => {
-                    runtime.block_on(event_loop());
-                }
-                Err(e) => {
-                    eprintln!("Error creating runtime: {:?}", e);
-                }
-            }
-        });
-
-    match result {
-        Ok(_) => LanceSetupErrors::Ok as i32,
-        Err(e) => {
-            eprintln!("Error spawning thread: {:?}", e);
-            LanceSetupErrors::ThreadSpawnError as i32
-        }
-    }
-}
-
-fn send_command(command: LanceDbCommand) -> anyhow::Result<()> {
-    let tx = COMMAND_SENDER.get()
-        .context("Command sender not set up - command channel is closed.")?;
-    tx.blocking_send(command)
-        .inspect_err(|e| eprintln!("Error sending command: {:?}", e))?;
-    Ok(())
-}
-
-/// Shuts down the event-loop. This function should be called
-/// before the program exits (or the library is unloaded).
-/// In practice, regular tear-down will stop the event-loop
-/// anyway - but this avoids any leakage.
-#[no_mangle]
-pub extern "C" fn shutdown() -> i32 {
-    match send_command(LanceDbCommand::Quit) {
-        Ok(_) => 0,
-        Err(_) => -1,
-    }
-}
-
-/// Connect to a LanceDB database. This function will return a handle
-/// to the connection, which can be used in other functions.
-///
-/// Parameters:
-/// - `uri`: The URI to connect to.
-///
-/// Return values:
-/// - A handle to the connection, or -1 if an error occurred.
-#[no_mangle]
-pub extern "C" fn connect(uri: *const c_char) -> i64 {
-    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
-    let uri = unsafe { std::ffi::CStr::from_ptr(uri).to_string_lossy().to_string() };
-    eprintln!("Connecting to: {uri}");
-
-    if send_command(LanceDbCommand::ConnectionRequest {
-        uri,
-        reply_sender: reply_tx,
-    }).is_err() {
-        return -1;
-    };
-
-    reply_rx.blocking_recv().unwrap_or_else(|e| {
-        eprintln!("Error receiving connection handle: {:?}", e);
-        -1
-    })
-}
-
-/// Disconnect from a LanceDB database. This function will close the
-/// connection associated with the handle.
-///
-/// Parameters:
-/// - `handle`: The handle to the connection to disconnect.
-///
-/// Return values:
-/// - 0 if the disconnection was successful, -1 if an error occurred.
-#[no_mangle]
-pub extern "C" fn disconnect(handle: i64) -> i64 {
-    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
-    if send_command(LanceDbCommand::Disconnect {
-        handle,
-        reply_sender: reply_tx,
-    }).is_err() {
-        return -1;
-    }
-
-    reply_rx.blocking_recv().unwrap_or_else(|e| {
-        eprintln!("Error receiving disconnection response: {:?}", e);
-        -1
-    })
-}
-
 /// Submit a record batch to batch storage. This does NOT submit it to the
 /// database, it makes it available for use in other functions.
 ///
@@ -285,26 +186,32 @@ pub extern "C" fn disconnect(handle: i64) -> i64 {
 pub extern "C" fn submit_record_batch(batch: *const u8, len: usize) -> i64 {
     // Convert "batch" to a slice of bytes
     let batch = unsafe { std::slice::from_raw_parts(batch, len) };
-    if let Ok(reader) = FileReader::try_new(Cursor::new(batch), None) {
-        println!("{:?}", reader.schema());
-        let batches: Vec<_> = reader.collect::<Vec<_>>()
-            .into_iter()
-            .collect::<Vec<_>>();
-        println!("Received {} record batches.", batches.len());
 
-        let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
-        if send_command(LanceDbCommand::SendRecordBatch {
-            batch: batches,
-            reply_sender: reply_tx,
-        }).is_err() {
-            return -1;
+    match FileReader::try_new(Cursor::new(batch), None) {
+        Ok(reader) => {
+            let batches: Vec<_> = reader.collect::<Vec<_>>()
+                .into_iter()
+                .collect::<Vec<_>>();
+
+            let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+            if send_command(LanceDbCommand::SendRecordBatch {
+                batch: batches,
+                reply_sender: reply_tx,
+            }).is_err() {
+                eprintln!("Error sending record batch command. Are we setup?");
+                return -1;
+            }
+            reply_rx.blocking_recv().unwrap_or_else(|e| {
+                eprintln!("Error receiving record batch response: {:?}", e);
+                -1
+            })
         }
-        return reply_rx.blocking_recv().unwrap_or_else(|e| {
-            eprintln!("Error receiving record batch response: {:?}", e);
-            -1
-        });
+        Err(e) => {
+            let error_index = add_error(e.to_string());
+            eprintln!("Error reading record batch: {:?}", e);
+            error_index
+        }
     }
-    0
 }
 
 /// Free a record batch from memory. This function should be called
@@ -349,20 +256,16 @@ pub extern "C" fn create_table(name: *const c_char, connection_handle: i64, reco
 
 /// Query the database for the nearest records to a given vector.
 #[no_mangle]
-pub extern "C" fn query_nearest_to(connection_handle: i64, limit: u64, vector: *const f32, vector_len: usize, table_name: *const c_char) -> i64 {
+pub extern "C" fn query_nearest_to(limit: u64, vector: *const f32, vector_len: usize, table_handle: i64) -> i64 {
     // Convert "vector" to a vector of f32
     let vector = unsafe { std::slice::from_raw_parts(vector, vector_len) };
     let vector = vector.to_vec();
-
-    // Convert the table name to a string
-    let table_name = unsafe { std::ffi::CStr::from_ptr(table_name).to_string_lossy().to_string() };
 
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
     send_command(LanceDbCommand::QueryNearest {
         limit,
         vector,
-        connection: ConnectionHandle(connection_handle),
-        table: table_name,
+        table_handle,
         reply_sender: reply_tx,
     }).unwrap_or_else(|e| {
         eprintln!("Error sending query nearest command: {:?}", e);

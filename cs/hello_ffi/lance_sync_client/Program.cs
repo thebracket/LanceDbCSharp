@@ -34,7 +34,7 @@ static extern long free_record_batch(long handle);
 static extern long create_table(string name, long connectionHandle, long recordHandle);
 
 [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-unsafe static extern long query_nearest_to(long connectionHandle, long limit, float* vector, ulong vectorLength, string tableName);
+unsafe static extern long query_nearest_to(long limit, float* vector, ulong vectorLength, long tableHandle);
 
 [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 static extern long free_blob(long blobHandle);
@@ -109,8 +109,8 @@ unsafe {
 System.Console.WriteLine("Record Handle: " + recordHandle);
 
 // Add a "sample_table" to the database, including the test data
-var t = create_table("sample_table", conn, recordHandle);
-System.Console.WriteLine("Add Table: " + t);
+var tableHandle = create_table("sample_table", conn, recordHandle);
+System.Console.WriteLine("Add Table: " + tableHandle);
 
 // Inform the Rust side that it can free the record batch (if it needs to)
 var freeResult = free_record_batch(recordHandle);
@@ -128,7 +128,7 @@ unsafe
 {
     fixed (float* p = vector)
     {
-        queryResult = query_nearest_to(conn, 5, p, 128, "sample_table");
+        queryResult = query_nearest_to( 5, p, 128, tableHandle);
     }
 }
 System.Console.WriteLine("Query Result: " + queryResult);
