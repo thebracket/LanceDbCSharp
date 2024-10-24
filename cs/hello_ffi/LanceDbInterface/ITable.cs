@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MathNet.Numerics.LinearAlgebra;
 
 namespace LanceDbInterface
 {
@@ -51,8 +52,10 @@ namespace LanceDbInterface
         ILanceQueryBuilder Search();
         ILanceQueryBuilder Search(Apache.Arrow.Array vector, string vectorColumnName, QueryType queryType = QueryType.Auto);
         ILanceQueryBuilder Search(Apache.Arrow.ChunkedArray vectors, string vectorColumnName, QueryType queryType = QueryType.Auto);
+        ILanceQueryBuilder Search<T>(List<T> vector, string vectorColumnName, QueryType queryType = QueryType.Auto);
+        ILanceQueryBuilder Search<T>(Vector<T> vector, string vectorColumnName, QueryType queryType = QueryType.Auto) where T : struct, IEquatable<T>, IFormattable;
+        ILanceQueryBuilder Search<T>(Matrix<T> vector, string vectorColumnName, QueryType queryType = QueryType.Auto) where T : struct, IEquatable<T>, IFormattable;
 
-        //AsyncVectorQuery VectorSearch(Apache.Arrow.Array array);
 
         bool IsOpen { get;  }
         Schema Schema { get; }
