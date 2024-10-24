@@ -4,6 +4,11 @@ namespace LanceDbClient;
 
 public class Connection : IDisposable
 {
+    // <summary>
+    // Creates a new connection to the database.
+    // </summary>
+    // <param name="uri">The URI of the database to connect to.</param>
+    // <exception cref="Exception">If the connection fails.</exception>
     public Connection(string uri)
     {
         // Note that this will return OK even if setup had already been called, and won't
