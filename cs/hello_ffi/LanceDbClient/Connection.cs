@@ -19,13 +19,13 @@ public class Connection : IDisposable
             throw new Exception("Failed to setup the database client environment");
         }
         
-        var handle = FFI.connect(uri);
-        if (handle < 0)
+        var cnnHandle = FFI.connect(uri);
+        if (cnnHandle < 0)
         {
-            var errorMessage = FFI.GetErrorMessageOnce(handle);
+            var errorMessage = FFI.GetErrorMessageOnce(cnnHandle);
             throw new Exception("Failed to connect to the database: " + errorMessage);
         }
-        _handle = handle;
+        _handle = cnnHandle;
         _connected = true;
     }
 
@@ -35,7 +35,7 @@ public class Connection : IDisposable
         {
             throw new Exception("Connection is not open");
         }
-        var tableNamesHandle = FFI.table_names(_handle);
+        var tableNamesHandle = FFI.list_table_names(_handle);
         if (tableNamesHandle < 0)
         {
             var errorMessage = FFI.GetErrorMessageOnce(tableNamesHandle);
@@ -52,23 +52,17 @@ public class Connection : IDisposable
             throw new Exception("Connection is not open");
         }
 
-        var bytes = FFI.SerializeSchemaOnly(schema);
-        var schemaHandle = -1L;
+        var schemaBytes = FFI.SerializeSchemaOnly(schema);
+        var tableHandle = -1L;
 
         unsafe
         {
-            fixed (byte* p = bytes)
+            fixed (byte* p = schemaBytes)
             {
-                schemaHandle = FFI.submit_record_batch(p, (ulong)bytes.Length);
+                tableHandle = FFI.create_empty_table(name, _handle, p, (ulong)schemaBytes.Length);
             }
         }
-        if (schemaHandle < 0)
-        {
-            var errorMessage = FFI.GetErrorMessageOnce(schemaHandle);
-            throw new Exception("Failed to submit the schema to the database: " + errorMessage);
-        }
 
-        var tableHandle = FFI.create_table(name, _handle, schemaHandle);
         if (tableHandle < 0)
         {
             var errorMessage = FFI.GetErrorMessageOnce(tableHandle);

@@ -1,4 +1,6 @@
 use std::sync::Arc;
+use arrow_array::RecordBatch;
+use arrow_schema::{ArrowError, Schema, SchemaRef};
 use crate::batch_handler::RecBatch;
 
 /// Commands that can be sent to the LanceDB event-loop.
@@ -30,11 +32,19 @@ pub(crate) enum LanceDbCommand {
         reply_sender: tokio::sync::oneshot::Sender<i64>,
     },
 
-    /// Create a table in the database.
-    CreateTable {
+    /// Create a table in the database with initial data.
+    CreateTableWithData {
         name: String,
         connection_handle: i64,
-        record_batch_handle: i64,
+        schema: SchemaRef,
+        record_batch: Vec<Result<RecordBatch, ArrowError>>,
+        reply_sender: tokio::sync::oneshot::Sender<i64>,
+    },
+
+    CreateTableWithSchema {
+        name: String,
+        connection_handle: i64,
+        schema: SchemaRef,
         reply_sender: tokio::sync::oneshot::Sender<i64>,
     },
 

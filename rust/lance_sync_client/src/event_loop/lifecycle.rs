@@ -14,6 +14,10 @@ enum LanceSetupErrors {
 
 static ALREADY_SETUP: AtomicBool = AtomicBool::new(false);
 
+pub fn is_already_setup() -> bool {
+    ALREADY_SETUP.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// Spawns a new thread and starts an event-loop ready
 /// to work with LanceDB. This function **must** be called before other
 /// functions in this library are called.
@@ -25,6 +29,7 @@ pub extern "C" fn setup() -> i32 {
         eprintln!("Event loop already set up.");
         return LanceSetupErrors::Ok as i32;
     }
+    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
     let result = std::thread::Builder::new()
         .name("lance_sync_client".to_string())
         .spawn(|| {
@@ -33,7 +38,7 @@ pub extern "C" fn setup() -> i32 {
                 .enable_all()
                 .build() {
                 Ok(runtime) => {
-                    runtime.block_on(event_loop());
+                    runtime.block_on(async move { event_loop(ready_tx).await });
                 }
                 Err(e) => {
                     eprintln!("Error creating runtime: {:?}", e);
@@ -44,7 +49,13 @@ pub extern "C" fn setup() -> i32 {
     match result {
         Ok(_) => {
             ALREADY_SETUP.store(true, std::sync::atomic::Ordering::Relaxed);
-            LanceSetupErrors::Ok as i32
+            let awaiter = ready_rx.blocking_recv();
+            if awaiter.is_err() {
+                eprintln!("Error waiting for event loop to start.");
+                LanceSetupErrors::ThreadSpawnError as i32
+            } else {
+                LanceSetupErrors::Ok as i32
+            }
         },
         Err(e) => {
             eprintln!("Error spawning thread: {:?}", e);

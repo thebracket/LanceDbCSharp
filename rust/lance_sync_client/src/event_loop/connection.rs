@@ -14,17 +14,17 @@ use crate::event_loop::helpers::send_command;
 pub extern "C" fn connect(uri: *const c_char) -> i64 {
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
     let uri = unsafe { std::ffi::CStr::from_ptr(uri).to_string_lossy().to_string() };
-    eprintln!("Connecting to: {uri}");
 
     if send_command(LanceDbCommand::ConnectionRequest {
         uri,
         reply_sender: reply_tx,
     }).is_err() {
+        println!("Error sending connection request.");
         return -1;
     };
 
     reply_rx.blocking_recv().unwrap_or_else(|e| {
-        eprintln!("Error receiving connection handle: {:?}", e);
+        println!("Error receiving connection handle: {:?}", e);
         -1
     })
 }
@@ -39,6 +39,7 @@ pub extern "C" fn connect(uri: *const c_char) -> i64 {
 /// - 0 if the disconnection was successful, -1 if an error occurred.
 #[no_mangle]
 pub extern "C" fn disconnect(handle: i64) -> i64 {
+    println!("(RUST) Disconnect called for handle {}", handle);
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
     if send_command(LanceDbCommand::Disconnect {
         handle,

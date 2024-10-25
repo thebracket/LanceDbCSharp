@@ -15,6 +15,7 @@ use crate::MAX_COMMANDS;
 use std::sync::OnceLock;
 use arrow_array::RecordBatchIterator;
 use arrow_ipc::reader::FileReader;
+use arrow_schema::SchemaRef;
 use futures::TryStreamExt;
 use lancedb::query::{ExecutableQuery, QueryBase};
 use tokio::sync::mpsc::{channel, Sender};
@@ -42,7 +43,7 @@ where T: std::fmt::Debug
     }
 }
 
-async fn event_loop() {
+async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
     let (tx, mut rx) = channel::<LanceDbCommand>(MAX_COMMANDS);
     if let Err(e) = COMMAND_SENDER.set(tx) {
         eprintln!("Error setting up command sender: {:?}", e);
@@ -62,6 +63,7 @@ async fn event_loop() {
     // they remain valid until they're no longer needed.
     let mut blob_handler = BlobHandler::new();
 
+    ready_tx.send(()).unwrap();
     while let Some(command) = rx.recv().await {
         match command {
             LanceDbCommand::ConnectionRequest{uri, reply_sender} => {
@@ -71,7 +73,7 @@ async fn event_loop() {
                         send_reply(reply_sender, handle.0).await;
                     }
                     Err(e) => {
-                        eprintln!("Error creating connection: {:?}", e);
+                        println!("Error creating connection: {:?}", e);
                         let error_index = add_error(e.to_string());
                         send_reply(reply_sender, error_index).await;
                     }
@@ -114,27 +116,35 @@ async fn event_loop() {
                 batch_handler.free_if_exists(handle);
                 send_reply(reply_sender, 0).await;
             }
-            LanceDbCommand::CreateTable { name, connection_handle, record_batch_handle, reply_sender,  } => {
+            LanceDbCommand::CreateTableWithSchema { name, connection_handle, schema, reply_sender } => {
                 let mut result = -1;
                 if let Some(cnn) = connection_factory.get_connection(ConnectionHandle(connection_handle)) {
-                    if let Some(data) = batch_handler.take_batch(record_batch_handle) {
-                        // TODO: Accessing the 1st record is temporary; we need to be storing the schema with the batch
-                        if let Ok(record) = data[0].as_ref() {
-                            let schema = record.schema().clone();
-                            let data = RecordBatchIterator::new(data, schema);
-                            match table_handler.add_table(&name, cnn, data).await {
-                                Ok(handle) => {
-                                    result = handle;
-                                }
-                                Err(e) => {
-                                    let error_index = add_error(e.to_string());
-                                    eprintln!("Error creating table: {:?}", e);
-                                    result = error_index;
-                                }
-                            }
+                    match table_handler.add_empty_table(&name, cnn, schema).await {
+                        Ok(handle) => {
+                            result = handle;
                         }
-                    } else {
-                        eprintln!("Record batch handle {record_batch_handle} not found.");
+                        Err(e) => {
+                            let error_index = add_error(e.to_string());
+                            eprintln!("Error creating table: {:?}", e);
+                            result = error_index;
+                        }
+                    }
+                }
+                send_reply(reply_sender, result).await;
+            }
+            LanceDbCommand::CreateTableWithData { name, connection_handle, schema, record_batch, reply_sender,  } => {
+                let mut result = -1;
+                if let Some(cnn) = connection_factory.get_connection(ConnectionHandle(connection_handle)) {
+                    let data = RecordBatchIterator::new(record_batch, schema);
+                    match table_handler.add_table(&name, cnn, data).await {
+                        Ok(handle) => {
+                            result = handle;
+                        }
+                        Err(e) => {
+                            let error_index = add_error(e.to_string());
+                            eprintln!("Error creating table: {:?}", e);
+                            result = error_index;
+                        }
                     }
                 } else {
                     eprintln!("Connection handle {connection_handle} not found.");
@@ -318,21 +328,68 @@ pub extern "C" fn free_record_batch(handle: i64) -> i64 {
 /// Create a table in the database. This function will create a table
 /// with the given name, using the connection and record batch provided.
 #[no_mangle]
-pub extern "C" fn create_table(name: *const c_char, connection_handle: i64, record_batch_handle: i64) -> i64 {
-    let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
-    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
-    if send_command(LanceDbCommand::CreateTable {
-        name,
-        connection_handle,
-        record_batch_handle,
-        reply_sender: reply_tx,
-    }).is_err() {
-        return -1;
+pub extern "C" fn create_table(name: *const c_char, connection_handle: i64, batch_bytes: *const u8, len: usize) -> i64 {
+    let batch = unsafe { std::slice::from_raw_parts(batch_bytes, len) };
+    match FileReader::try_new(Cursor::new(batch), None) {
+        Ok(reader) => {
+            let schema: SchemaRef = reader.schema();
+            let batches: Vec<_> = reader.collect::<Vec<_>>()
+                .into_iter()
+                .collect::<Vec<_>>();
+            let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
+            let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+
+            if send_command(LanceDbCommand::CreateTableWithData {
+                name,
+                connection_handle,
+                schema,
+                record_batch: batches,
+                reply_sender: reply_tx,
+            }).is_err() {
+                return -1;
+            }
+            reply_rx.blocking_recv().unwrap_or_else(|e| {
+                eprintln!("Error receiving create table response: {:?}", e);
+                -1
+            })
+        }
+        Err(e) => {
+            let error_index = add_error(e.to_string());
+            eprintln!("Error reading record batch: {:?}", e);
+            return error_index;
+        }
     }
-    reply_rx.blocking_recv().unwrap_or_else(|e| {
-        eprintln!("Error receiving create table response: {:?}", e);
-        -1
-    })
+}
+
+/// Create a table in the database. This function will create a table
+/// with the given name, using the connection and record batch provided.
+#[no_mangle]
+pub extern "C" fn create_empty_table(name: *const c_char, connection_handle: i64, schema_bytes: *const u8, len: usize) -> i64 {
+    let schema_batch = unsafe { std::slice::from_raw_parts(schema_bytes, len) };
+    match FileReader::try_new(Cursor::new(schema_batch), None) {
+        Ok(reader) => {
+            let schema: SchemaRef = reader.schema();
+            let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
+            let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+            if send_command(LanceDbCommand::CreateTableWithSchema {
+                name,
+                connection_handle,
+                schema,
+                reply_sender: reply_tx,
+            }).is_err() {
+                return -1;
+            }
+            reply_rx.blocking_recv().unwrap_or_else(|e| {
+                eprintln!("Error receiving create table response: {:?}", e);
+                -1
+            })
+        }
+        Err(e) => {
+            let error_index = add_error(e.to_string());
+            eprintln!("Error reading record batch: {:?}", e);
+            return error_index;
+        }
+    }
 }
 
 /// Open a table in the database. This function will open a table with

@@ -2,6 +2,19 @@ using System.Runtime.InteropServices;
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
 
+public static class LanceControl
+{
+    public static void Shutdown()
+    {
+        var result = FFI.shutdown();
+        if (result < 0)
+        {
+            var errorMessage = FFI.GetErrorMessageOnce(result);
+            throw new Exception("Failed to shutdown: " + errorMessage);
+        }
+    }
+}
+
 static class FFI
 {
     private const string DllName = "../../../../../../rust/target/debug/liblance_sync_client.so";
@@ -25,7 +38,10 @@ static class FFI
     internal static extern long free_record_batch(long handle);
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern long create_table(string name, long connectionHandle, long recordHandle);
+    internal static extern unsafe long create_empty_table(string name, long connectionHandle, byte* schema, ulong schemaLength);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern unsafe long create_table(string name, long connectionHandle,byte* records, ulong recordsLength);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern long open_table(string name, long connectionHandle);
@@ -34,7 +50,7 @@ static class FFI
     internal static extern long drop_table(string name, long connectionHandle);
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern long table_names(long connectionHandle);
+    internal static extern long list_table_names(long connectionHandle);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern long drop_database(long connectionHandle);
