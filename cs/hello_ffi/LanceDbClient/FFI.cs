@@ -32,6 +32,9 @@ static class FFI
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern long drop_table(string name, long connectionHandle);
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern long table_names(long connectionHandle);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern long drop_database(long connectionHandle);
@@ -71,6 +74,32 @@ static class FFI
         var message = get_error_message(index);
         free_error_message(index);
         return message;
+    }
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    private static extern IntPtr get_string_list(long id, out ulong length);
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    private static extern void free_string_list(long id);
+    
+    internal static string[] GetStringList(long id)
+    {
+        var strings = new List<string>();
+        var ptr = get_string_list(id, out var length);
+        for (ulong i = 0; i < length; i++)
+        {
+            var s = Marshal.PtrToStringAnsi(Marshal.ReadIntPtr(ptr, (int)i * IntPtr.Size));
+            if (s != null)
+            {
+                strings.Add(s);
+            }
+            else
+            {
+                System.Console.WriteLine("WARNING: Null string in list");
+            }
+        }
+        free_string_list(id);
+        return strings.ToArray();
     }
 }
 

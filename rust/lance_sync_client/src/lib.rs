@@ -20,6 +20,7 @@ mod testing;
 pub(crate) mod batch_handler;
 mod table_handler;
 mod blob_handler;
+mod string_list_handler;
 
 pub use event_loop::setup;
 pub use event_loop::shutdown;
@@ -33,3 +34,4 @@ pub use event_loop::free_blob;
 pub use event_loop::blob_len;
 pub use event_loop::get_blob_data;
 pub use event_loop::{get_error_message, free_error_message};
+pub use string_list_handler::get_string_list;

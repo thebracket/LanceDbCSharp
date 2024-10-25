@@ -45,6 +45,11 @@ pub(crate) enum LanceDbCommand {
         reply_sender: tokio::sync::oneshot::Sender<i64>,
     },
 
+    ListTableNames {
+        connection_handle: i64,
+        reply_sender: tokio::sync::oneshot::Sender<i64>,
+    },
+
     /// Drop a table from the database.
     /// WARNING: This invalidates any table cache entries.
     DropTable {

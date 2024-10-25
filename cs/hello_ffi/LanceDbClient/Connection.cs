@@ -29,6 +29,22 @@ public class Connection : IDisposable
         _connected = true;
     }
 
+    public IEnumerable<string> TableNames()
+    {
+        if (_handle < 0)
+        {
+            throw new Exception("Connection is not open");
+        }
+        var tableNamesHandle = FFI.table_names(_handle);
+        if (tableNamesHandle < 0)
+        {
+            var errorMessage = FFI.GetErrorMessageOnce(tableNamesHandle);
+            throw new Exception("Failed to get the table names: " + errorMessage);
+        }
+        var strings = FFI.GetStringList(tableNamesHandle);
+        return strings;
+    }
+
     public Table CreateTable(string name, Schema schema)
     {
         if (_handle < 0)
