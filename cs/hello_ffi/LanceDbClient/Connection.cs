@@ -13,16 +13,16 @@ public class Connection : IDisposable
     {
         // Note that this will return OK even if setup had already been called, and won't
         // duplicate the setup.
-        var status = FFI.setup();
+        var status = Ffi.setup();
         if (status != 0)
         {
             throw new Exception("Failed to setup the database client environment");
         }
         
-        var cnnHandle = FFI.connect(uri);
+        var cnnHandle = Ffi.connect(uri);
         if (cnnHandle < 0)
         {
-            var errorMessage = FFI.GetErrorMessageOnce(cnnHandle);
+            var errorMessage = Ffi.GetErrorMessageOnce(cnnHandle);
             throw new Exception("Failed to connect to the database: " + errorMessage);
         }
         _handle = cnnHandle;
@@ -35,13 +35,13 @@ public class Connection : IDisposable
         {
             throw new Exception("Connection is not open");
         }
-        var tableNamesHandle = FFI.list_table_names(_handle);
+        var tableNamesHandle = Ffi.list_table_names(_handle);
         if (tableNamesHandle < 0)
         {
-            var errorMessage = FFI.GetErrorMessageOnce(tableNamesHandle);
+            var errorMessage = Ffi.GetErrorMessageOnce(tableNamesHandle);
             throw new Exception("Failed to get the table names: " + errorMessage);
         }
-        var strings = FFI.GetStringList(tableNamesHandle);
+        var strings = Ffi.GetStringList(tableNamesHandle);
         return strings;
     }
 
@@ -52,20 +52,20 @@ public class Connection : IDisposable
             throw new Exception("Connection is not open");
         }
 
-        var schemaBytes = FFI.SerializeSchemaOnly(schema);
+        var schemaBytes = Ffi.SerializeSchemaOnly(schema);
         var tableHandle = -1L;
 
         unsafe
         {
             fixed (byte* p = schemaBytes)
             {
-                tableHandle = FFI.create_empty_table(name, _handle, p, (ulong)schemaBytes.Length);
+                tableHandle = Ffi.create_empty_table(name, _handle, p, (ulong)schemaBytes.Length);
             }
         }
 
         if (tableHandle < 0)
         {
-            var errorMessage = FFI.GetErrorMessageOnce(tableHandle);
+            var errorMessage = Ffi.GetErrorMessageOnce(tableHandle);
             throw new Exception("Failed to create the table: " + errorMessage);
         }
         
@@ -78,10 +78,10 @@ public class Connection : IDisposable
         {
             throw new Exception("Connection is not open");
         }
-        var tableHandle = FFI.open_table(name, _handle);
+        var tableHandle = Ffi.open_table(name, _handle);
         if (tableHandle < 0)
         {
-            var errorMessage = FFI.GetErrorMessageOnce(tableHandle);
+            var errorMessage = Ffi.GetErrorMessageOnce(tableHandle);
             throw new Exception("Failed to open the table: " + errorMessage);
         }
 
@@ -94,10 +94,10 @@ public class Connection : IDisposable
         {
             throw new Exception("Connection is not open");
         }
-        var status = FFI.drop_table(name, _handle);
+        var status = Ffi.drop_table(name, _handle);
         if (status < 0)
         {
-            var errorMessage = FFI.GetErrorMessageOnce(status);
+            var errorMessage = Ffi.GetErrorMessageOnce(status);
             if (ignoreMissing && errorMessage.Contains("not found"))
             {
                 return;
@@ -112,17 +112,17 @@ public class Connection : IDisposable
         {
             throw new Exception("Connection is not open");
         }
-        var status = FFI.drop_database(_handle);
+        var status = Ffi.drop_database(_handle);
         if (status < 0)
         {
-            var errorMessage = FFI.GetErrorMessageOnce(status);
+            var errorMessage = Ffi.GetErrorMessageOnce(status);
             throw new Exception("Failed to drop the database: " + errorMessage);
         }
     }
     
     ~Connection()
     {
-        FFI.disconnect(this._handle);
+        Ffi.disconnect(this._handle);
     }
 
     // Handle Cleanup: the handle should be freed, or there will be a small resource leak.
@@ -144,7 +144,7 @@ public class Connection : IDisposable
 
         if (disposing)
         {
-            FFI.disconnect(this._handle);
+            Ffi.disconnect(this._handle);
         }
 
         _connected = false;

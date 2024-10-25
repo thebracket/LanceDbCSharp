@@ -2,40 +2,46 @@ using System.Runtime.InteropServices;
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
 
+namespace LanceDbClient;
+
 public static class LanceControl
 {
     public static void Shutdown()
     {
-        var result = FFI.shutdown();
+        var result = Ffi.shutdown();
         if (result < 0)
         {
-            var errorMessage = FFI.GetErrorMessageOnce(result);
+            var errorMessage = Ffi.GetErrorMessageOnce(result);
             throw new Exception("Failed to shutdown: " + errorMessage);
         }
     }
 }
 
-static class FFI
+static partial class Ffi
 {
     private const string DllName = "../../../../../../rust/target/debug/liblance_sync_client.so";
     
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int setup();
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial int setup();
     
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int shutdown();
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial int shutdown();
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern long connect(string uri);
     
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern long disconnect(long handle);
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial long disconnect(long handle);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern unsafe long submit_record_batch(byte* data, ulong length);
 
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern long free_record_batch(long handle);
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial long free_record_batch(long handle);
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern unsafe long create_empty_table(string name, long connectionHandle, byte* schema, ulong schemaLength);
@@ -49,11 +55,13 @@ static class FFI
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern long drop_table(string name, long connectionHandle);
 
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern long list_table_names(long connectionHandle);
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial long list_table_names(long connectionHandle);
     
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern long drop_database(long connectionHandle);
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial long drop_database(long connectionHandle);
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern unsafe long query_nearest_to(long limit, float* vector, ulong vectorLength, long tableHandle);
@@ -61,18 +69,21 @@ static class FFI
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern long free_blob(long blobHandle);
 
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern long blob_len(long blobHandle);
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static partial long blob_len(long blobHandle);
 
     // Is there a tag for "really unsafe"? Because this is it.
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern unsafe byte* get_blob_data(long blobHandle);
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static unsafe partial byte* get_blob_data(long blobHandle);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     private static extern string get_error_message(long index);
     
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    private static extern void free_error_message(long index);
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    private static partial void free_error_message(long index);
     
     internal static byte[] SerializeSchemaOnly(Schema schema)
     {
@@ -92,11 +103,13 @@ static class FFI
         return message;
     }
     
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    private static extern IntPtr get_string_list(long id, out ulong length);
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    private static partial IntPtr get_string_list(long id, out ulong length);
 
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    private static extern void free_string_list(long id);
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    private static partial void free_string_list(long id);
     
     internal static string[] GetStringList(long id)
     {
@@ -111,7 +124,7 @@ static class FFI
             }
             else
             {
-                System.Console.WriteLine("WARNING: Null string in list");
+                Console.WriteLine("WARNING: Null string in list");
             }
         }
         free_string_list(id);
