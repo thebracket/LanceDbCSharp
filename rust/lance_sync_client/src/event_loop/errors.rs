@@ -38,3 +38,8 @@ pub extern "C" fn get_error_message(index: i64) -> *const std::os::raw::c_char {
     let error = get_error(index).unwrap_or_else(|| "Error not found".to_string());
     std::ffi::CString::new(error).unwrap().into_raw()
 }
+
+#[no_mangle]
+pub extern "C" fn free_error_message(index: i64) {
+    remove_error(index);
+}

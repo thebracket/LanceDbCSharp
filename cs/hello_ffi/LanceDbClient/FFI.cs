@@ -26,6 +26,15 @@ static class FFI
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern long create_table(string name, long connectionHandle, long recordHandle);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern long open_table(string name, long connectionHandle);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern long drop_table(string name, long connectionHandle);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern long drop_database(long connectionHandle);
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern unsafe long query_nearest_to(long limit, float* vector, ulong vectorLength, long tableHandle);
@@ -41,7 +50,10 @@ static class FFI
     internal static extern unsafe byte* get_blob_data(long blobHandle);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern string get_error_message(long index);
+    private static extern string get_error_message(long index);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    private static extern void free_error_message(long index);
     
     internal static byte[] SerializeSchemaOnly(Schema schema)
     {
@@ -52,6 +64,13 @@ static class FFI
         }
 
         return ms.ToArray();
+    }
+
+    internal static string GetErrorMessageOnce(long index)
+    {
+        var message = get_error_message(index);
+        free_error_message(index);
+        return message;
     }
 }
 

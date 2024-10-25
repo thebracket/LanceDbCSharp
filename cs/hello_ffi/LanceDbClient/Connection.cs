@@ -22,7 +22,7 @@ public class Connection : IDisposable
         var handle = FFI.connect(uri);
         if (handle < 0)
         {
-            var errorMessage = FFI.get_error_message(handle);
+            var errorMessage = FFI.GetErrorMessageOnce(handle);
             throw new Exception("Failed to connect to the database: " + errorMessage);
         }
         _handle = handle;
@@ -48,18 +48,66 @@ public class Connection : IDisposable
         }
         if (schemaHandle < 0)
         {
-            var errorMessage = FFI.get_error_message(schemaHandle);
+            var errorMessage = FFI.GetErrorMessageOnce(schemaHandle);
             throw new Exception("Failed to submit the schema to the database: " + errorMessage);
         }
 
         var tableHandle = FFI.create_table(name, _handle, schemaHandle);
         if (tableHandle < 0)
         {
-            var errorMessage = FFI.get_error_message(tableHandle);
+            var errorMessage = FFI.GetErrorMessageOnce(tableHandle);
             throw new Exception("Failed to create the table: " + errorMessage);
         }
         
         return new Table(name, tableHandle);
+    }
+
+    public Table OpenTable(string name)
+    {
+        if (_handle < 0)
+        {
+            throw new Exception("Connection is not open");
+        }
+        var tableHandle = FFI.open_table(name, _handle);
+        if (tableHandle < 0)
+        {
+            var errorMessage = FFI.GetErrorMessageOnce(tableHandle);
+            throw new Exception("Failed to open the table: " + errorMessage);
+        }
+
+        return new Table(name, tableHandle);
+    }
+    
+    public void DropTable(string name, bool ignoreMissing = false)
+    {
+        if (_handle < 0)
+        {
+            throw new Exception("Connection is not open");
+        }
+        var status = FFI.drop_table(name, _handle);
+        if (status < 0)
+        {
+            var errorMessage = FFI.GetErrorMessageOnce(status);
+            if (ignoreMissing && errorMessage.Contains("not found"))
+            {
+                return;
+            }
+            throw new Exception("Failed to drop the table: " + errorMessage);
+        }
+    }
+    
+    public void DropDatabase()
+    {
+        if (_handle < 0)
+        {
+            throw new Exception("Connection is not open");
+        }
+        var status = FFI.drop_database(_handle);
+        if (status < 0)
+        {
+            var errorMessage = FFI.GetErrorMessageOnce(status);
+            throw new Exception("Failed to drop the database: " + errorMessage);
+        }
     }
     
     ~Connection()

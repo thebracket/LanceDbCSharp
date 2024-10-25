@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use crate::batch_handler::RecBatch;
-use crate::connection_handle::ConnectionHandle;
 
 /// Commands that can be sent to the LanceDB event-loop.
 #[derive(Debug)]
@@ -36,6 +35,27 @@ pub(crate) enum LanceDbCommand {
         name: String,
         connection_handle: i64,
         record_batch_handle: i64,
+        reply_sender: tokio::sync::oneshot::Sender<i64>,
+    },
+
+    /// Open a table in the database.
+    OpenTable {
+        name: String,
+        connection_handle: i64,
+        reply_sender: tokio::sync::oneshot::Sender<i64>,
+    },
+
+    /// Drop a table from the database.
+    /// WARNING: This invalidates any table cache entries.
+    DropTable {
+        name: String,
+        connection_handle: i64,
+        reply_sender: tokio::sync::oneshot::Sender<i64>,
+    },
+
+    /// Drop a database from the connection.
+    DropDatabase {
+        connection_handle: i64,
         reply_sender: tokio::sync::oneshot::Sender<i64>,
     },
 

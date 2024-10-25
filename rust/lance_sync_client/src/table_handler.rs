@@ -29,14 +29,36 @@ impl TableHandler {
     }
 
     pub async fn get_table_from_cache(&self, table_handle: i64) -> Result<Table> {
-        /*let table = db.open_table(table_name)
-            .execute()
-            .await
-            .inspect_err(|e| eprintln!("Error opening table: {e:?}"))?;
-        Ok(table)
-         */
         self.tables.get(&table_handle)
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("Table not found"))
+    }
+
+    pub async fn open_table(&mut self, table_name: &str, db: &Connection) -> Result<i64> {
+        let table = db.open_table(table_name)
+            .execute()
+            .await
+            .inspect_err(|e| eprintln!("Error opening table: {e:?}"))?;
+        let next_handle = self.next_handle.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.tables.insert(next_handle, table);
+        Ok(next_handle)
+    }
+
+    pub async fn drop_table(&mut self, name: &str, db: &Connection) -> Result<()> {
+        // Remove from the table cache
+        let handles_to_remove: Vec<i64> = self.tables.iter()
+            .filter(|(_, table)| table.name() == name)
+            .map(|(handle, _)| *handle)
+            .collect();
+
+        for handle in handles_to_remove {
+            self.tables.remove(&handle);
+        }
+
+        // Perform the drop
+        db.drop_table(name)
+            .await
+            .inspect_err(|e| eprintln!("Error dropping table: {e:?}"))?;
+        Ok(())
     }
 }

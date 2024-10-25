@@ -27,7 +27,7 @@ use crate::table_handler::TableHandler;
 
 pub use lifecycle::{setup, shutdown};
 pub use connection::{connect, disconnect};
-pub use errors::get_error_message;
+pub use errors::{get_error_message, free_error_message};
 use crate::event_loop::errors::add_error;
 
 /// This static variable holds the sender for the LanceDB command.
@@ -88,6 +88,23 @@ async fn event_loop() {
                     }
                 }
             }
+            LanceDbCommand::DropDatabase { connection_handle, reply_sender } => {
+                if let Some(cnn) = connection_factory.get_connection(ConnectionHandle(connection_handle)) {
+                    match cnn.drop_db().await {
+                        Ok(_) => {
+                            send_reply(reply_sender, 0).await;
+                        }
+                        Err(e) => {
+                            let error_index = add_error(e.to_string());
+                            eprintln!("Error dropping database: {:?}", e);
+                            send_reply(reply_sender, error_index).await;
+                        }
+                    }
+                } else {
+                    eprintln!("Connection handle {connection_handle} not found.");
+                    send_reply(reply_sender, -1).await;
+                }
+            }
             LanceDbCommand::SendRecordBatch { batch, reply_sender } => {
                 let handle = batch_handler.add_batch(batch);
                 send_reply(reply_sender, handle).await;
@@ -117,6 +134,42 @@ async fn event_loop() {
                         }
                     } else {
                         eprintln!("Record batch handle {record_batch_handle} not found.");
+                    }
+                } else {
+                    eprintln!("Connection handle {connection_handle} not found.");
+                }
+                send_reply(reply_sender, result).await;
+            }
+            LanceDbCommand::OpenTable { name, connection_handle, reply_sender } => {
+                let mut result = -1;
+                if let Some(cnn) = connection_factory.get_connection(ConnectionHandle(connection_handle)) {
+                    match table_handler.open_table(&name, cnn).await {
+                        Ok(handle) => {
+                            result = handle;
+                        }
+                        Err(e) => {
+                            let error_index = add_error(e.to_string());
+                            eprintln!("Error opening table: {:?}", e);
+                            result = error_index;
+                        }
+                    }
+                } else {
+                    eprintln!("Connection handle {connection_handle} not found.");
+                }
+                send_reply(reply_sender, result).await;
+            }
+            LanceDbCommand::DropTable { name, connection_handle, reply_sender } => {
+                let mut result = -1;
+                if let Some(cnn) = connection_factory.get_connection(ConnectionHandle(connection_handle)) {
+                    match table_handler.drop_table(&name, cnn).await {
+                        Ok(_) => {
+                            result = 0;
+                        }
+                        Err(e) => {
+                            let error_index = add_error(e.to_string());
+                            eprintln!("Error dropping table: {:?}", e);
+                            result = error_index;
+                        }
                     }
                 } else {
                     eprintln!("Connection handle {connection_handle} not found.");
@@ -250,6 +303,62 @@ pub extern "C" fn create_table(name: *const c_char, connection_handle: i64, reco
     }
     reply_rx.blocking_recv().unwrap_or_else(|e| {
         eprintln!("Error receiving create table response: {:?}", e);
+        -1
+    })
+}
+
+/// Open a table in the database. This function will open a table with
+/// the given name, using the connection provided.
+#[no_mangle]
+pub extern "C" fn open_table(name: *const c_char, connection_handle: i64) -> i64 {
+    let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+    if send_command(LanceDbCommand::OpenTable {
+        name,
+        connection_handle,
+        reply_sender: reply_tx,
+    }).is_err() {
+        return -1;
+    }
+    reply_rx.blocking_recv().unwrap_or_else(|e| {
+        eprintln!("Error receiving open table response: {:?}", e);
+        -1
+    })
+}
+
+/// Drop a table from the database. This function will drop a table with
+/// the given name, using the connection provided. WARNING: this invalidates
+/// any cached table handles referencing the table.
+#[no_mangle]
+pub extern "C" fn drop_table(name: *const c_char, connection_handle: i64) -> i64 {
+    let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+    if send_command(LanceDbCommand::DropTable {
+        name,
+        connection_handle,
+        reply_sender: reply_tx,
+    }).is_err() {
+        return -1;
+    }
+    reply_rx.blocking_recv().unwrap_or_else(|e| {
+        eprintln!("Error receiving drop table response: {:?}", e);
+        -1
+    })
+}
+
+/// Drop a database from the connection. This function will drop the
+/// database associated with the connection handle.
+#[no_mangle]
+pub extern "C" fn drop_database(connection_handle: i64) -> i64 {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+    if send_command(LanceDbCommand::DropDatabase {
+        connection_handle,
+        reply_sender: reply_tx,
+    }).is_err() {
+        return -1;
+    }
+    reply_rx.blocking_recv().unwrap_or_else(|e| {
+        eprintln!("Error receiving drop database response: {:?}", e);
         -1
     })
 }
