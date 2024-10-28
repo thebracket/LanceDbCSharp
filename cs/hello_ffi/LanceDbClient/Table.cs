@@ -1,4 +1,5 @@
 using Apache.Arrow;
+using LanceDbInterface;
 
 namespace LanceDbClient;
 
@@ -53,5 +54,24 @@ public class Table : IDisposable
     {
         // TODO: Not handling index type yet
         Ffi.create_scalar_index(_connectionHandle, _tableId, columnName, 0, replace);
+    }
+    
+    public void Add(RecordBatch data, WriteMode mode = WriteMode.Append, BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0.0F)
+    {
+        var bytes = Ffi.SerializeRecordBatch(data);
+        var len = (ulong)bytes.Length;
+        var result = -1L;
+        unsafe
+        {
+            fixed (byte* p = bytes)
+            {
+                result = Ffi.add_rows(_connectionHandle, _tableId, p, len);
+            }
+        }
+        if (result < 0)
+        {
+            var errorMessage = Ffi.GetErrorMessageOnce(result);
+            throw new Exception("Failed to add rows: " + errorMessage);
+        }
     }
 }

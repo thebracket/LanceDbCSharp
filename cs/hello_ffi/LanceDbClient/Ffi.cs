@@ -37,6 +37,9 @@ static partial class Ffi
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern long drop_table(string name, long connectionHandle);
 
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern unsafe long add_rows(long connectionHandle, long tableHandle, byte* data, ulong dataLength);
+    
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void StringCallback(string s);
     
@@ -87,6 +90,17 @@ static partial class Ffi
         using (var writer = new ArrowFileWriter(ms, schema))
         {
             writer.WriteEnd();
+        }
+
+        return ms.ToArray();
+    }
+    
+    internal static byte[] SerializeRecordBatch(RecordBatch recordBatch)
+    {
+        using var ms = new MemoryStream();
+        using (var writer = new ArrowStreamWriter(ms, recordBatch.Schema))
+        {
+            writer.WriteRecordBatch(recordBatch);
         }
 
         return ms.ToArray();

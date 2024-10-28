@@ -83,6 +83,14 @@ pub(crate) enum LanceDbCommand {
         reply_sender: tokio::sync::oneshot::Sender<Result<(), i64>>,
     },
 
+    AddRows {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+        record_batch: RecBatch,
+        reply_sender: tokio::sync::oneshot::Sender<Result<(), i64>>,
+    },
+
+    /// Count the number of rows in a table.
     CountRows {
         connection_handle: ConnectionHandle,
         table_handle: TableHandle,

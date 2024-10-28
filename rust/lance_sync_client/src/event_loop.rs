@@ -31,7 +31,7 @@ pub(crate) use lifecycle::shutdown;
 pub use connection::{connect, disconnect};
 pub use errors::{get_error_message, free_error_message};
 use crate::event_loop::errors::add_error;
-use crate::serialization::schema_to_bytes;
+use crate::serialization::{bytes_to_record_batch, schema_to_bytes};
 
 /// This static variable holds the sender for the LanceDB command.
 pub(crate) static COMMAND_SENDER: OnceLock<Sender<LanceDbCommand>> = OnceLock::new();
@@ -228,6 +228,24 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     }
                 } else {
                     eprintln!("Connection handle {} not found.", connection_handle.0);
+                }
+                send_reply(reply_sender, result).await;
+            }
+            LanceDbCommand::AddRows { connection_handle, table_handle, record_batch, reply_sender } => {
+                let mut result = Err(-1);
+                if let Some(cnn) = connection_factory.get_connection(connection_handle) {
+                    if let Ok(table) = table_handler.get_table_from_cache(table_handle).await {
+                        if let Ok(schema) = table.schema().await {
+                            let data = RecordBatchIterator::new(record_batch, schema);
+                            if let Err(e) = table.add(data).execute().await {
+                                eprintln!("Error adding rows: {:?}", e);
+                                let error_index = add_error(e.to_string());
+                                result = Err(error_index);
+                            } else {
+                                result = Ok(());
+                            }
+                        }
+                    }
                 }
                 send_reply(reply_sender, result).await;
             }
@@ -710,4 +728,33 @@ pub extern "C" fn count_rows(connection_handle: i64, table_handle: i64) -> u64 {
         Err(0)
     });
     result.unwrap_or_else(|_| 0)
+}
+
+/// Add a row to a table
+#[no_mangle]
+pub extern "C" fn add_rows(connection_handle: i64, table_handle: i64, record_batch: *const u8, batch_len: u64) -> i64 {
+    let record_batch = unsafe { std::slice::from_raw_parts(record_batch, batch_len as usize) };
+    let record_batch = bytes_to_record_batch(record_batch);
+    if let Err(e) = record_batch {
+        let error_index = add_error(e.to_string());
+        eprintln!("Error reading record batch: {:?}", e);
+        return error_index;
+    }
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<(), i64>>();
+    if send_command(LanceDbCommand::AddRows {
+        connection_handle: ConnectionHandle(connection_handle),
+        table_handle: TableHandle(table_handle),
+        record_batch: record_batch.unwrap(),
+        reply_sender: reply_tx,
+    }).is_err() {
+        return -1;
+    }
+    let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
+        eprintln!("Error receiving add rows response: {:?}", e);
+        Err(-1)
+    });
+    match result {
+        Ok(_) => 0,
+        Err(e) => e,
+    }
 }
