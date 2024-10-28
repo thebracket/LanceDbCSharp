@@ -4,30 +4,9 @@ using Apache.Arrow.Ipc;
 
 namespace LanceDbClient;
 
-public static class LanceControl
-{
-    public static void Shutdown()
-    {
-        var result = Ffi.shutdown();
-        if (result < 0)
-        {
-            var errorMessage = Ffi.GetErrorMessageOnce(result);
-            throw new Exception("Failed to shutdown: " + errorMessage);
-        }
-    }
-}
-
 static partial class Ffi
 {
     private const string DllName = "../../../../../../rust/target/debug/liblance_sync_client.so";
-    
-    [LibraryImport(DllName)]
-    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
-    internal static partial int setup();
-    
-    [LibraryImport(DllName)]
-    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
-    internal static partial int shutdown();
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern long connect(string uri);

@@ -125,5 +125,5 @@ pub(crate) enum LanceDbCommand {
     },
 
     /// Gracefully shut down the event-loop.
-    Quit,
+    Quit { reply_sender: tokio::sync::oneshot::Sender<()> },
 }

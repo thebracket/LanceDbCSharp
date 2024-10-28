@@ -1,34 +1,23 @@
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicI64;
 use crate::event_loop::event_loop;
 use crate::event_loop::command::LanceDbCommand;
-use crate::event_loop::errors::clear_errors;
 use crate::event_loop::helpers::send_command;
+use anyhow::Result;
+use crate::event_loop::errors::clear_errors;
 
-/// This enum represents the possible errors that can occur during
-/// the setup of the LanceDB event-loop.
-#[repr(i32)]
-enum LanceSetupErrors {
-    Ok = 0,
-    ThreadSpawnError = -1,
-}
-
-static ALREADY_SETUP: AtomicBool = AtomicBool::new(false);
+pub(crate) static INSTANCE_COUNT: AtomicI64 = AtomicI64::new(0);
+pub(crate) static CONNECTION_COUNT: AtomicI64 = AtomicI64::new(0);
 
 pub fn is_already_setup() -> bool {
-    ALREADY_SETUP.load(std::sync::atomic::Ordering::Relaxed)
+    INSTANCE_COUNT.load(std::sync::atomic::Ordering::Relaxed) > 0
 }
 
-/// Spawns a new thread and starts an event-loop ready
-/// to work with LanceDB. This function **must** be called before other
-/// functions in this library are called.
-///
-/// Return values: 0 for success, -1 if an error occurred.
-#[no_mangle]
-pub extern "C" fn setup() -> i32 {
-    if ALREADY_SETUP.load(std::sync::atomic::Ordering::Relaxed) {
+pub(crate) fn setup() -> Result<()> {
+    if is_already_setup() {
         eprintln!("Event loop already set up.");
-        return LanceSetupErrors::Ok as i32;
+        return Ok(());
     }
+    INSTANCE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
     let result = std::thread::Builder::new()
         .name("lance_sync_client".to_string())
@@ -48,18 +37,17 @@ pub extern "C" fn setup() -> i32 {
 
     match result {
         Ok(_) => {
-            ALREADY_SETUP.store(true, std::sync::atomic::Ordering::Relaxed);
             let awaiter = ready_rx.blocking_recv();
             if awaiter.is_err() {
                 eprintln!("Error waiting for event loop to start.");
-                LanceSetupErrors::ThreadSpawnError as i32
+                Err(anyhow::anyhow!("Error waiting for event loop to start."))
             } else {
-                LanceSetupErrors::Ok as i32
+                Ok(())
             }
         },
         Err(e) => {
             eprintln!("Error spawning thread: {:?}", e);
-            LanceSetupErrors::ThreadSpawnError as i32
+            Err(anyhow::anyhow!("Error spawning thread."))
         }
     }
 }
@@ -68,15 +56,11 @@ pub extern "C" fn setup() -> i32 {
 /// before the program exits (or the library is unloaded).
 /// In practice, regular tear-down will stop the event-loop
 /// anyway - but this avoids any leakage.
-#[no_mangle]
-pub extern "C" fn shutdown() -> i32 {
-    if !ALREADY_SETUP.load(std::sync::atomic::Ordering::Relaxed) {
-        eprintln!("Event loop not set up.");
-        return -1;
-    }
+pub(crate) fn shutdown() -> i32 {
     clear_errors();
-    match send_command(LanceDbCommand::Quit) {
-        Ok(_) => 0,
-        Err(_) => -1,
-    }
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let _ = send_command(LanceDbCommand::Quit { reply_sender: tx});
+    let _ = rx.blocking_recv();
+    INSTANCE_COUNT.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+    0
 }

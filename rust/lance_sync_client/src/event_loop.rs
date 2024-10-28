@@ -26,7 +26,8 @@ use crate::blob_handler::{BlobHandle, BlobHandler};
 use crate::event_loop::helpers::send_command;
 use crate::table_handler::{TableHandle, TableHandler};
 
-pub use lifecycle::{setup, shutdown};
+pub(crate) use lifecycle::setup;
+pub(crate) use lifecycle::shutdown;
 pub use connection::{connect, disconnect};
 pub use errors::{get_error_message, free_error_message};
 use crate::event_loop::errors::add_error;
@@ -64,6 +65,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
     let mut blob_handler = BlobHandler::new();
 
     ready_tx.send(()).unwrap();
+    let mut quit_sender = None;
     while let Some(command) = rx.recv().await {
         match command {
             LanceDbCommand::ConnectionRequest{uri, reply_sender} => {
@@ -292,13 +294,20 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                 let ptr = blob_handler.get_blob_arc(handle);
                 send_reply(reply_sender, ptr).await;
             }
-            LanceDbCommand::Quit => {
-                println!("Received quit command. Shutting down.");
+            LanceDbCommand::Quit{ reply_sender } => {
+                table_handler.clear();
+                connection_factory.clear();
+                quit_sender = Some(reply_sender);
                 break;
             }
         }
     }
-    println!("Event loop shutting down.");
+    println!("(RUST) Event loop shutting down.");
+    if let Some(sender) = quit_sender {
+        if let Err(e) = sender.send(()) {
+            eprintln!("Error sending quit response: {:?}", e);
+        }
+    }
 }
 
 /// Submit a record batch to batch storage. This does NOT submit it to the

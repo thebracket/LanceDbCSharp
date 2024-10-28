@@ -36,7 +36,6 @@ using (var cnn = new Connection("test_lance"))
     cnn.DropDatabase();
     System.Console.WriteLine("Database Dropped");
 }
-LanceControl.Shutdown();
 System.Console.WriteLine("Complete");
 
 // Helper functions

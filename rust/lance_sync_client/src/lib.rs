@@ -22,8 +22,6 @@ mod table_handler;
 mod blob_handler;
 mod serialization;
 
-pub use event_loop::setup;
-pub use event_loop::shutdown;
 pub use event_loop::connect;
 pub use event_loop::submit_record_batch;
 pub use event_loop::disconnect;

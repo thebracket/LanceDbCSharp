@@ -81,4 +81,8 @@ impl TableHandler {
     pub async fn release_table_handle(&mut self, table_handle: TableHandle) {
         self.tables.remove(&table_handle.0);
     }
+
+    pub fn clear(&mut self) {
+        self.tables.clear();
+    }
 }

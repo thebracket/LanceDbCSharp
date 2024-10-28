@@ -46,4 +46,8 @@ impl ConnectionFactory {
     pub(crate) fn get_connection(&self, connection_handle: ConnectionHandle) -> Option<&Connection> {
         self.connections.get(&connection_handle.0)
     }
+
+    pub(crate) fn clear(&mut self) {
+        self.connections.clear();
+    }
 }

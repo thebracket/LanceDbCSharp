@@ -12,14 +12,6 @@ public class Connection : IDisposable
     // <exception cref="Exception">If the connection fails.</exception>
     public Connection(string uri)
     {
-        // Note that this will return OK even if setup had already been called, and won't
-        // duplicate the setup.
-        var status = Ffi.setup();
-        if (status != 0)
-        {
-            throw new Exception("Failed to setup the database client environment");
-        }
-        
         var cnnHandle = Ffi.connect(uri);
         if (cnnHandle < 0)
         {
