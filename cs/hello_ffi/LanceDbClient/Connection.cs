@@ -10,9 +10,9 @@ public class Connection : IDisposable
     // </summary>
     // <param name="uri">The URI of the database to connect to.</param>
     // <exception cref="Exception">If the connection fails.</exception>
-    public Connection(string uri)
+    public Connection(Uri uri)
     {
-        var cnnHandle = Ffi.connect(uri);
+        var cnnHandle = Ffi.connect(uri.ToString());
         if (cnnHandle < 0)
         {
             var errorMessage = Ffi.GetErrorMessageOnce(cnnHandle);
@@ -20,6 +20,8 @@ public class Connection : IDisposable
         }
         _connectionId = cnnHandle;
         _connected = true;
+        this.uri = uri;
+        this.isOpen = true;
     }
 
     public IEnumerable<string> TableNames()
@@ -152,12 +154,18 @@ public class Connection : IDisposable
         if (disposing)
         {
             Ffi.disconnect(this._connectionId);
+            this.isOpen = false;
         }
 
         _connected = false;
         _connectionId = -1;
     }
+    
+    
 
     private long _connectionId;
     private bool _connected;
+    public Uri uri { get; private set; }
+    // TODO: I'm not sure this is necessary?
+    public bool isOpen { get; private set; }
 }
