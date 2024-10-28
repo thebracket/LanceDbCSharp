@@ -20,11 +20,11 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS dotnet_builder
 WORKDIR /usr/src
 COPY cs .
 
-RUN dotnet build -c Release -o demo hello_ffi/lance_sync_client/lance_sync_client.csproj
+RUN dotnet build -c Release -o demo hello_ffi/ApiTestbed/ApiTestbed.csproj
 
 ### Final layer
 FROM mcr.microsoft.com/dotnet/runtime:8.0
 WORKDIR /app
 COPY --from=rust_builder /usr/src/target/debug/liblance_sync_client.so .
 COPY --from=dotnet_builder /usr/src/demo .
-CMD ["/app/lance_sync_client"]
+CMD ["/app/ApiTestbed"]
