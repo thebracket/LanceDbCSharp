@@ -25,6 +25,7 @@ using (var cnn = new Connection("test_lance"))
     // Now we'll open table2
     var table2Opened = cnn.OpenTable("table2");
     System.Console.WriteLine("Table 2 Opened: " + table2Opened);
+    System.Console.WriteLine("Table 2 row count (expect 0): " + table2Opened.CountRows());
 
     // Now we'll drop table2
     cnn.DropTable("table2");

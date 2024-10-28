@@ -209,6 +209,43 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                 table_handler.release_table_handle(table_handle).await;
                 send_reply(reply_sender, Ok(())).await;
             }
+            LanceDbCommand::CountRows { connection_handle, table_handle, reply_sender } => {
+                let mut result = Err(-1);
+                if let Some(cnn) = connection_factory.get_connection(connection_handle) {
+                    if let Ok(table) = table_handler.get_table_from_cache(table_handle).await {
+                        match table.count_rows(None).await {
+                            Ok(count) => {
+                                result = Ok(count as u64);
+                            }
+                            Err(e) => {
+                                let error_index = add_error(e.to_string());
+                                eprintln!("Error counting rows: {:?}", e);
+                                result = Err(error_index);
+                            }
+                        }
+                    }
+                } else {
+                    eprintln!("Connection handle {} not found.", connection_handle.0);
+                }
+                send_reply(reply_sender, result).await;
+            }
+            LanceDbCommand::CreateScalarIndex { connection_handle, table_handle, column_name, index_type, replace, reply_sender } => {
+                let mut result = Err(-1);
+                if let Ok(table) = table_handler.get_table_from_cache(table_handle).await {
+                    // TODO: Need to support different index types
+                    match table.create_index(&[column_name], lancedb::index::Index::Auto).execute().await {
+                        Ok(_) => {
+                            result = Ok(());
+                        }
+                        Err(e) => {
+                            let error_index = add_error(e.to_string());
+                            eprintln!("Error creating index: {:?}", e);
+                            result = Err(error_index);
+                        }
+                    }
+                }
+                send_reply(reply_sender, result).await;
+            }
             LanceDbCommand::QueryNearest { limit, vector, table_handle, reply_sender } => {
                 let mut result = Err(-1);
                 if let Ok(table) = table_handler.get_table_from_cache(table_handle).await {
@@ -621,4 +658,47 @@ pub extern "C" fn close_table(connection_handle: i64, table_handle: i64) -> i64 
         Ok(_) => 0,
         Err(e) => e,
     }
+}
+
+/// Create a scalar index on a table
+#[no_mangle]
+pub extern "C" fn create_scalar_index(connection_handle: i64, table_handle: i64, column_name: *const c_char, index_type: u32, replace: bool) -> i64 {
+    let column_name = unsafe { std::ffi::CStr::from_ptr(column_name).to_string_lossy().to_string() };
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<(), i64>>();
+    if send_command(LanceDbCommand::CreateScalarIndex {
+        connection_handle: ConnectionHandle(connection_handle),
+        table_handle: TableHandle(table_handle),
+        column_name,
+        index_type,
+        replace,
+        reply_sender: reply_tx,
+    }).is_err() {
+        return -1;
+    }
+    let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
+        eprintln!("Error receiving create scalar index response: {:?}", e);
+        Err(-1)
+    });
+    match result {
+        Ok(_) => 0,
+        Err(e) => e,
+    }
+}
+
+/// Count the number of rows in a table
+#[no_mangle]
+pub extern "C" fn count_rows(connection_handle: i64, table_handle: i64) -> u64 {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<u64, i64>>();
+    if send_command(LanceDbCommand::CountRows {
+        connection_handle: ConnectionHandle(connection_handle),
+        table_handle: TableHandle(table_handle),
+        reply_sender: reply_tx,
+    }).is_err() {
+        return 0;
+    }
+    let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
+        eprintln!("Error receiving count rows response: {:?}", e);
+        Err(0)
+    });
+    result.unwrap_or_else(|_| 0)
 }

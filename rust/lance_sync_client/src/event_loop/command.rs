@@ -83,6 +83,21 @@ pub(crate) enum LanceDbCommand {
         reply_sender: tokio::sync::oneshot::Sender<Result<(), i64>>,
     },
 
+    CountRows {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+        reply_sender: tokio::sync::oneshot::Sender<Result<u64, i64>>,
+    },
+
+    CreateScalarIndex {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+        column_name: String,
+        index_type: u32,
+        replace: bool,
+        reply_sender: tokio::sync::oneshot::Sender<Result<(), i64>>,
+    },
+
     /// Simple "nearest" query.
     QueryNearest {
         limit: u64,

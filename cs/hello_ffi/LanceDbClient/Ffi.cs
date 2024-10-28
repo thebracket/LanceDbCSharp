@@ -68,6 +68,13 @@ static partial class Ffi
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
     internal static partial long close_table(long connectionId, long tableId);
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern long count_rows(long connectionHandle, long tableHandle);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern long create_scalar_index(long connectionHandle, long tableHandle, string columnName,
+        uint indexType, bool replace);
     
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]

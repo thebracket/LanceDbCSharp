@@ -10,13 +10,13 @@ public class Table : IDisposable
         _name = name;
         _tableId = tableId;
         _connectionHandle = connectionId;
-        this.schema = schema;
+        this.Schema = schema;
     }
 
     private string _name;
     private readonly long _tableId;
     private readonly long _connectionHandle;
-    private Schema schema { get; }
+    private Schema Schema { get; }
     
     ~Table()
     {
@@ -42,5 +42,16 @@ public class Table : IDisposable
                 throw new Exception("Failed to close the table: " + errorMessage);
             }
         }
+    }
+    
+    public long CountRows()
+    {
+        return Ffi.count_rows(_connectionHandle, _tableId);
+    }
+
+    public void CreateScalarIndex(string columnName, IndexType indexType = IndexType.BTree, bool replace = true)
+    {
+        // TODO: Not handling index type yet
+        Ffi.create_scalar_index(_connectionHandle, _tableId, columnName, 0, replace);
     }
 }
