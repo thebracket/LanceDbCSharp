@@ -25,17 +25,17 @@ public class Connection : IDisposable
             var errorMessage = Ffi.GetErrorMessageOnce(cnnHandle);
             throw new Exception("Failed to connect to the database: " + errorMessage);
         }
-        _handle = cnnHandle;
+        _connectionId = cnnHandle;
         _connected = true;
     }
 
     public IEnumerable<string> TableNames()
     {
-        if (_handle < 0)
+        if (_connectionId < 0)
         {
             throw new Exception("Connection is not open");
         }
-        var tableNamesHandle = Ffi.list_table_names(_handle);
+        var tableNamesHandle = Ffi.list_table_names(_connectionId);
         if (tableNamesHandle < 0)
         {
             var errorMessage = Ffi.GetErrorMessageOnce(tableNamesHandle);
@@ -47,7 +47,7 @@ public class Connection : IDisposable
 
     public Table CreateTable(string name, Schema schema)
     {
-        if (_handle < 0)
+        if (_connectionId < 0)
         {
             throw new Exception("Connection is not open");
         }
@@ -59,7 +59,7 @@ public class Connection : IDisposable
         {
             fixed (byte* p = schemaBytes)
             {
-                tableHandle = Ffi.create_empty_table(name, _handle, p, (ulong)schemaBytes.Length);
+                tableHandle = Ffi.create_empty_table(name, _connectionId, p, (ulong)schemaBytes.Length);
             }
         }
 
@@ -69,32 +69,32 @@ public class Connection : IDisposable
             throw new Exception("Failed to create the table: " + errorMessage);
         }
         
-        return new Table(name, tableHandle);
+        return new Table(name, tableHandle, _connectionId, schema);
     }
 
     public Table OpenTable(string name)
     {
-        if (_handle < 0)
+        if (_connectionId < 0)
         {
             throw new Exception("Connection is not open");
         }
-        var tableHandle = Ffi.open_table(name, _handle);
+        var tableHandle = Ffi.open_table(name, _connectionId);
         if (tableHandle < 0)
         {
             var errorMessage = Ffi.GetErrorMessageOnce(tableHandle);
             throw new Exception("Failed to open the table: " + errorMessage);
         }
 
-        return new Table(name, tableHandle);
+        return new Table(name, tableHandle, _connectionId, null);
     }
     
     public void DropTable(string name, bool ignoreMissing = false)
     {
-        if (_handle < 0)
+        if (_connectionId < 0)
         {
             throw new Exception("Connection is not open");
         }
-        var status = Ffi.drop_table(name, _handle);
+        var status = Ffi.drop_table(name, _connectionId);
         if (status < 0)
         {
             var errorMessage = Ffi.GetErrorMessageOnce(status);
@@ -108,11 +108,11 @@ public class Connection : IDisposable
     
     public void DropDatabase()
     {
-        if (_handle < 0)
+        if (_connectionId < 0)
         {
             throw new Exception("Connection is not open");
         }
-        var status = Ffi.drop_database(_handle);
+        var status = Ffi.drop_database(_connectionId);
         if (status < 0)
         {
             var errorMessage = Ffi.GetErrorMessageOnce(status);
@@ -122,7 +122,7 @@ public class Connection : IDisposable
     
     ~Connection()
     {
-        Ffi.disconnect(this._handle);
+        Dispose(true);
     }
 
     // Handle Cleanup: the handle should be freed, or there will be a small resource leak.
@@ -144,13 +144,13 @@ public class Connection : IDisposable
 
         if (disposing)
         {
-            Ffi.disconnect(this._handle);
+            Ffi.disconnect(this._connectionId);
         }
 
         _connected = false;
-        _handle = -1;
+        _connectionId = -1;
     }
 
-    private long _handle;
+    private long _connectionId;
     private bool _connected;
 }

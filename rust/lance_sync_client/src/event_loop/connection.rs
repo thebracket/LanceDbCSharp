@@ -23,10 +23,14 @@ pub extern "C" fn connect(uri: *const c_char) -> i64 {
         return -1;
     };
 
-    reply_rx.blocking_recv().unwrap_or_else(|e| {
+    let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
         println!("Error receiving connection handle: {:?}", e);
-        -1
-    })
+        Err(-1)
+    });
+    match result {
+        Ok(handle) => handle.0,
+        Err(e) => e,
+    }
 }
 
 /// Disconnect from a LanceDB database. This function will close the
@@ -40,7 +44,7 @@ pub extern "C" fn connect(uri: *const c_char) -> i64 {
 #[no_mangle]
 pub extern "C" fn disconnect(handle: i64) -> i64 {
     println!("(RUST) Disconnect called for handle {}", handle);
-    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<(), i64>>();
     if send_command(LanceDbCommand::Disconnect {
         handle,
         reply_sender: reply_tx,
@@ -48,8 +52,12 @@ pub extern "C" fn disconnect(handle: i64) -> i64 {
         return -1;
     }
 
-    reply_rx.blocking_recv().unwrap_or_else(|e| {
+    let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
         eprintln!("Error receiving disconnection response: {:?}", e);
-        -1
-    })
+        Err(-1)
+    });
+    match result {
+        Ok(_) => 0,
+        Err(e) => e,
+    }
 }

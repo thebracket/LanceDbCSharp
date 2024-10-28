@@ -5,6 +5,9 @@ use arrow_schema::ArrowError;
 
 pub type RecBatch = Vec<Result<RecordBatch, ArrowError>>;
 
+#[derive(Debug, Copy, Clone)]
+pub(crate) struct RecordBatchHandle(pub(crate) i64); // Unique record batch id
+
 /// Provides an interface for C# to submit record batches (with schema) to Rust,
 /// using the Arrow IPC file format. Streaming format is not supported because it
 /// varies wildly between Arrow versions; the file format is more stable.
@@ -22,28 +25,27 @@ impl BatchHandler {
         }
     }
 
-    pub(crate) fn add_batch(&mut self, batch: RecBatch) -> i64 {
+    pub(crate) fn add_batch(&mut self, batch: RecBatch) -> RecordBatchHandle {
         let handle = self.next_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         self.batches.insert(handle, batch);
-        handle
+        RecordBatchHandle(handle)
     }
 
-    pub(crate) fn free_if_exists(&mut self, handle: i64) {
-        println!("Removing batch with handle {}.", handle);
-        self.batches.remove(&handle);
+    pub(crate) fn free_if_exists(&mut self, handle: RecordBatchHandle) {
+        self.batches.remove(&handle.0);
     }
 
-    pub(crate) fn take_batch(&mut self, handle: i64) -> Option<RecBatch> {
-        self.batches.remove(&handle)
+    pub(crate) fn take_batch(&mut self, handle: RecordBatchHandle) -> Option<RecBatch> {
+        self.batches.remove(&handle.0)
     }
 
     #[allow(dead_code)]
-    pub(crate) fn get_batch(&self, handle: i64) -> Option<&RecBatch> {
-        self.batches.get(&handle)
+    pub(crate) fn get_batch(&self, handle: RecordBatchHandle) -> Option<&RecBatch> {
+        self.batches.get(&handle.0)
     }
 
-    pub(crate) fn batch_as_bytes(&self, handle: i64) -> Vec<u8> {
-        let batches = self.batches.get(&handle).unwrap();
+    pub(crate) fn batch_as_bytes(&self, handle: RecordBatchHandle) -> Vec<u8> {
+        let batches = self.batches.get(&handle.0).unwrap();
         let mut buf = vec![];
         {
             let mut fw = arrow_ipc::writer::FileWriter::try_new(&mut buf, &batches[0].as_ref().unwrap().schema()).unwrap();

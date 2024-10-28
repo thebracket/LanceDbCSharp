@@ -21,10 +21,10 @@ use lancedb::query::{ExecutableQuery, QueryBase};
 use tokio::sync::mpsc::{channel, Sender};
 use crate::connection_handle::{ConnectionFactory, ConnectionHandle};
 use crate::event_loop::command::LanceDbCommand;
-use crate::batch_handler::BatchHandler;
-use crate::blob_handler::BlobHandler;
+use crate::batch_handler::{BatchHandler, RecordBatchHandle};
+use crate::blob_handler::{BlobHandle, BlobHandler};
 use crate::event_loop::helpers::send_command;
-use crate::table_handler::TableHandler;
+use crate::table_handler::{TableHandle, TableHandler};
 
 pub use lifecycle::{setup, shutdown};
 pub use connection::{connect, disconnect};
@@ -70,12 +70,12 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                 let result = connection_factory.create_connection(&uri).await;
                 match result {
                     Ok(handle) => {
-                        send_reply(reply_sender, handle.0).await;
+                        send_reply(reply_sender, Ok(handle)).await;
                     }
                     Err(e) => {
                         println!("Error creating connection: {:?}", e);
                         let error_index = add_error(e.to_string());
-                        send_reply(reply_sender, error_index).await;
+                        send_reply(reply_sender, Err(error_index)).await;
                     }
                 }
             }
@@ -83,95 +83,97 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                 let result = connection_factory.disconnect(ConnectionHandle(handle));
                 match result {
                     Ok(_) => {
-                        send_reply(reply_sender, 0).await;
+                        send_reply(reply_sender, Ok(())).await;
                     }
                     Err(e) => {
                         eprintln!("Error disconnecting: {:?}", e);
-                        send_reply(reply_sender, -1).await;
+                        send_reply(reply_sender, Err(-1)).await;
                     }
                 }
             }
             LanceDbCommand::DropDatabase { connection_handle, reply_sender } => {
-                if let Some(cnn) = connection_factory.get_connection(ConnectionHandle(connection_handle)) {
+                if let Some(cnn) = connection_factory.get_connection(connection_handle) {
                     match cnn.drop_db().await {
                         Ok(_) => {
-                            send_reply(reply_sender, 0).await;
+                            send_reply(reply_sender, Ok(())).await;
                         }
                         Err(e) => {
                             let error_index = add_error(e.to_string());
                             eprintln!("Error dropping database: {:?}", e);
-                            send_reply(reply_sender, error_index).await;
+                            send_reply(reply_sender, Err(error_index)).await;
                         }
                     }
                 } else {
-                    eprintln!("Connection handle {connection_handle} not found.");
-                    send_reply(reply_sender, -1).await;
+                    eprintln!("Connection handle {} not found.", connection_handle.0);
+                    send_reply(reply_sender, Err(-1)).await;
                 }
             }
             LanceDbCommand::SendRecordBatch { batch, reply_sender } => {
                 let handle = batch_handler.add_batch(batch);
-                send_reply(reply_sender, handle).await;
+                send_reply(reply_sender, Ok(handle)).await;
             }
             LanceDbCommand::FreeRecordBatch { handle, reply_sender } => {
                 batch_handler.free_if_exists(handle);
-                send_reply(reply_sender, 0).await;
+                send_reply(reply_sender, Ok(())).await;
             }
             LanceDbCommand::CreateTableWithSchema { name, connection_handle, schema, reply_sender } => {
-                let mut result = -1;
-                if let Some(cnn) = connection_factory.get_connection(ConnectionHandle(connection_handle)) {
+                let mut result = Err(-1);
+                if let Some(cnn) = connection_factory.get_connection(connection_handle) {
                     match table_handler.add_empty_table(&name, cnn, schema).await {
                         Ok(handle) => {
-                            result = handle;
+                            result = Ok(handle);
                         }
                         Err(e) => {
                             let error_index = add_error(e.to_string());
                             eprintln!("Error creating table: {:?}", e);
-                            result = error_index;
+                            result = Err(error_index);
                         }
                     }
                 }
                 send_reply(reply_sender, result).await;
             }
             LanceDbCommand::CreateTableWithData { name, connection_handle, schema, record_batch, reply_sender,  } => {
-                let mut result = -1;
-                if let Some(cnn) = connection_factory.get_connection(ConnectionHandle(connection_handle)) {
+                let mut result = Err(-1);
+                if let Some(cnn) = connection_factory.get_connection(connection_handle) {
                     let data = RecordBatchIterator::new(record_batch, schema);
                     match table_handler.add_table(&name, cnn, data).await {
                         Ok(handle) => {
-                            result = handle;
+                            result = Ok(handle);
                         }
                         Err(e) => {
                             let error_index = add_error(e.to_string());
                             eprintln!("Error creating table: {:?}", e);
-                            result = error_index;
+                            result = Err(error_index);
                         }
                     }
                 } else {
-                    eprintln!("Connection handle {connection_handle} not found.");
+                    eprintln!("Connection handle {} not found.", connection_handle.0);
                 }
                 send_reply(reply_sender, result).await;
             }
             LanceDbCommand::OpenTable { name, connection_handle, reply_sender } => {
-                let mut result = -1;
-                if let Some(cnn) = connection_factory.get_connection(ConnectionHandle(connection_handle)) {
+                let mut result = Err(-1);
+                let mut schema = None;
+                if let Some(cnn) = connection_factory.get_connection(connection_handle) {
                     match table_handler.open_table(&name, cnn).await {
-                        Ok(handle) => {
-                            result = handle;
+                        Ok((handle, table_schema)) => {
+                            result = Ok(handle);
+                            schema = Some(table_schema);
                         }
                         Err(e) => {
                             let error_index = add_error(e.to_string());
                             eprintln!("Error opening table: {:?}", e);
-                            result = error_index;
+                            result = Err(error_index);
                         }
                     }
                 } else {
-                    eprintln!("Connection handle {connection_handle} not found.");
+                    eprintln!("Connection handle {} not found.", connection_handle.0);
                 }
                 send_reply(reply_sender, result).await;
             }
             LanceDbCommand::ListTableNames { connection_handle, reply_sender } => {
                 let mut result = -1;
-                if let Some(cnn) = connection_factory.get_connection(ConnectionHandle(connection_handle)) {
+                if let Some(cnn) = connection_factory.get_connection(connection_handle) {
                     match cnn.table_names().execute().await {
                         Ok(tables) => {
                             let string_handle = add_string_list(tables);
@@ -192,30 +194,34 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                         }
                     }
                 } else {
-                    eprintln!("Connection handle {connection_handle} not found.");
+                    eprintln!("Connection handle {} not found.", connection_handle.0);
                 }
                 send_reply(reply_sender, result).await;
             }
             LanceDbCommand::DropTable { name, connection_handle, reply_sender } => {
-                let mut result = -1;
-                if let Some(cnn) = connection_factory.get_connection(ConnectionHandle(connection_handle)) {
+                let mut result = Err(-1);
+                if let Some(cnn) = connection_factory.get_connection(connection_handle) {
                     match table_handler.drop_table(&name, cnn).await {
                         Ok(_) => {
-                            result = 0;
+                            result = Ok(());
                         }
                         Err(e) => {
                             let error_index = add_error(e.to_string());
                             eprintln!("Error dropping table: {:?}", e);
-                            result = error_index;
+                            result = Err(error_index);
                         }
                     }
                 } else {
-                    eprintln!("Connection handle {connection_handle} not found.");
+                    eprintln!("Connection handle {} not found.", connection_handle.0);
                 }
                 send_reply(reply_sender, result).await;
             }
+            LanceDbCommand::CloseTable { connection_handle, table_handle, reply_sender } => {
+                table_handler.release_table_handle(table_handle).await;
+                send_reply(reply_sender, Ok(())).await;
+            }
             LanceDbCommand::QueryNearest { limit, vector, table_handle, reply_sender } => {
-                let mut result = -1;
+                let mut result = Err(-1);
                 if let Ok(table) = table_handler.get_table_from_cache(table_handle).await {
                     if let Ok(query_builder) = table
                         .query()
@@ -233,7 +239,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                                 let batch_handle = batch_handler.add_batch(batch);
                                 let blob = batch_handler.batch_as_bytes(batch_handle);
                                 let blob_handle = blob_handler.add_blob(blob);
-                                result = blob_handle;
+                                result = Ok(blob_handle);
                             }
                             // Do something with it
                             //println!("{:?}", query.try_collect::<Vec<_>>().await);
@@ -244,13 +250,13 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                         eprintln!("Error creating query.");
                     }
                 } else {
-                    eprintln!("Table {table_handle} not found.");
+                    eprintln!("Table {} not found.", table_handle.0);
                 }
                 send_reply(reply_sender, result).await;
             }
             LanceDbCommand::FreeBlob { handle, reply_sender } => {
                 blob_handler.free_if_exists(handle);
-                send_reply(reply_sender, 0).await;
+                send_reply(reply_sender, Ok(())).await;
             }
             LanceDbCommand::BlobLen { handle, reply_sender } => {
                 let len = blob_handler.blob_len(handle);
@@ -284,7 +290,7 @@ pub extern "C" fn submit_record_batch(batch: *const u8, len: usize) -> i64 {
                 .into_iter()
                 .collect::<Vec<_>>();
 
-            let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+            let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<RecordBatchHandle, i64>>();
             if send_command(LanceDbCommand::SendRecordBatch {
                 batch: batches,
                 reply_sender: reply_tx,
@@ -292,10 +298,14 @@ pub extern "C" fn submit_record_batch(batch: *const u8, len: usize) -> i64 {
                 eprintln!("Error sending record batch command. Are we setup?");
                 return -1;
             }
-            reply_rx.blocking_recv().unwrap_or_else(|e| {
+            let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
                 eprintln!("Error receiving record batch response: {:?}", e);
-                -1
-            })
+                Err(-1)
+            });
+            match result {
+                Ok(handle) => handle.0,
+                Err(e) => e,
+            }
         }
         Err(e) => {
             let error_index = add_error(e.to_string());
@@ -312,17 +322,21 @@ pub extern "C" fn submit_record_batch(batch: *const u8, len: usize) -> i64 {
 /// freed.
 #[no_mangle]
 pub extern "C" fn free_record_batch(handle: i64) -> i64 {
-    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<(), i64>>();
     if send_command(LanceDbCommand::FreeRecordBatch {
-        handle,
+        handle: RecordBatchHandle(handle),
         reply_sender: reply_tx,
     }).is_err() {
         return -1;
     }
-    reply_rx.blocking_recv().unwrap_or_else(|e| {
+    let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
         eprintln!("Error receiving free record batch response: {:?}", e);
-        -1
-    })
+        Err(-1)
+    });
+    match result {
+        Ok(_) => 0,
+        Err(e) => e,
+    }
 }
 
 /// Create a table in the database. This function will create a table
@@ -337,21 +351,25 @@ pub extern "C" fn create_table(name: *const c_char, connection_handle: i64, batc
                 .into_iter()
                 .collect::<Vec<_>>();
             let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
-            let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+            let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<TableHandle, i64>>();
 
             if send_command(LanceDbCommand::CreateTableWithData {
                 name,
-                connection_handle,
+                connection_handle: ConnectionHandle(connection_handle),
                 schema,
                 record_batch: batches,
                 reply_sender: reply_tx,
             }).is_err() {
                 return -1;
             }
-            reply_rx.blocking_recv().unwrap_or_else(|e| {
+            let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
                 eprintln!("Error receiving create table response: {:?}", e);
-                -1
-            })
+                Err(-1)
+            });
+            match result {
+                Ok(handle) => handle.0,
+                Err(e) => e,
+            }
         }
         Err(e) => {
             let error_index = add_error(e.to_string());
@@ -370,19 +388,23 @@ pub extern "C" fn create_empty_table(name: *const c_char, connection_handle: i64
         Ok(reader) => {
             let schema: SchemaRef = reader.schema();
             let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
-            let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+            let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<TableHandle, i64>>();
             if send_command(LanceDbCommand::CreateTableWithSchema {
                 name,
-                connection_handle,
+                connection_handle: ConnectionHandle(connection_handle),
                 schema,
                 reply_sender: reply_tx,
             }).is_err() {
                 return -1;
             }
-            reply_rx.blocking_recv().unwrap_or_else(|e| {
+            let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
                 eprintln!("Error receiving create table response: {:?}", e);
-                -1
-            })
+                Err(-1)
+            });
+            match result {
+                Ok(handle) => handle.0,
+                Err(e) => e,
+            }
         }
         Err(e) => {
             let error_index = add_error(e.to_string());
@@ -397,18 +419,22 @@ pub extern "C" fn create_empty_table(name: *const c_char, connection_handle: i64
 #[no_mangle]
 pub extern "C" fn open_table(name: *const c_char, connection_handle: i64) -> i64 {
     let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
-    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<TableHandle, i64>>();
     if send_command(LanceDbCommand::OpenTable {
         name,
-        connection_handle,
+        connection_handle: ConnectionHandle(connection_handle),
         reply_sender: reply_tx,
     }).is_err() {
         return -1;
     }
-    reply_rx.blocking_recv().unwrap_or_else(|e| {
+    let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
         eprintln!("Error receiving open table response: {:?}", e);
-        -1
-    })
+        Err(-1)
+    });
+    match result {
+        Ok(handle) => handle.0,
+        Err(e) => e,
+    }
 }
 
 /// Get a handle to a list of table names in the database.
@@ -416,7 +442,7 @@ pub extern "C" fn open_table(name: *const c_char, connection_handle: i64) -> i64
 pub extern "C" fn list_table_names(connection_handle: i64) -> i64 {
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
     if send_command(LanceDbCommand::ListTableNames {
-        connection_handle,
+        connection_handle: ConnectionHandle(connection_handle),
         reply_sender: reply_tx,
     }).is_err() {
         return -1;
@@ -433,35 +459,43 @@ pub extern "C" fn list_table_names(connection_handle: i64) -> i64 {
 #[no_mangle]
 pub extern "C" fn drop_table(name: *const c_char, connection_handle: i64) -> i64 {
     let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
-    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<(), i64>>();
     if send_command(LanceDbCommand::DropTable {
         name,
-        connection_handle,
+        connection_handle: ConnectionHandle(connection_handle),
         reply_sender: reply_tx,
     }).is_err() {
         return -1;
     }
-    reply_rx.blocking_recv().unwrap_or_else(|e| {
+    let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
         eprintln!("Error receiving drop table response: {:?}", e);
-        -1
-    })
+        Err(-1)
+    });
+    match result {
+        Ok(_) => 0,
+        Err(e) => e,
+    }
 }
 
 /// Drop a database from the connection. This function will drop the
 /// database associated with the connection handle.
 #[no_mangle]
 pub extern "C" fn drop_database(connection_handle: i64) -> i64 {
-    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<(), i64>>();
     if send_command(LanceDbCommand::DropDatabase {
-        connection_handle,
+        connection_handle: ConnectionHandle(connection_handle),
         reply_sender: reply_tx,
     }).is_err() {
         return -1;
     }
-    reply_rx.blocking_recv().unwrap_or_else(|e| {
+    let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
         eprintln!("Error receiving drop database response: {:?}", e);
-        -1
-    })
+        Err(-1)
+    });
+    match result {
+        Ok(_) => 0,
+        Err(e) => e,
+    }
 }
 
 /// Query the database for the nearest records to a given vector.
@@ -471,36 +505,44 @@ pub extern "C" fn query_nearest_to(limit: u64, vector: *const f32, vector_len: u
     let vector = unsafe { std::slice::from_raw_parts(vector, vector_len) };
     let vector = vector.to_vec();
 
-    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<BlobHandle, i64>>();
     send_command(LanceDbCommand::QueryNearest {
         limit,
         vector,
-        table_handle,
+        table_handle: TableHandle(table_handle),
         reply_sender: reply_tx,
     }).unwrap_or_else(|e| {
         eprintln!("Error sending query nearest command: {:?}", e);
     });
-    reply_rx.blocking_recv().unwrap_or_else(|e| {
+    let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
         eprintln!("Error receiving create table response: {:?}", e);
-        -1
-    })
+        Err(-1)
+    });
+    match result {
+        Ok(handle) => handle.0,
+        Err(e) => e,
+    }
 }
 
 /// Free a blob from memory. This function should be called when you're
 /// done with a blob.
 #[no_mangle]
 pub extern "C" fn free_blob(handle: i64) -> i64 {
-    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<(), i64>>();
     if send_command(LanceDbCommand::FreeBlob {
-        handle,
+        handle: BlobHandle(handle),
         reply_sender: reply_tx,
     }).is_err() {
         return -1;
     }
-    reply_rx.blocking_recv().unwrap_or_else(|e| {
+    let response = reply_rx.blocking_recv().unwrap_or_else(|e| {
         eprintln!("Error receiving free blob response: {:?}", e);
-        -1
-    })
+        Err(-1)
+    });
+    match response {
+        Ok(_) => 0,
+        Err(e) => e,
+    }
 }
 
 /// Get the length of a blob. This is necessary because the C ABI
@@ -510,7 +552,7 @@ pub extern "C" fn free_blob(handle: i64) -> i64 {
 pub extern "C" fn blob_len(handle: i64) -> i64 {
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Option<isize>>();
     if send_command(LanceDbCommand::BlobLen {
-        handle,
+        handle: BlobHandle(handle),
         reply_sender: reply_tx,
     }).is_err() {
         return -1;
@@ -537,7 +579,7 @@ pub extern "C" fn blob_len(handle: i64) -> i64 {
 pub extern "C" fn get_blob_data(handle: i64) -> *const u8 {
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Option<std::sync::Arc<Vec<u8>>>>();
     if send_command(LanceDbCommand::GetBlobPointer {
-        handle,
+        handle: BlobHandle(handle),
         reply_sender: reply_tx,
     }).is_err() {
         return std::ptr::null();
@@ -552,5 +594,26 @@ pub extern "C" fn get_blob_data(handle: i64) -> *const u8 {
         ptr
     } else {
         std::ptr::null()
+    }
+}
+
+/// Close a table
+#[no_mangle]
+pub extern "C" fn close_table(connection_handle: i64, table_handle: i64) -> i64 {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<(), i64>>();
+    if send_command(LanceDbCommand::CloseTable {
+        connection_handle: ConnectionHandle(connection_handle),
+        table_handle: TableHandle(table_handle),
+        reply_sender: reply_tx,
+    }).is_err() {
+        return -1;
+    }
+    let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
+        eprintln!("Error receiving close table response: {:?}", e);
+        Err(-1)
+    });
+    match result {
+        Ok(_) => 0,
+        Err(e) => e,
     }
 }

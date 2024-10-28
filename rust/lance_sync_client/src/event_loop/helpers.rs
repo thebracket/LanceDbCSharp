@@ -1,7 +1,6 @@
 use crate::event_loop::command::LanceDbCommand;
 use crate::event_loop::COMMAND_SENDER;
-use anyhow::{Result, Context};
-use crate::event_loop::lifecycle::is_already_setup;
+use anyhow::Result;
 
 pub(super) fn send_command(command: LanceDbCommand) -> Result<()> {
     if let Some(tx) = COMMAND_SENDER.get() {

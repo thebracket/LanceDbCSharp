@@ -3,7 +3,10 @@ use std::sync::atomic::AtomicI64;
 use lancedb::{Connection, Table};
 use lancedb::arrow::IntoArrow;
 use anyhow::Result;
-use arrow_schema::{Schema, SchemaRef};
+use arrow_schema::SchemaRef;
+
+#[derive(Debug, Copy, Clone)]
+pub(crate) struct TableHandle(pub(crate) i64); // Unique identifier for the connection
 
 pub struct TableHandler {
     next_handle: AtomicI64,
@@ -18,7 +21,7 @@ impl TableHandler {
         }
     }
 
-    pub async fn add_table(&mut self, table_name: &str, db: &Connection, data: impl IntoArrow) -> Result<i64> {
+    pub async fn add_table(&mut self, table_name: &str, db: &Connection, data: impl IntoArrow) -> Result<TableHandle> {
         let table = db.create_table(table_name, data)
             .execute()
             .await
@@ -26,10 +29,10 @@ impl TableHandler {
             ?;
         let next_handle = self.next_handle.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         self.tables.insert(next_handle, table);
-        Ok(next_handle)
+        Ok(TableHandle(next_handle))
     }
 
-    pub async fn add_empty_table(&mut self, table_name: &str, db: &Connection, schema: SchemaRef) -> Result<i64> {
+    pub async fn add_empty_table(&mut self, table_name: &str, db: &Connection, schema: SchemaRef) -> Result<TableHandle> {
         let table = db.create_empty_table(table_name, schema.into())
             .execute()
             .await
@@ -37,23 +40,24 @@ impl TableHandler {
             ?;
         let next_handle = self.next_handle.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         self.tables.insert(next_handle, table);
-        Ok(next_handle)
+        Ok(TableHandle(next_handle))
     }
 
-    pub async fn get_table_from_cache(&self, table_handle: i64) -> Result<Table> {
-        self.tables.get(&table_handle)
+    pub async fn get_table_from_cache(&self, table_handle: TableHandle) -> Result<Table> {
+        self.tables.get(&table_handle.0)
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("Table not found"))
     }
 
-    pub async fn open_table(&mut self, table_name: &str, db: &Connection) -> Result<i64> {
+    pub async fn open_table(&mut self, table_name: &str, db: &Connection) -> Result<(TableHandle, SchemaRef)> {
         let table = db.open_table(table_name)
             .execute()
             .await
             .inspect_err(|e| eprintln!("Error opening table: {e:?}"))?;
         let next_handle = self.next_handle.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let schema = table.schema().await?;
         self.tables.insert(next_handle, table);
-        Ok(next_handle)
+        Ok((TableHandle(next_handle), schema))
     }
 
     pub async fn drop_table(&mut self, name: &str, db: &Connection) -> Result<()> {
@@ -72,5 +76,9 @@ impl TableHandler {
             .await
             .inspect_err(|e| eprintln!("Error dropping table: {e:?}"))?;
         Ok(())
+    }
+
+    pub async fn release_table_handle(&mut self, table_handle: TableHandle) {
+        self.tables.remove(&table_handle.0);
     }
 }
