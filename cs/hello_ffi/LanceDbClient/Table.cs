@@ -5,7 +5,7 @@ namespace LanceDbClient;
 //TODO: Implement IDiposable and the matching FFI call
 public class Table : IDisposable
 {
-    internal Table(string name, long tableId, long connectionId, Schema? schema)
+    internal Table(string name, long tableId, long connectionId, Schema schema)
     {
         _name = name;
         _tableId = tableId;
@@ -16,18 +16,7 @@ public class Table : IDisposable
     private string _name;
     private readonly long _tableId;
     private readonly long _connectionHandle;
-
-    Schema? schema
-    {
-        get
-        {
-            if (this.schema == null)
-            {
-                // TODO: Fetch it.
-            }
-            return this.schema;
-        }
-    }
+    private Schema schema { get; }
     
     ~Table()
     {

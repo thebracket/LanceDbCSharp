@@ -1,4 +1,5 @@
-﻿using Apache.Arrow;
+﻿using System.Runtime.InteropServices;
+using Apache.Arrow;
 
 namespace LanceDbClient;
 
@@ -78,14 +79,28 @@ public class Connection : IDisposable
         {
             throw new Exception("Connection is not open");
         }
-        var tableHandle = Ffi.open_table(name, _connectionId);
+
+        var tableHandle = -1L;
+        Schema? schema = null;
+        unsafe
+        {
+            tableHandle = Ffi.open_table(name, _connectionId,
+                (bytes, len) =>
+                {
+                    // Convert byte pointer and length to byte[]
+                    var schemaBytes = new byte[len];
+                    Marshal.Copy((IntPtr)bytes, schemaBytes, 0, (int)len);
+                    schema = Ffi.DeserializeSchema(schemaBytes);
+                });
+        }
+
         if (tableHandle < 0)
         {
             var errorMessage = Ffi.GetErrorMessageOnce(tableHandle);
             throw new Exception("Failed to open the table: " + errorMessage);
         }
 
-        return new Table(name, tableHandle, _connectionId, null);
+        return new Table(name, tableHandle, _connectionId, schema);
     }
     
     public void DropTable(string name, bool ignoreMissing = false)

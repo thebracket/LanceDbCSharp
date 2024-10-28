@@ -30,6 +30,7 @@ pub use lifecycle::{setup, shutdown};
 pub use connection::{connect, disconnect};
 pub use errors::{get_error_message, free_error_message};
 use crate::event_loop::errors::add_error;
+use crate::serialization::schema_to_bytes;
 use crate::string_list_handler::add_string_list;
 
 /// This static variable holds the sender for the LanceDB command.
@@ -153,12 +154,10 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
             }
             LanceDbCommand::OpenTable { name, connection_handle, reply_sender } => {
                 let mut result = Err(-1);
-                let mut schema = None;
                 if let Some(cnn) = connection_factory.get_connection(connection_handle) {
                     match table_handler.open_table(&name, cnn).await {
                         Ok((handle, table_schema)) => {
-                            result = Ok(handle);
-                            schema = Some(table_schema);
+                            result = Ok((handle, table_schema));
                         }
                         Err(e) => {
                             let error_index = add_error(e.to_string());
@@ -417,9 +416,9 @@ pub extern "C" fn create_empty_table(name: *const c_char, connection_handle: i64
 /// Open a table in the database. This function will open a table with
 /// the given name, using the connection provided.
 #[no_mangle]
-pub extern "C" fn open_table(name: *const c_char, connection_handle: i64) -> i64 {
+pub extern "C" fn open_table(name: *const c_char, connection_handle: i64, schema_callback: Option<extern "C" fn(bytes: *const u8, len: u64)>) -> i64 {
     let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
-    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<TableHandle, i64>>();
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<(TableHandle, SchemaRef), i64>>();
     if send_command(LanceDbCommand::OpenTable {
         name,
         connection_handle: ConnectionHandle(connection_handle),
@@ -431,8 +430,12 @@ pub extern "C" fn open_table(name: *const c_char, connection_handle: i64) -> i64
         eprintln!("Error receiving open table response: {:?}", e);
         Err(-1)
     });
+    if let Some(schema_callback) = schema_callback {
+        let bytes = schema_to_bytes(&result.as_ref().unwrap().1);
+        schema_callback(bytes.as_ptr(), bytes.len() as u64);
+    }
     match result {
-        Ok(handle) => handle.0,
+        Ok(handle) => handle.0.0,
         Err(e) => e,
     }
 }

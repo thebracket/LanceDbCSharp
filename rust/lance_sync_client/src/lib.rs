@@ -21,6 +21,7 @@ pub(crate) mod batch_handler;
 mod table_handler;
 mod blob_handler;
 mod string_list_handler;
+mod serialization;
 
 pub use event_loop::setup;
 pub use event_loop::shutdown;

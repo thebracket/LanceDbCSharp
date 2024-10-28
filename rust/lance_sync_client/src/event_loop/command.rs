@@ -55,7 +55,7 @@ pub(crate) enum LanceDbCommand {
     OpenTable {
         name: String,
         connection_handle: ConnectionHandle,
-        reply_sender: tokio::sync::oneshot::Sender<Result<TableHandle, i64>>,
+        reply_sender: tokio::sync::oneshot::Sender<Result<(TableHandle, SchemaRef), i64>>,
     },
 
     ListTableNames {

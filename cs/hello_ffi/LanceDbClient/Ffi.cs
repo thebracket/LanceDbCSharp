@@ -49,8 +49,11 @@ static partial class Ffi
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern unsafe long create_table(string name, long connectionHandle,byte* records, ulong recordsLength);
     
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal unsafe delegate void SetSchemaCallback(byte* schema, ulong schemaLength);
+    
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern long open_table(string name, long connectionHandle);
+    internal static extern long open_table(string name, long connectionHandle, SetSchemaCallback callback);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern long drop_table(string name, long connectionHandle);
@@ -98,6 +101,13 @@ static partial class Ffi
         }
 
         return ms.ToArray();
+    }
+    
+    internal static Schema DeserializeSchema(byte[] schemaBytes)
+    {
+        using var ms = new MemoryStream(schemaBytes);
+        using var reader = new ArrowFileReader(ms);
+        return reader.Schema;
     }
 
     internal static string GetErrorMessageOnce(long index)
