@@ -60,7 +60,7 @@ pub(crate) enum LanceDbCommand {
 
     ListTableNames {
         connection_handle: ConnectionHandle,
-        reply_sender: tokio::sync::oneshot::Sender<i64>,
+        reply_sender: tokio::sync::oneshot::Sender<Result<Vec<String>, i64>>,
     },
 
     CloseTable {

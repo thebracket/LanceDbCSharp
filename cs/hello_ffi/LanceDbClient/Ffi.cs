@@ -58,9 +58,12 @@ static partial class Ffi
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern long drop_table(string name, long connectionHandle);
 
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate void StringCallback(string s);
+    
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
-    internal static partial long list_table_names(long connectionHandle);
+    internal static partial long list_table_names(long connectionHandle, StringCallback stringCallback);
 
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
@@ -115,34 +118,6 @@ static partial class Ffi
         var message = get_error_message(index);
         free_error_message(index);
         return message;
-    }
-    
-    [LibraryImport(DllName)]
-    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
-    private static partial IntPtr get_string_list(long id, out ulong length);
-
-    [LibraryImport(DllName)]
-    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
-    private static partial void free_string_list(long id);
-    
-    internal static string[] GetStringList(long id)
-    {
-        var strings = new List<string>();
-        var ptr = get_string_list(id, out var length);
-        for (ulong i = 0; i < length; i++)
-        {
-            var s = Marshal.PtrToStringAnsi(Marshal.ReadIntPtr(ptr, (int)i * IntPtr.Size));
-            if (s != null)
-            {
-                strings.Add(s);
-            }
-            else
-            {
-                Console.WriteLine("WARNING: Null string in list");
-            }
-        }
-        free_string_list(id);
-        return strings.ToArray();
     }
 }
 

@@ -36,13 +36,13 @@ public class Connection : IDisposable
         {
             throw new Exception("Connection is not open");
         }
-        var tableNamesHandle = Ffi.list_table_names(_connectionId);
+        var strings = new List<string>();
+        var tableNamesHandle = Ffi.list_table_names(_connectionId, s => strings.Add(s));
         if (tableNamesHandle < 0)
         {
             var errorMessage = Ffi.GetErrorMessageOnce(tableNamesHandle);
             throw new Exception("Failed to get the table names: " + errorMessage);
         }
-        var strings = Ffi.GetStringList(tableNamesHandle);
         return strings;
     }
 

@@ -31,7 +31,6 @@ pub use connection::{connect, disconnect};
 pub use errors::{get_error_message, free_error_message};
 use crate::event_loop::errors::add_error;
 use crate::serialization::schema_to_bytes;
-use crate::string_list_handler::add_string_list;
 
 /// This static variable holds the sender for the LanceDB command.
 pub(crate) static COMMAND_SENDER: OnceLock<Sender<LanceDbCommand>> = OnceLock::new();
@@ -171,25 +170,16 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                 send_reply(reply_sender, result).await;
             }
             LanceDbCommand::ListTableNames { connection_handle, reply_sender } => {
-                let mut result = -1;
+                let mut result = Err(-1);
                 if let Some(cnn) = connection_factory.get_connection(connection_handle) {
                     match cnn.table_names().execute().await {
                         Ok(tables) => {
-                            let string_handle = add_string_list(tables);
-                            match string_handle {
-                                Ok(handle) => {
-                                    result = handle;
-                                }
-                                Err(e) => {
-                                    eprintln!("Error adding string list: {:?}", e);
-                                    result = add_error(e.to_string());
-                                }
-                            }
+                            result = Ok(tables);
                         }
                         Err(e) => {
                             let error_index = add_error(e.to_string());
                             eprintln!("Error listing table names: {:?}", e);
-                            result = error_index;
+                            result = Err(error_index);
                         }
                     }
                 } else {
@@ -442,18 +432,30 @@ pub extern "C" fn open_table(name: *const c_char, connection_handle: i64, schema
 
 /// Get a handle to a list of table names in the database.
 #[no_mangle]
-pub extern "C" fn list_table_names(connection_handle: i64) -> i64 {
-    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<i64>();
+pub extern "C" fn list_table_names(connection_handle: i64, string_callback: Option<extern "C" fn(*const c_char)>) -> i64 {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel::<Result<Vec<String>, i64>>();
     if send_command(LanceDbCommand::ListTableNames {
         connection_handle: ConnectionHandle(connection_handle),
         reply_sender: reply_tx,
     }).is_err() {
         return -1;
     }
-    reply_rx.blocking_recv().unwrap_or_else(|e| {
+    let result = reply_rx.blocking_recv().unwrap_or_else(|e| {
         eprintln!("Error receiving list table names response: {:?}", e);
-        -1
-    })
+        Err(-1)
+    });
+    match result {
+        Err(e) => e,
+        Ok(tables) => {
+            if let Some(string_callback) = string_callback {
+                for table in tables {
+                    let c_str = std::ffi::CString::new(table).unwrap();
+                    string_callback(c_str.as_ptr());
+                }
+            }
+            0
+        }
+    }
 }
 
 /// Drop a table from the database. This function will drop a table with
