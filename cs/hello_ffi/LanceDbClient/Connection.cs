@@ -10,7 +10,7 @@ public class Connection : IDisposable
     // </summary>
     // <param name="uri">The URI of the database to connect to.</param>
     // <exception cref="Exception">If the connection fails.</exception>
-    public Connection(Uri uri)
+    public Connection(string uri)
     {
         var cnnHandle = Ffi.connect(uri.ToString());
         if (cnnHandle < 0)
@@ -165,7 +165,7 @@ public class Connection : IDisposable
 
     private long _connectionId;
     private bool _connected;
-    public Uri uri { get; private set; }
+    public string uri { get; private set; }
     // TODO: I'm not sure this is necessary?
     public bool isOpen { get; private set; }
 }

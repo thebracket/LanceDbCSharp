@@ -6,7 +6,10 @@ namespace LanceDbClient;
 
 static partial class Ffi
 {
-    private const string DllName = "../../../../../../rust/target/debug/liblance_sync_client.so";
+    // Use this one for local builds
+    //private const string DllName = "../../../../../../rust/target/debug/liblance_sync_client.so";
+    // Use this one for Docker 
+    private const string DllName = "liblance_sync_client.so";
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern long connect(string uri);
