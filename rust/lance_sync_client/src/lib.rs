@@ -15,7 +15,7 @@
 const MAX_COMMANDS: usize = 100;
 
 mod event_loop;
-mod connection_handle;
+mod connection_handler;
 mod testing;
 pub(crate) mod batch_handler;
 mod table_handler;
@@ -32,3 +32,4 @@ pub use event_loop::free_blob;
 pub use event_loop::blob_len;
 pub use event_loop::get_blob_data;
 pub use event_loop::{get_error_message, free_error_message};
+pub(crate) use event_loop::report_result;

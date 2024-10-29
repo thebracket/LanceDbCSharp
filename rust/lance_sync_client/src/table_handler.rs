@@ -1,88 +1,122 @@
 use std::collections::HashMap;
-use std::sync::atomic::AtomicI64;
 use lancedb::{Connection, Table};
-use lancedb::arrow::IntoArrow;
-use anyhow::Result;
 use arrow_schema::SchemaRef;
+use tokio::sync::mpsc::Sender;
+use crate::connection_handler::{ConnectionCommand, ConnectionHandle};
+use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorReportFn};
 
-#[derive(Debug, Copy, Clone)]
+/// Strongly typed table handle (to disambiguate from the other handles).
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub(crate) struct TableHandle(pub(crate) i64); // Unique identifier for the connection
 
-pub struct TableHandler {
-    next_handle: AtomicI64,
-    tables: HashMap<i64, Table>,
+pub enum TableCommand {
+    AddEmptyTable {
+        name: String,
+        schema: SchemaRef,
+        connections: Sender<ConnectionCommand>,
+        connection_handle: ConnectionHandle,
+        reply_sender: ErrorReportFn,
+        completion_sender: CompletionSender,
+    },
+    GetTable {
+        handle: TableHandle,
+        reply_sender: tokio::sync::oneshot::Sender<Option<Table>>,
+    },
+    GetTableByName {
+        name: String,
+        connection_handle: ConnectionHandle,
+        connections: Sender<ConnectionCommand>,
+        reply_sender: tokio::sync::oneshot::Sender<Result<TableHandle, String>>,
+    },
+    DropTable {
+        name: String,
+        connection_handle: ConnectionHandle,
+        connections: Sender<ConnectionCommand>,
+        reply_sender: ErrorReportFn,
+        completion_sender: CompletionSender,
+    },
+    Quit,
 }
 
-impl TableHandler {
-    pub fn new() -> Self {
-        Self {
-            next_handle: AtomicI64::new(0),
-            tables: HashMap::new(),
-        }
-    }
+pub(crate) struct TableActor;
 
-    pub async fn add_table(&mut self, table_name: &str, db: &Connection, data: impl IntoArrow) -> Result<TableHandle> {
-        let table = db.create_table(table_name, data)
-            .execute()
-            .await
-            .inspect_err(|e| eprintln!("Error creating table: {e:?}"))
-            ?;
-        let next_handle = self.next_handle.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        self.tables.insert(next_handle, table);
-        Ok(TableHandle(next_handle))
-    }
+impl TableActor {
+    pub(crate) async fn start() -> Sender<TableCommand> {
+        let (tx, mut rx) = tokio::sync::mpsc::channel(128);
+        tokio::spawn(async move {
+            let mut next_id = 1_i64;
+            let mut tables = HashMap::new();
 
-    pub async fn add_empty_table(&mut self, table_name: &str, db: &Connection, schema: SchemaRef) -> Result<TableHandle> {
-        let table = db.create_empty_table(table_name, schema.into())
-            .execute()
-            .await
-            .inspect_err(|e| eprintln!("Error creating table: {e:?}"))
-            ?;
-        let next_handle = self.next_handle.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        self.tables.insert(next_handle, table);
-        Ok(TableHandle(next_handle))
-    }
-
-    pub async fn get_table_from_cache(&self, table_handle: TableHandle) -> Result<Table> {
-        self.tables.get(&table_handle.0)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("Table not found"))
-    }
-
-    pub async fn open_table(&mut self, table_name: &str, db: &Connection) -> Result<(TableHandle, SchemaRef)> {
-        let table = db.open_table(table_name)
-            .execute()
-            .await
-            .inspect_err(|e| eprintln!("Error opening table: {e:?}"))?;
-        let next_handle = self.next_handle.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        let schema = table.schema().await?;
-        self.tables.insert(next_handle, table);
-        Ok((TableHandle(next_handle), schema))
-    }
-
-    pub async fn drop_table(&mut self, name: &str, db: &Connection) -> Result<()> {
-        // Remove from the table cache
-        let handles_to_remove: Vec<i64> = self.tables.iter()
-            .filter(|(_, table)| table.name() == name)
-            .map(|(handle, _)| *handle)
-            .collect();
-
-        for handle in handles_to_remove {
-            self.tables.remove(&handle);
-        }
-
-        // Perform the drop
-        db.drop_table(name)
-            .await
-            .inspect_err(|e| eprintln!("Error dropping table: {e:?}"))?;
-        Ok(())
-    }
-
-    pub async fn release_table_handle(&mut self, table_handle: TableHandle) {
-        self.tables.remove(&table_handle.0);
-    }
-
-    pub fn clear(&mut self) {
-        self.tables.clear();
+            while let Some(command) = rx.recv().await {
+                match command {
+                    TableCommand::AddEmptyTable { name, schema, connections, connection_handle, reply_sender, completion_sender } => {
+                        let Some(cnn) = get_connection(connections.clone(), connection_handle).await else {
+                            report_result(Err("Error getting connection".to_string()), reply_sender, Some(completion_sender));
+                            continue;
+                        };
+                        let table = cnn.create_empty_table(&name, schema.into())
+                            .execute()
+                            .await;
+                        match table {
+                            Ok(t) => {
+                                let new_id = next_id;
+                                next_id += 1;
+                                tables.insert(TableHandle(new_id), t);
+                                report_result(Ok(new_id), reply_sender, Some(completion_sender));
+                            }
+                            Err(e) => {
+                                report_result(Err(format!("Error creating table: {e:?}")), reply_sender, Some(completion_sender));
+                            }
+                        }
+                    }
+                    TableCommand::GetTable { handle, reply_sender } => {
+                        if let Some(table) = tables.get(&handle) {
+                            let _ = reply_sender.send(Some(table.clone()));
+                        } else {
+                            let _ = reply_sender.send(None);
+                        }
+                    }
+                    TableCommand::GetTableByName { name, connection_handle, connections, reply_sender } => {
+                        let Some(cnn) = get_connection(connections.clone(), connection_handle).await else {
+                            let _ = reply_sender.send(Err("Error getting connection".to_string()));
+                            continue;
+                        };
+                        let table = cnn.open_table(&name).await;
+                        match table {
+                            Ok(t) => {
+                                let new_id = next_id;
+                                next_id += 1;
+                                tables.insert(TableHandle(new_id), t);
+                                let _ = reply_sender.send(Ok(TableHandle(new_id)));
+                            }
+                            Err(e) => {
+                                let err = format!("Error opening table: {e:?}");
+                                let _ = reply_sender.send(Err(err));
+                            }
+                        }
+                    }
+                    TableCommand::DropTable { name, connection_handle, connections, reply_sender, completion_sender } => {
+                        let Some(cnn) = get_connection(connections.clone(), connection_handle).await else {
+                            report_result(Err("Error getting connection".to_string()), reply_sender, Some(completion_sender));
+                            continue;
+                        };
+                        let result = cnn.drop_table(&name).await;
+                        match result {
+                            Ok(_) => {
+                                report_result(Ok(0), reply_sender, Some(completion_sender));
+                            }
+                            Err(e) => {
+                                let err = format!("Error dropping table: {e:?}");
+                                report_result(Err(err), reply_sender, Some(completion_sender));
+                            }
+                        }
+                    }
+                    TableCommand::Quit => {
+                        break;
+                    }
+                }
+            }
+        });
+        tx
     }
 }

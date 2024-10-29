@@ -12,13 +12,15 @@ public class Connection : IDisposable
     // <exception cref="Exception">If the connection fails.</exception>
     public Connection(string uri)
     {
-        var cnnHandle = Ffi.connect(uri.ToString());
-        if (cnnHandle < 0)
+        _connectionId = -1L;
+        Ffi.connect(uri.ToString(), ((result, message) =>
         {
-            var errorMessage = Ffi.GetErrorMessageOnce(cnnHandle);
-            throw new Exception("Failed to connect to the database: " + errorMessage);
-        }
-        _connectionId = cnnHandle;
+            _connectionId = result;
+            if (message != null)
+            {
+                throw new Exception(message);
+            }
+        }));
         _connected = true;
         this.uri = uri;
         this.isOpen = true;
@@ -28,15 +30,19 @@ public class Connection : IDisposable
     {
         if (_connectionId < 0)
         {
+            this.isOpen = false;
             throw new Exception("Connection is not open");
         }
         var strings = new List<string>();
-        var tableNamesHandle = Ffi.list_table_names(_connectionId, s => strings.Add(s));
-        if (tableNamesHandle < 0)
-        {
-            var errorMessage = Ffi.GetErrorMessageOnce(tableNamesHandle);
-            throw new Exception("Failed to get the table names: " + errorMessage);
-        }
+        Ffi.list_table_names(_connectionId, 
+            s => strings.Add(s),
+            (code, message) =>
+            {
+                if (code < 0 && message != null)
+                {
+                    throw new Exception("Failed to list table names: " + message);
+                }
+            });
         return strings;
     }
 
@@ -121,12 +127,14 @@ public class Connection : IDisposable
         {
             throw new Exception("Connection is not open");
         }
-        var status = Ffi.drop_database(_connectionId);
-        if (status < 0)
+
+        Ffi.drop_database(_connectionId, (code, message) =>
         {
-            var errorMessage = Ffi.GetErrorMessageOnce(status);
-            throw new Exception("Failed to drop the database: " + errorMessage);
-        }
+            if (code < 0 && message != null)
+            {
+                throw new Exception("Failed to drop the database: " + message);
+            }
+        });
     }
     
     ~Connection()
@@ -153,7 +161,13 @@ public class Connection : IDisposable
 
         if (disposing)
         {
-            Ffi.disconnect(this._connectionId);
+            Ffi.disconnect(this._connectionId, (code, message) =>
+            {
+                if (code < 0 && message != null)
+                {
+                    throw new Exception("Failed to disconnect: " + message);
+                }
+            });
             this.isOpen = false;
         }
 

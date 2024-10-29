@@ -7,24 +7,17 @@ namespace LanceDbClient;
 static partial class Ffi
 {
     // Use this one for local builds
-    //private const string DllName = "../../../../../../rust/target/debug/liblance_sync_client.so";
+    private const string DllName = "../../../../../../rust/target/debug/liblance_sync_client.so";
     // Use this one for Docker 
-    private const string DllName = "liblance_sync_client.so";
+    //private const string DllName = "liblance_sync_client.so";
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern long connect(string uri);
+    internal static extern void connect(string uri, ResultCallback onResult);
     
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
-    internal static partial long disconnect(long handle);
+    internal static partial void disconnect(long handle, ResultCallback onResult);
     
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern unsafe long submit_record_batch(byte* data, ulong length);
-
-    [LibraryImport(DllName)]
-    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
-    internal static partial long free_record_batch(long handle);
-
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern unsafe long create_empty_table(string name, long connectionHandle, byte* schema, ulong schemaLength);
     
@@ -33,6 +26,10 @@ static partial class Ffi
     
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal unsafe delegate void SetSchemaCallback(byte* schema, ulong schemaLength);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal unsafe delegate void ResultCallback(long code, string? message);
+
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern long open_table(string name, long connectionHandle, SetSchemaCallback callback);
@@ -48,7 +45,7 @@ static partial class Ffi
     
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
-    internal static partial long list_table_names(long connectionHandle, StringCallback stringCallback);
+    internal static partial void list_table_names(long connectionHandle, StringCallback stringCallback, ResultCallback onResult);
 
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
@@ -63,22 +60,8 @@ static partial class Ffi
     
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
-    internal static partial long drop_database(long connectionHandle);
-
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern unsafe long query_nearest_to(long limit, float* vector, ulong vectorLength, long tableHandle);
-
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern long free_blob(long blobHandle);
-
-    [LibraryImport(DllName)]
-    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
-    internal static partial long blob_len(long blobHandle);
-
-    // Is there a tag for "really unsafe"? Because this is it.
-    [LibraryImport(DllName)]
-    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
-    internal static unsafe partial byte* get_blob_data(long blobHandle);
+    internal static partial void drop_database(long connectionHandle, ResultCallback onResult);
+    
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     private static extern string get_error_message(long index);

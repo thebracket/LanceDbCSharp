@@ -3,9 +3,30 @@
 //! different threads or outside the event loop.
 
 use std::collections::HashMap;
+use std::ffi::c_char;
 use std::sync::atomic::AtomicI64;
 use std::sync::Mutex;
 use once_cell::sync::Lazy;
+use crate::event_loop::command::CompletionSender;
+
+/// Type signature for error reporting callbacks.
+pub(crate) type ErrorReportFn = fn(i64, *const c_char);
+
+/// Utilize the error reporting callback to report a result.
+pub(crate) fn report_result(result: Result<i64, String>, target: ErrorReportFn, completion_sender: Option<CompletionSender>) {
+    match result {
+        Ok(code) => {
+            target(code, std::ptr::null());
+        }
+        Err(error) => {
+            let error_string = std::ffi::CString::new(error).unwrap();
+            target(-1, error_string.as_ptr());
+        }
+    }
+    if let Some(completion_sender) = completion_sender {
+        completion_sender.send(()).unwrap();
+    }
+}
 
 static ERROR_INDEX: AtomicI64 = AtomicI64::new(-2);
 static ERROR_TABLE: Lazy<Mutex<HashMap<i64, String>>> = Lazy::new(|| Mutex::new(HashMap::new()));
