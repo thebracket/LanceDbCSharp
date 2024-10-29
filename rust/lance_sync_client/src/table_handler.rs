@@ -35,6 +35,7 @@ pub enum TableCommand {
         reply_sender: ErrorReportFn,
         completion_sender: CompletionSender,
     },
+    ReleaseTable { handle: TableHandle },
     Quit,
 }
 
@@ -110,6 +111,9 @@ impl TableActor {
                                 report_result(Err(err), reply_sender, Some(completion_sender));
                             }
                         }
+                    }
+                    TableCommand::ReleaseTable { handle } => {
+                        tables.remove(&handle);
                     }
                     TableCommand::Quit => {
                         break;

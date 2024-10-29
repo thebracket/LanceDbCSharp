@@ -10,21 +10,17 @@ mod connection;
 mod errors;
 
 use std::ffi::c_char;
-use std::io::Cursor;
 use crate::MAX_COMMANDS;
 use std::sync::OnceLock;
 use arrow_array::RecordBatchIterator;
-use arrow_ipc::reader::FileReader;
 use arrow_schema::SchemaRef;
 use futures::TryStreamExt;
 use lancedb::query::{ExecutableQuery, QueryBase};
 use tokio::sync::mpsc::{channel, Sender};
 use crate::connection_handler::{ConnectionActor, ConnectionCommand, ConnectionHandle};
 use crate::event_loop::command::{get_completion_pair, LanceDbCommand};
-use crate::batch_handler::{BatchHandler, RecordBatchHandle};
-use crate::blob_handler::{BlobHandle, BlobHandler};
 use crate::event_loop::helpers::send_command;
-use crate::table_handler::{TableActor, TableCommand, TableHandle, TableHandler};
+use crate::table_handler::{TableActor, TableCommand, TableHandle};
 
 pub(crate) use lifecycle::setup;
 pub use connection::{connect, disconnect};
@@ -32,7 +28,7 @@ pub use errors::{get_error_message, free_error_message};
 pub(crate) use errors::{ErrorReportFn, report_result, add_error};
 pub(crate) use command::CompletionSender;
 pub(crate) use connection::get_connection;
-use crate::event_loop::connection::{do_connection_request, do_create_table_with_schema, do_disconnect, do_drop_database, do_list_tables, do_open_table, get_table};
+use crate::event_loop::connection::{do_connection_request, do_create_table_with_schema, do_disconnect, do_drop_database, do_drop_table, do_list_tables, do_open_table, get_table};
 use crate::serialization::{bytes_to_record_batch, schema_to_bytes};
 
 /// This static variable holds the sender for the LanceDB command.
@@ -79,24 +75,14 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                 tokio::spawn(do_open_table(tables.clone(), connections.clone(), name, connection_handle, reply_sender, completion_sender));
             }
             LanceDbCommand::ListTableNames { connection_handle, reply_sender, completion_sender, string_callback } => {
-                do_list_tables(connections.clone(), connection_handle, reply_sender, completion_sender, string_callback).await;
+                tokio::spawn(do_list_tables(connections.clone(), connection_handle, reply_sender, completion_sender, string_callback));
             }
             LanceDbCommand::DropTable { name, connection_handle, reply_sender, completion_sender } => {
-                let (tx, rx) = get_completion_pair();
-                if send_command(LanceDbCommand::DropTable {
-                    connection_handle,
-                    name,
-                    reply_sender: reply_sender.clone(),
-                    completion_sender: tx,
-                }).is_err() {
-                    report_result(Err("Error sending drop table request.".to_string()), reply_sender, Some(completion_sender));
-                    continue;
-                }
-                rx.await.unwrap();
+                tokio::spawn(do_drop_table(tables.clone(), name, connection_handle, reply_sender, completion_sender, connections.clone()));
             }
-            LanceDbCommand::CloseTable { connection_handle, table_handle, reply_sender } => {
-                table_handler.release_table_handle(table_handle).await;
-                send_reply(reply_sender, Ok(())).await;
+            LanceDbCommand::CloseTable { connection_handle, table_handle, reply_sender, completion_sender } => {
+                tables.send(TableCommand::ReleaseTable { handle: table_handle }).await.unwrap();
+                report_result(Ok(0), reply_sender, Some(completion_sender));
             }
             LanceDbCommand::CountRows { connection_handle, table_handle, reply_sender } => {
                 let mut result = Err(-1);

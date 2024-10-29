@@ -270,3 +270,25 @@ pub(crate) async fn do_open_table(
         }
     }
 }
+
+pub(crate) async fn do_drop_table(
+    tables: Sender<TableCommand>,
+    name: String,
+    connection_handle: ConnectionHandle,
+    reply_sender: ErrorReportFn,
+    completion_sender: CompletionSender,
+    connections: Sender<ConnectionCommand>,
+) {
+    let (tx, rx) = get_completion_pair();
+    if tables.send(TableCommand::DropTable {
+        name,
+        connection_handle,
+        connections: connections.clone(),
+        reply_sender,
+        completion_sender: tx,
+    }).is_err() {
+        report_result(Err("Error sending drop table request.".to_string()), reply_sender, Some(completion_sender));
+        return;
+    }
+    rx.await.unwrap();
+}

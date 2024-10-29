@@ -61,7 +61,8 @@ pub(crate) enum LanceDbCommand {
     CloseTable {
         connection_handle: ConnectionHandle,
         table_handle: TableHandle,
-        reply_sender: tokio::sync::oneshot::Sender<Result<(), i64>>,
+        reply_sender: ErrorReportFn,
+        completion_sender: CompletionSender,
     },
 
     /// Drop a table from the database.
