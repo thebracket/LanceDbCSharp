@@ -11,4 +11,8 @@
         <PackageReference Include="Apache.Arrow" Version="17.0.0" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\LanceDbInterface\LanceDbInterface.csproj" />
+    </ItemGroup>
+
 </Project>

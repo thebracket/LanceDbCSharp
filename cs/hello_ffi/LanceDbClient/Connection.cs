@@ -1,19 +1,20 @@
 ﻿using System.Runtime.InteropServices;
 using Apache.Arrow;
+using LanceDbInterface;
 
 namespace LanceDbClient;
 
-public class Connection : IDisposable
+public class Connection : IConnection, IDisposable
 {
     // <summary>
     // Creates a new connection to the database.
     // </summary>
     // <param name="uri">The URI of the database to connect to.</param>
     // <exception cref="Exception">If the connection fails.</exception>
-    public Connection(string uri)
+    public Connection(Uri uri)
     {
         _connectionId = -1L;
-        Ffi.connect(uri.ToString(), ((result, message) =>
+        Ffi.connect(uri.AbsolutePath, ((result, message) =>
         {
             _connectionId = result;
             if (message != null)
@@ -22,15 +23,15 @@ public class Connection : IDisposable
             }
         }));
         _connected = true;
-        this.uri = uri;
-        this.isOpen = true;
+        this.Uri = uri;
+        this.IsOpen = true;
     }
 
     public IEnumerable<string> TableNames()
     {
         if (_connectionId < 0)
         {
-            this.isOpen = false;
+            this.IsOpen = false;
             throw new Exception("Connection is not open");
         }
         var strings = new List<string>();
@@ -138,7 +139,54 @@ public class Connection : IDisposable
             }
         });
     }
-    
+
+    public Task<IEnumerable<string>> TableNamesAsync(CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    ITable IConnection.CreateTable(string name, Schema schema)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<ITable> CreateTableAsync(string name, Schema schema, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    ITable IConnection.OpenTable(string name)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<ITable> OpenTableAsync(string name, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task DropTableAsync(string name, bool ignoreMissing = false, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task DropDatabaseAsync(CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Close()
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task CloseAsync(CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Uri Uri { get; }
+
     ~Connection()
     {
         Dispose(true);
@@ -170,7 +218,7 @@ public class Connection : IDisposable
                     throw new Exception("Failed to disconnect: " + message);
                 }
             });
-            this.isOpen = false;
+            this.IsOpen = false;
         }
 
         _connected = false;
@@ -181,7 +229,5 @@ public class Connection : IDisposable
 
     private long _connectionId;
     private bool _connected;
-    public string uri { get; private set; }
-    // TODO: I'm not sure this is necessary?
-    public bool isOpen { get; private set; }
+    public bool IsOpen { get; private set; }
 }

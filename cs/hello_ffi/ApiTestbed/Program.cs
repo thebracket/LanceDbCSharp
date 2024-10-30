@@ -4,7 +4,7 @@ using Apache.Arrow;
 using Apache.Arrow.Types;
 using LanceDbClient;
 
-using (var cnn = new Connection("test_lance"))
+using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
 {
     System.Console.WriteLine("Connection Opened. There should be 0 tables.");
     // It's expected that the database is empty
