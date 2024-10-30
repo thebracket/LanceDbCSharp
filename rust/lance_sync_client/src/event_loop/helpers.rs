@@ -11,7 +11,7 @@ use crate::event_loop::lifecycle::INSTANCE_COUNT;
 /// # Arguments
 ///
 /// * `command` - The command to send to the event loop.
-pub(super) fn send_command(command: LanceDbCommand, reply_tx: ErrorReportFn, completion_sender: CompletionSender) -> Result<()> {
+pub(crate) fn send_command(command: LanceDbCommand, reply_tx: ErrorReportFn, completion_sender: CompletionSender) -> Result<()> {
     let mut tries = 0;
     while INSTANCE_COUNT.load(std::sync::atomic::Ordering::Relaxed) == 0 {
         setup().inspect_err(|e| println!("Error setting up event loop: {:?}", e))?;
@@ -43,7 +43,7 @@ pub(super) fn send_command(command: LanceDbCommand, reply_tx: ErrorReportFn, com
 macro_rules! command_from_ffi {
     ($command: expr, $name: expr, $reply_sender: expr) => {
         let (tx, rx) = crate::event_loop::command::get_completion_pair();
-        if send_command($command, $reply_sender, tx).is_err() {
+        if crate::event_loop::helpers::send_command($command, $reply_sender, tx).is_err() {
             let err = format!("Error sending command: {}", $name);
             report_result(Err(err), $reply_sender, None);
             return;

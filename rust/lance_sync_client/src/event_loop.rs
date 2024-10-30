@@ -3,20 +3,18 @@
 //! its async, and C# (etc.) manage their own - and provide a bridge
 //! through a message-passing interface.
 
-mod command;
-mod helpers;
+pub(crate) mod command;
+pub(crate) mod helpers;
 mod lifecycle;
 mod connection;
 mod errors;
 
-use std::ffi::c_char;
-use crate::{command_from_ffi, MAX_COMMANDS};
+use crate::MAX_COMMANDS;
 use std::sync::OnceLock;
 use tokio::sync::mpsc::{channel, Sender};
-use crate::connection_handler::{ConnectionActor, ConnectionCommand, ConnectionHandle};
-use crate::event_loop::command::LanceDbCommand;
-use crate::event_loop::helpers::send_command;
-use crate::table_handler::{TableActor, TableCommand, TableHandle};
+use crate::connection_handler::{ConnectionActor, ConnectionCommand};
+pub(crate) use command::LanceDbCommand;
+use crate::table_handler::{TableActor, TableCommand};
 
 pub(crate) use lifecycle::setup;
 pub(crate) use errors::{ErrorReportFn, report_result};
@@ -133,35 +131,4 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
             eprintln!("Error sending quit response: {:?}", e);
         }
     }
-}
-
-/// Close a table
-#[no_mangle]
-pub extern "C" fn close_table(connection_handle: i64, table_handle: i64, reply_tx: ErrorReportFn) {
-    command_from_ffi!(LanceDbCommand::CloseTable {
-        connection_handle: ConnectionHandle(connection_handle),
-        table_handle: TableHandle(table_handle),
-    }, "CloseTable", reply_tx);
-}
-
-/// Create a scalar index on a table
-#[no_mangle]
-pub extern "C" fn create_scalar_index(connection_handle: i64, table_handle: i64, column_name: *const c_char, index_type: u32, replace: bool, reply_tx: ErrorReportFn) {
-    let column_name = unsafe { std::ffi::CStr::from_ptr(column_name).to_string_lossy().to_string() };
-    command_from_ffi!(LanceDbCommand::CreateScalarIndex {
-        connection_handle: ConnectionHandle(connection_handle),
-        table_handle: TableHandle(table_handle),
-        column_name,
-        index_type,
-        replace,
-    }, "CreateScalarIndex", reply_tx);
-}
-
-/// Count the number of rows in a table
-#[no_mangle]
-pub extern "C" fn count_rows(connection_handle: i64, table_handle: i64, reply_tx: ErrorReportFn){
-    command_from_ffi!(LanceDbCommand::CountRows {
-        connection_handle: ConnectionHandle(connection_handle),
-        table_handle: TableHandle(table_handle),
-    }, "CountRows", reply_tx);
 }
