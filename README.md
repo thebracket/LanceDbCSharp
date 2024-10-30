@@ -10,14 +10,22 @@ The initial repo has a few folders:
 
 Inside the `rust` folder, you'll find:
 
-* `test_library` - a minimal test library with some Rust code marked for export via FFI.
-* `test_autobind` - the same library, but with `csbindgen` linked to a build script to auto-generate bindings for the C# side.
-* `hello_lancedb` - a simple example of using `lancedb` from Rust (verifying that the environment works).
-
-These will generate `.so` files in `rust/target/debug` (or `release` if you enable
-build optimizations) when you run `cargo build`.
+* `lance_sync_client` - FFI bindings for the `lancedb` library. See the [README](rust/README.md) for more information.
 
 The `cs` side includes:
 
-* `hello_ffi` which manually links to the Rust `test_library`.
-* `hello_ffi_bindgen` which uses the output of the `csbindgen` run in `test_autobind`. There's currently an issue that the CString type was exported incorrectly (Dotnet 8 can auto-marshall between `string` and `char *`)
+* `hello_ffi`, a parent project.
+  * `ApiTestbed` - a simple program that calls the sync client and demonstrates usage.
+  * `LanceDbClient` - a C# implementation of the sync client.
+  * `LanceDbInterface` - the *desired* interface for the sync client. Closely resembles the Python API.
+  * `LanceDbClientTests` - a suite of unit tests that exercise the client. You *must* have write access to `/tmp` for these, currently.
+
+At the top-level you'll find a `Dockerfile`. This is a multi-stage build that will build the Rust code and then the C# code,
+and invoke the `ApiTestbed` program. It's a demonstration of how to build and run the code in a container.
+
+You can run the demo with:
+
+```bash
+docker buildx build --tag lance_test .
+docker run lance_test
+```

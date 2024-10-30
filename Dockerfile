@@ -9,10 +9,10 @@ RUN cargo chef prepare --recipe-path recipe.json
 FROM chef AS rust_builder
 WORKDIR /usr/src
 COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --recipe-path recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
 COPY rust .
 RUN apt-get update && apt-get install -y libssl-dev pkg-config protobuf-compiler
-RUN cargo build --package lance_sync_client
+RUN cargo build --release --package lance_sync_client
 
 ### Dotnet layer
 
@@ -25,6 +25,6 @@ RUN dotnet build -c Release -o demo hello_ffi/ApiTestbed/ApiTestbed.csproj
 ### Final layer
 FROM mcr.microsoft.com/dotnet/runtime:8.0
 WORKDIR /app
-COPY --from=rust_builder /usr/src/target/debug/liblance_sync_client.so .
+COPY --from=rust_builder /usr/src/target/release/liblance_sync_client.so .
 COPY --from=dotnet_builder /usr/src/demo .
 CMD ["/app/ApiTestbed"]
