@@ -7,6 +7,17 @@ namespace LanceDbClient;
 //TODO: Implement IDiposable and the matching FFI call
 public class Table : ITable, IDisposable
 {
+    /// <summary>
+    /// Creates a Table object, which represents a table in the database. It's represented as a handle,
+    /// linked to a handle in-memory on the driver side.
+    ///
+    /// This is deliberately internal: you should NOT be able to create a Table object directly, you MUST
+    /// go through Connection.
+    /// </summary>
+    /// <param name="name">The table name</param>
+    /// <param name="tableHandle">The table handle</param>
+    /// <param name="connectionId">The parent connection ID handle</param>
+    /// <param name="schema">The table schema.</param>
     internal Table(string name, long tableHandle, long connectionId, Schema schema)
     {
         Name = name;
@@ -47,11 +58,17 @@ public class Table : ITable, IDisposable
         }
     }
     
+    /// <summary>
+    /// Count the number of rows in the table.
+    /// </summary>
+    /// <param name="filter"></param>
+    /// <returns></returns>
+    /// <exception cref="Exception"></exception>
     public int CountRows(string? filter = null)
     {
         var count = 0L;
         Exception? exception = null;
-        Ffi.count_rows(_connectionHandle, _tableHandle, (code, message) =>
+        Ffi.count_rows(_connectionHandle, _tableHandle, filter, (code, message) =>
         {
             if (code < 0 && message != null)
             {

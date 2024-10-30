@@ -47,7 +47,7 @@ static partial class Ffi
     internal static partial void close_table(long connectionId, long tableId, ResultCallback onResult);
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern void count_rows(long connectionHandle, long tableHandle, ResultCallback onResult);
+    internal static extern void count_rows(long connectionHandle, long tableHandle, string? filter, ResultCallback onResult);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void create_scalar_index(long connectionHandle, long tableHandle, string columnName,

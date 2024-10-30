@@ -60,6 +60,7 @@ pub(crate) enum LanceDbCommand {
     CountRows {
         connection_handle: ConnectionHandle,
         table_handle: TableHandle,
+        filter: Option<String>,
     },
 
     CreateScalarIndex {

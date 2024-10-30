@@ -183,11 +183,17 @@ pub extern "C" fn create_scalar_index(
 
 /// Count the number of rows in a table
 #[no_mangle]
-pub extern "C" fn count_rows(connection_handle: i64, table_handle: i64, reply_tx: ErrorReportFn) {
+pub extern "C" fn count_rows(connection_handle: i64, table_handle: i64, filter: *const c_char, reply_tx: ErrorReportFn) {
+    let filter = if filter.is_null() {
+        None
+    } else {
+        Some(unsafe { std::ffi::CStr::from_ptr(filter).to_string_lossy().to_string() })
+    };
     command_from_ffi!(
         LanceDbCommand::CountRows {
             connection_handle: ConnectionHandle(connection_handle),
             table_handle: TableHandle(table_handle),
+            filter,
         },
         "CountRows",
         reply_tx

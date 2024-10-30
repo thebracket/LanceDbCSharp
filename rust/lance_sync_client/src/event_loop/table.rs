@@ -12,12 +12,13 @@ pub(crate) async fn count_rows(
     tables: Sender<TableCommand>,
     connection_handle: ConnectionHandle,
     table_handle: TableHandle,
+    filter: Option<String>,
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
 ) {
     if let Some(_cnn) = get_connection(connections.clone(), connection_handle).await {
         if let Some(table) = get_table(tables.clone(), table_handle).await {
-            match table.count_rows(None).await {
+            match table.count_rows(filter).await {
                 Ok(count) => {
                     report_result(Ok(count as i64), reply_tx, Some(completion_sender));
                     return;

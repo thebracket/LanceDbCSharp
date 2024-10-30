@@ -159,12 +159,14 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
             LanceDbCommand::CountRows {
                 connection_handle,
                 table_handle,
+                filter,
             } => {
                 tokio::spawn(table::count_rows(
                     connections.clone(),
                     tables.clone(),
                     connection_handle,
                     table_handle,
+                    filter,
                     reply_tx,
                     completion_sender,
                 ));
