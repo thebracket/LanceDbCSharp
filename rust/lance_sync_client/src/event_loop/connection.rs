@@ -1,14 +1,14 @@
 use std::ffi::c_char;
-use std::io::Cursor;
-use arrow_ipc::reader::FileReader;
 use arrow_schema::SchemaRef;
 use lancedb::{Connection, Table};
 use tokio::sync::mpsc::Sender;
+use crate::command_from_ffi;
 use crate::connection_handler::{ConnectionCommand, ConnectionHandle};
-use crate::event_loop::command::{get_completion_pair, LanceDbCommand};
+use crate::event_loop::command::LanceDbCommand;
 use crate::event_loop::CompletionSender;
 use crate::event_loop::errors::{report_result, ErrorReportFn};
 use crate::event_loop::helpers::send_command;
+use crate::serialization::bytes_to_schema;
 use crate::table_handler::{TableCommand, TableHandle};
 
 /// Connect to a LanceDB database. This function will return a handle
@@ -22,17 +22,7 @@ use crate::table_handler::{TableCommand, TableHandle};
 #[no_mangle]
 pub extern "C" fn connect(uri: *const c_char, reply_tx: ErrorReportFn) {
     let uri = unsafe { std::ffi::CStr::from_ptr(uri).to_string_lossy().to_string() };
-    let (tx, rx) = get_completion_pair();
-
-    if send_command(LanceDbCommand::ConnectionRequest {
-        uri,
-        reply_sender: reply_tx,
-        completion_sender: tx,
-    }).is_err() {
-        report_result(Err("Error sending connection request.".to_string()), reply_tx, None);
-        return;
-    };
-    rx.blocking_recv().unwrap();
+    command_from_ffi!(LanceDbCommand::ConnectionRequest { uri }, "ConnectionRequest", reply_tx);
 }
 
 /// Disconnect from a LanceDB database. This function will close the
@@ -45,77 +35,40 @@ pub extern "C" fn connect(uri: *const c_char, reply_tx: ErrorReportFn) {
 /// - 0 if the disconnection was successful, -1 if an error occurred.
 #[no_mangle]
 pub extern "C" fn disconnect(handle: i64, reply_tx: ErrorReportFn) {
-    let (tx, rx) = get_completion_pair();
-    if send_command(LanceDbCommand::Disconnect {
-        handle: ConnectionHandle(handle),
-        reply_sender: reply_tx,
-        completion_sender: tx,
-    }).is_err() {
-        report_result(Err("Error sending disconnection request.".to_string()), reply_tx, None);
-        return;
-    }
-    rx.blocking_recv().unwrap();
+    command_from_ffi!(LanceDbCommand::Disconnect { handle: ConnectionHandle(handle) }, "Disconnect", reply_tx);
 }
 
 /// Drop a database from the connection. This function will drop the
 /// database associated with the connection handle.
 #[no_mangle]
 pub extern "C" fn drop_database(connection_handle: i64, reply_tx: ErrorReportFn) {
-    let (tx, rx) = get_completion_pair();
-    if send_command(LanceDbCommand::DropDatabase {
-        connection_handle: ConnectionHandle(connection_handle),
-        reply_sender: reply_tx,
-        completion_sender: tx,
-    }).is_err() {
-        report_result(Err("Error sending drop table request.".to_string()), reply_tx, None);
-        return;
-    }
-    rx.blocking_recv().unwrap();
+    command_from_ffi!(LanceDbCommand::DropDatabase { connection_handle: ConnectionHandle(connection_handle) }, "DropDatabase", reply_tx);
 }
 
 /// Create a table in the database. This function will create a table
 /// with the given name, using the connection and record batch provided.
 #[no_mangle]
 pub extern "C" fn create_empty_table(name: *const c_char, connection_handle: i64, schema_bytes: *const u8, len: usize, reply_tx: ErrorReportFn) {
-    let (tx, rx) = get_completion_pair();
     let schema_batch = unsafe { std::slice::from_raw_parts(schema_bytes, len) };
-    match FileReader::try_new(Cursor::new(schema_batch), None) {
-        Ok(reader) => {
-            let schema: SchemaRef = reader.schema();
-            let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
-            if send_command(LanceDbCommand::CreateTableWithSchema {
-                name,
-                connection_handle: ConnectionHandle(connection_handle),
-                schema,
-                reply_sender: reply_tx,
-                completion_sender: tx,
-            }).is_err() {
-                report_result(Err("Error sending create table request.".to_string()), reply_tx, None);
-                return;
-            }
-        }
-        Err(e) => {
-            let err = format!("Error reading schema: {:?}", e);
-            report_result(Err(err), reply_tx, None);
-        }
-    }
-    rx.blocking_recv().unwrap();
+    let Ok(schema) = bytes_to_schema(schema_batch) else {
+        report_result(Err("Could not process schema.".to_string()), reply_tx, None);
+        return;
+    };
+    let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
+    command_from_ffi!(LanceDbCommand::CreateTableWithSchema {
+        name,
+        connection_handle: ConnectionHandle(connection_handle),
+        schema,
+    }, "CreateTableWithSchema", reply_tx);
 }
 
 /// Get a handle to a list of table names in the database.
 #[no_mangle]
 pub extern "C" fn list_table_names(connection_handle: i64, string_callback: Option<extern "C" fn(*const c_char)>, reply_tx: ErrorReportFn) {
-    let (tx, rx) = get_completion_pair();
-    if send_command(LanceDbCommand::ListTableNames {
+    command_from_ffi!(LanceDbCommand::ListTableNames {
         connection_handle: ConnectionHandle(connection_handle),
-        reply_sender: reply_tx,
-        completion_sender: tx,
         string_callback,
-    }).is_err() {
-        report_result(Err("Error sending list tables request.".to_string()), reply_tx, None);
-        return;
-    }
-    rx.blocking_recv().unwrap();
+    }, "ListTableNames", reply_tx);
 }
 
 /// Open a table in the database. This function will open a table with
@@ -123,18 +76,11 @@ pub extern "C" fn list_table_names(connection_handle: i64, string_callback: Opti
 #[no_mangle]
 pub extern "C" fn open_table(name: *const c_char, connection_handle: i64, schema_callback: Option<extern "C" fn(bytes: *const u8, len: u64)>, reply_tx: ErrorReportFn) {
     let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
-    let (tx, rx) = get_completion_pair();
-    if send_command(LanceDbCommand::OpenTable {
+    command_from_ffi!(LanceDbCommand::OpenTable {
         name,
         connection_handle: ConnectionHandle(connection_handle),
-        reply_sender: reply_tx,
-        completion_sender: tx,
         schema_callback,
-    }).is_err() {
-        report_result(Err("Error sending open table request.".to_string()), reply_tx, None);
-        return;
-    }
-    rx.blocking_recv().unwrap();
+    }, "OpenTable", reply_tx);
 }
 
 /// Drop a table from the database. This function will drop a table with
@@ -143,17 +89,10 @@ pub extern "C" fn open_table(name: *const c_char, connection_handle: i64, schema
 #[no_mangle]
 pub extern "C" fn drop_table(name: *const c_char, connection_handle: i64, reply_tx: ErrorReportFn) {
     let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
-    let (tx, rx) = get_completion_pair();
-    if send_command(LanceDbCommand::DropTable {
+    command_from_ffi!(LanceDbCommand::DropTable {
         name,
         connection_handle: ConnectionHandle(connection_handle),
-        reply_sender: reply_tx,
-        completion_sender: tx,
-    }).is_err() {
-        report_result(Err("Error sending drop table request.".to_string()), reply_tx, None);
-        return;
-    }
-    rx.blocking_recv().unwrap();
+    }, "DropTable", reply_tx);
 }
 
 pub(crate) async fn get_connection(

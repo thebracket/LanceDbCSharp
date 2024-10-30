@@ -1,5 +1,6 @@
 //! Provides FileReader/FileWriter Arrow IPC format conversion to/from byte arrays.
 
+use std::io::Cursor;
 use arrow_schema::SchemaRef;
 
 pub(crate) fn schema_to_bytes(schema: &SchemaRef) -> Vec<u8> {
@@ -9,4 +10,10 @@ pub(crate) fn schema_to_bytes(schema: &SchemaRef) -> Vec<u8> {
         fw.finish().unwrap();
     } // Scope to ensure that fw is dropped
     buf
+}
+
+pub(crate) fn bytes_to_schema(bytes: &[u8]) -> anyhow::Result<SchemaRef> {
+    let reader = arrow_ipc::reader::FileReader::try_new(Cursor::new(bytes), None)?;
+    let schema = reader.schema();
+    Ok(schema)
 }
