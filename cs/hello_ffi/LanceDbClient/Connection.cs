@@ -23,15 +23,20 @@ public class Connection : IConnection, IDisposable
             }
         }));
         _connected = true;
-        this.Uri = uri;
-        this.IsOpen = true;
+        Uri = uri;
+        IsOpen = true;
     }
 
+    /// <summary>
+    /// Lists the names of the tables in the database.
+    /// </summary>
+    /// <returns>A list of table names</returns>
+    /// <exception cref="Exception">If the connection is not open, or table names are unavailable.</exception>
     public IEnumerable<string> TableNames()
     {
         if (_connectionId < 0)
         {
-            this.IsOpen = false;
+            IsOpen = false;
             throw new Exception("Connection is not open");
         }
         var strings = new List<string>();
@@ -47,7 +52,14 @@ public class Connection : IConnection, IDisposable
         return strings;
     }
 
-    public Table CreateTable(string name, Schema schema)
+    /// <summary>
+    /// Creates a new table in the database. The table will have the provided schema, but no data.
+    /// </summary>
+    /// <param name="name">The desired table name.</param>
+    /// <param name="schema">The schema, which must be a valid Apache Arrow schema (no validation is performed beyond serialization/deserialization working)</param>
+    /// <returns>A handle to the newly created table</returns>
+    /// <exception cref="Exception"></exception>
+    public ITable CreateTable(string name, Schema schema)
     {
         if (_connectionId < 0)
         {
@@ -75,7 +87,7 @@ public class Connection : IConnection, IDisposable
         return new Table(name, tableHandle, _connectionId, schema);
     }
 
-    public Table OpenTable(string name)
+    public ITable OpenTable(string name)
     {
         if (_connectionId < 0)
         {
@@ -103,6 +115,10 @@ public class Connection : IConnection, IDisposable
                     }
                 }
             );
+        }
+        if (schema == null)
+        {
+            throw new Exception("Failed to open the table: schema is null");
         }
 
         return new Table(name, tableHandle, _connectionId, schema);
@@ -145,17 +161,7 @@ public class Connection : IConnection, IDisposable
         throw new NotImplementedException();
     }
 
-    ITable IConnection.CreateTable(string name, Schema schema)
-    {
-        throw new NotImplementedException();
-    }
-
     public Task<ITable> CreateTableAsync(string name, Schema schema, CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
-
-    ITable IConnection.OpenTable(string name)
     {
         throw new NotImplementedException();
     }
@@ -177,7 +183,14 @@ public class Connection : IConnection, IDisposable
 
     public void Close()
     {
-        throw new NotImplementedException();
+        Ffi.disconnect(this._connectionId, (code, message) =>
+        {
+            if (code < 0 && message != null)
+            {
+                throw new Exception("Failed to disconnect: " + message);
+            }
+        });
+        IsOpen = false;
     }
 
     public Task CloseAsync(CancellationToken cancellationToken = default)
