@@ -132,6 +132,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
             LanceDbCommand::DropTable {
                 name,
                 connection_handle,
+                ignore_missing,
             } => {
                 tokio::spawn(do_drop_table(
                     tables.clone(),
@@ -140,6 +141,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     reply_tx,
                     completion_sender,
                     connections.clone(),
+                    ignore_missing,
                 ));
             }
             LanceDbCommand::CloseTable {

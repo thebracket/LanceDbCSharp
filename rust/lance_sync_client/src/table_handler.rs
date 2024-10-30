@@ -36,6 +36,7 @@ pub enum TableCommand {
         connections: Sender<ConnectionCommand>,
         reply_sender: ErrorReportFn,
         completion_sender: CompletionSender,
+        ignore_missing: bool,
     },
     ReleaseTable {
         handle: TableHandle,
@@ -139,6 +140,7 @@ impl TableActor {
                         connections,
                         reply_sender,
                         completion_sender,
+                        ignore_missing,
                     } => {
                         let Some(cnn) =
                             get_connection(connections.clone(), connection_handle).await
@@ -156,8 +158,12 @@ impl TableActor {
                                 report_result(Ok(0), reply_sender, Some(completion_sender));
                             }
                             Err(e) => {
-                                let err = format!("Error dropping table: {e:?}");
-                                report_result(Err(err), reply_sender, Some(completion_sender));
+                                if ignore_missing {
+                                    report_result(Ok(0), reply_sender, Some(completion_sender));
+                                } else {
+                                    let err = format!("Error dropping table: {e:?}");
+                                    report_result(Err(err), reply_sender, Some(completion_sender));
+                                }
                             }
                         }
                     }

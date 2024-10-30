@@ -34,7 +34,7 @@ public class Connection : IConnection, IDisposable
     /// <exception cref="Exception">If the connection is not open, or table names are unavailable.</exception>
     public IEnumerable<string> TableNames()
     {
-        if (_connectionId < 0)
+        if (!this.IsOpen)
         {
             IsOpen = false;
             throw new Exception("Connection is not open");
@@ -61,7 +61,7 @@ public class Connection : IConnection, IDisposable
     /// <exception cref="Exception"></exception>
     public ITable CreateTable(string name, Schema schema)
     {
-        if (_connectionId < 0)
+        if (!IsOpen)
         {
             throw new Exception("Connection is not open");
         }
@@ -87,9 +87,15 @@ public class Connection : IConnection, IDisposable
         return new Table(name, tableHandle, _connectionId, schema);
     }
 
+    /// <summary>
+    /// Opens an existing table in the database by name.
+    /// </summary>
+    /// <param name="name">The table name to open</param>
+    /// <returns>A handle to the opened table.</returns>
+    /// <exception cref="Exception">If the connection isn't open, if the table isn't found.</exception>
     public ITable OpenTable(string name)
     {
-        if (_connectionId < 0)
+        if (!IsOpen)
         {
             throw new Exception("Connection is not open");
         }
@@ -124,14 +130,20 @@ public class Connection : IConnection, IDisposable
         return new Table(name, tableHandle, _connectionId, schema);
     }
     
+    /// <summary>
+    /// Drops a table from the database by name.
+    /// </summary>
+    /// <param name="name">Table name to drop</param>
+    /// <param name="ignoreMissing">Do not throw an exception if the table does not exist</param>
+    /// <exception cref="Exception">If the connection is unavailable, or the table doesn't exist and you didn't specify ignoreMissing.</exception>
     public void DropTable(string name, bool ignoreMissing = false)
     {
-        if (_connectionId < 0)
+        if (!IsOpen)
         {
             throw new Exception("Connection is not open");
         }
 
-        Ffi.drop_table(name, _connectionId, (code, message) =>
+        Ffi.drop_table(name, _connectionId, ignoreMissing, (code, message) =>
         {
             if (code < 0 && message != null)
             {
@@ -140,9 +152,13 @@ public class Connection : IConnection, IDisposable
         });
     }
     
+    /// <summary>
+    /// Drops the entire database, including all tables.
+    /// </summary>
+    /// <exception cref="Exception">If the connection is not open.</exception>
     public void DropDatabase()
     {
-        if (_connectionId < 0)
+        if (!IsOpen)
         {
             throw new Exception("Connection is not open");
         }
@@ -181,6 +197,10 @@ public class Connection : IConnection, IDisposable
         throw new NotImplementedException();
     }
 
+    /// <summary>
+    /// Close the connection to the database.
+    /// </summary>
+    /// <exception cref="Exception">If the disconnect FFI call returns an error.</exception>
     public void Close()
     {
         Ffi.disconnect(this._connectionId, (code, message) =>

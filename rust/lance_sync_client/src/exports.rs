@@ -127,12 +127,13 @@ pub extern "C" fn open_table(
 /// the given name, using the connection provided. WARNING: this invalidates
 /// any cached table handles referencing the table.
 #[no_mangle]
-pub extern "C" fn drop_table(name: *const c_char, connection_handle: i64, reply_tx: ErrorReportFn) {
+pub extern "C" fn drop_table(name: *const c_char, connection_handle: i64, ignore_missing: bool, reply_tx: ErrorReportFn) {
     let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
     command_from_ffi!(
         LanceDbCommand::DropTable {
             name,
             connection_handle: ConnectionHandle(connection_handle),
+            ignore_missing,
         },
         "DropTable",
         reply_tx

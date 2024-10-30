@@ -36,7 +36,7 @@ static partial class Ffi
     internal static extern void open_table(string name, long connectionHandle, SetSchemaCallback callback, ResultCallback onResult);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern void drop_table(string name, long connectionHandle, ResultCallback onResult);
+    internal static extern void drop_table(string name, long connectionHandle, bool ignore_missing, ResultCallback onResult);
     
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]

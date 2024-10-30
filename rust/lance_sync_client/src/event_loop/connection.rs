@@ -179,6 +179,7 @@ pub(crate) async fn do_drop_table(
     reply_sender: ErrorReportFn,
     completion_sender: CompletionSender,
     connections: Sender<ConnectionCommand>,
+    ignore_missing: bool,
 ) {
     if tables
         .send(TableCommand::DropTable {
@@ -187,6 +188,7 @@ pub(crate) async fn do_drop_table(
             connections: connections.clone(),
             reply_sender,
             completion_sender,
+            ignore_missing,
         })
         .await
         .is_err()

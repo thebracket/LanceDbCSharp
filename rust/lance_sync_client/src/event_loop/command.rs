@@ -50,6 +50,7 @@ pub(crate) enum LanceDbCommand {
     DropTable {
         name: String,
         connection_handle: ConnectionHandle,
+        ignore_missing: bool,
     },
 
     /// Drop a database from the connection.
