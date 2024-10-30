@@ -156,12 +156,24 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     .unwrap();
                 report_result(Ok(0), reply_tx, Some(completion_sender));
             }
+            LanceDbCommand::AddRecordBatch { connection_handle: _, table_handle, write_mode, bad_vector_handling, fill_value, batch } => {
+                tokio::spawn(table::do_add_record_batch(
+                    tables.clone(),
+                    table_handle,
+                    write_mode,
+                    batch,
+                    bad_vector_handling,
+                    fill_value,
+                    reply_tx,
+                    completion_sender,
+                ));
+            }
             LanceDbCommand::CountRows {
                 connection_handle,
                 table_handle,
                 filter,
             } => {
-                tokio::spawn(table::count_rows(
+                tokio::spawn(table::do_count_rows(
                     connections.clone(),
                     tables.clone(),
                     connection_handle,
@@ -178,7 +190,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                 index_type,
                 replace,
             } => {
-                tokio::spawn(table::crate_scalar_index(
+                tokio::spawn(table::do_crate_scalar_index(
                     tables.clone(),
                     table_handle,
                     column_name,

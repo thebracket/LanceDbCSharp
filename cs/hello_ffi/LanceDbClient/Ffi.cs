@@ -47,6 +47,10 @@ static partial class Ffi
     internal static partial void close_table(long connectionId, long tableId, ResultCallback onResult);
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    internal static extern unsafe void add_record_batch(long connectionId, long TableId, byte* data, ulong len, uint write_mode, uint bad_vector_handling, float fill_value, ResultCallback onResult);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void count_rows(long connectionHandle, long tableHandle, string? filter, ResultCallback onResult);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
@@ -71,9 +75,10 @@ static partial class Ffi
     internal static byte[] SerializeRecordBatch(RecordBatch recordBatch)
     {
         using var ms = new MemoryStream();
-        using (var writer = new ArrowStreamWriter(ms, recordBatch.Schema))
+        using (var writer = new ArrowFileWriter(ms, recordBatch.Schema))
         {
             writer.WriteRecordBatch(recordBatch);
+            writer.WriteEnd();
         }
 
         return ms.ToArray();

@@ -8,7 +8,7 @@ namespace LanceDbInterface
 {
     public enum WriteMode
     {
-        Append,
-        Overwrite
+        Append=1,
+        Overwrite=2,
     }
 }

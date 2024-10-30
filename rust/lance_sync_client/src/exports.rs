@@ -4,7 +4,7 @@
 use crate::command_from_ffi;
 use crate::connection_handler::ConnectionHandle;
 use crate::event_loop::{report_result, ErrorReportFn, LanceDbCommand};
-use crate::serialization::bytes_to_schema;
+use crate::serialization::{bytes_to_batch, bytes_to_schema};
 use crate::table_handler::TableHandle;
 use std::ffi::c_char;
 
@@ -149,6 +149,38 @@ pub extern "C" fn close_table(connection_handle: i64, table_handle: i64, reply_t
             table_handle: TableHandle(table_handle),
         },
         "CloseTable",
+        reply_tx
+    );
+}
+
+/// Add a record batch to a table
+#[no_mangle]
+pub extern "C" fn add_record_batch(
+    connection_handle: i64,
+    table_handle: i64,
+    data: *const u8,
+    len: usize,
+    write_mode: u32,
+    bad_vector_handling: u32,
+    fill_value: f32,
+    reply_tx: ErrorReportFn,
+) {
+    let data = unsafe { std::slice::from_raw_parts(data, len) };
+    let batch = bytes_to_batch(data);
+    if let Err(e) = batch {
+        report_result(Err(format!("Could not parse record batch: {:?}", e)), reply_tx, None);
+        return;
+    }
+    command_from_ffi!(
+        LanceDbCommand::AddRecordBatch {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+            write_mode: write_mode.into(),
+            batch: batch.unwrap(),
+            bad_vector_handling: bad_vector_handling.into(),
+            fill_value,
+        },
+        "AddRecordBatch",
         reply_tx
     );
 }

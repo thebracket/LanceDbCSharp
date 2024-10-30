@@ -8,8 +8,8 @@ namespace LanceDbInterface
 {
     public enum BadVectorHandling
     {
-        Error,
-        Drop,
-        Fill
+        Error=1,
+        Drop=2,
+        Fill=3
     }
 }

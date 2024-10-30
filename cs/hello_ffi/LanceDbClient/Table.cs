@@ -241,10 +241,28 @@ public class Table : ITable, IDisposable
         throw new NotImplementedException();
     }
 
-    public void Add(IEnumerable<RecordBatch> data, WriteMode mode = WriteMode.Append,
+    public unsafe void Add(IEnumerable<RecordBatch> data, WriteMode mode = WriteMode.Append,
         BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0)
     {
-        throw new NotImplementedException();
+        if (data == null) throw new ArgumentNullException(nameof(data));
+        if (!IsOpen) throw new Exception("Table is not open.");
+        Exception? exception = null;
+        
+        foreach (var recordBatch in data)
+        {
+            var batch = Ffi.SerializeRecordBatch(recordBatch);
+            fixed (byte* p = batch)
+            {
+                Ffi.add_record_batch(_connectionHandle, _tableHandle, p, (ulong)batch.Length, (uint)mode, (uint)badVectorHandling, fillValue, (code, message) =>
+                {
+                    if (code < 0 && message != null)
+                    {
+                        exception = new Exception("Failed to add record batch: " + message);
+                    }
+                });
+            }
+            if (exception != null) throw exception;
+        }
     }
 
     public Task AddAsync(Apache.Arrow.Table data, WriteMode mode = WriteMode.Append,

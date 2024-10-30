@@ -1,7 +1,9 @@
 use crate::connection_handler::ConnectionHandle;
 use crate::table_handler::TableHandle;
-use arrow_schema::SchemaRef;
+use arrow_schema::{ArrowError, SchemaRef};
 use std::ffi::c_char;
+use arrow_array::RecordBatch;
+use lancedb::table::AddDataMode;
 
 /// Used to synchronize timings - make sure that the function
 /// does not return until all async processing is complete.
@@ -56,6 +58,15 @@ pub(crate) enum LanceDbCommand {
     /// Drop a database from the connection.
     DropDatabase { connection_handle: ConnectionHandle },
 
+    AddRecordBatch {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+        write_mode: WriteMode,
+        bad_vector_handling: BadVectorHandling,
+        fill_value: f32,
+        batch: Vec<Result<RecordBatch, ArrowError>>,
+    },
+
     /// Count the number of rows in a table.
     CountRows {
         connection_handle: ConnectionHandle,
@@ -93,6 +104,51 @@ impl From<u32> for IndexType {
             2 => Self::Bitmap,
             3 => Self::LabelList,
             _ => panic!("Invalid index type: {}", value),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+#[repr(u32)]
+pub(crate) enum WriteMode {
+    Append=1,
+    Overwrite=2,
+}
+
+impl From<u32> for WriteMode {
+    fn from(value: u32) -> Self {
+        match value {
+            1 => Self::Append,
+            2 => Self::Overwrite,
+            _ => panic!("Invalid write mode: {}", value),
+        }
+    }
+}
+
+impl From<WriteMode> for AddDataMode {
+    fn from(value: WriteMode) -> Self {
+        match value {
+            WriteMode::Append => Self::Append,
+            WriteMode::Overwrite => Self::Overwrite,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+#[repr(u32)]
+pub(crate) enum BadVectorHandling {
+    Error=1,
+    Drop=2,
+    Fill=3
+}
+
+impl From<u32> for BadVectorHandling {
+    fn from(value: u32) -> Self {
+        match value {
+            1 => Self::Error,
+            2 => Self::Drop,
+            3 => Self::Fill,
+            _ => panic!("Invalid bad vector handling: {}", value),
         }
     }
 }
