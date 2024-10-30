@@ -1,9 +1,5 @@
 use std::ffi::c_char;
-use std::sync::Arc;
-use arrow_array::RecordBatch;
-use arrow_schema::{ArrowError, SchemaRef};
-use crate::batch_handler::{RecBatch, RecordBatchHandle};
-use crate::blob_handler::BlobHandle;
+use arrow_schema::SchemaRef;
 use crate::connection_handler::ConnectionHandle;
 use crate::event_loop::errors::ErrorReportFn;
 use crate::table_handler::TableHandle;
@@ -49,6 +45,7 @@ pub(crate) enum LanceDbCommand {
         connection_handle: ConnectionHandle,
         reply_sender: ErrorReportFn,
         completion_sender: CompletionSender,
+        schema_callback: Option<extern "C" fn(bytes: *const u8, len: u64)>,
     },
 
     ListTableNames {
@@ -81,18 +78,12 @@ pub(crate) enum LanceDbCommand {
         completion_sender: CompletionSender,
     },
 
-    AddRows {
-        connection_handle: ConnectionHandle,
-        table_handle: TableHandle,
-        record_batch: RecBatch,
-        reply_sender: tokio::sync::oneshot::Sender<Result<(), i64>>,
-    },
-
     /// Count the number of rows in a table.
     CountRows {
         connection_handle: ConnectionHandle,
         table_handle: TableHandle,
-        reply_sender: tokio::sync::oneshot::Sender<Result<u64, i64>>,
+        reply_sender: ErrorReportFn,
+        completion_sender: CompletionSender,
     },
 
     CreateScalarIndex {
@@ -101,7 +92,8 @@ pub(crate) enum LanceDbCommand {
         column_name: String,
         index_type: u32,
         replace: bool,
-        reply_sender: tokio::sync::oneshot::Sender<Result<(), i64>>,
+        reply_sender: ErrorReportFn,
+        completion_sender: CompletionSender,
     },
 
     /// Gracefully shut down the event-loop.

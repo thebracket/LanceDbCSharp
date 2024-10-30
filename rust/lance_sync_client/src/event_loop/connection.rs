@@ -96,7 +96,7 @@ pub extern "C" fn create_empty_table(name: *const c_char, connection_handle: i64
         }
         Err(e) => {
             let err = format!("Error reading schema: {:?}", e);
-            report_result(Err(format!("Error reading schema: {e:?}")), reply_tx, None);
+            report_result(Err(err), reply_tx, None);
         }
     }
     rx.blocking_recv().unwrap();
@@ -111,6 +111,44 @@ pub extern "C" fn list_table_names(connection_handle: i64, string_callback: Opti
         reply_sender: reply_tx,
         completion_sender: tx,
         string_callback,
+    }).is_err() {
+        report_result(Err("Error sending list tables request.".to_string()), reply_tx, None);
+        return;
+    }
+    rx.blocking_recv().unwrap();
+}
+
+/// Open a table in the database. This function will open a table with
+/// the given name, using the connection provided.
+#[no_mangle]
+pub extern "C" fn open_table(name: *const c_char, connection_handle: i64, schema_callback: Option<extern "C" fn(bytes: *const u8, len: u64)>, reply_tx: ErrorReportFn) {
+    let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
+    let (tx, rx) = get_completion_pair();
+    if send_command(LanceDbCommand::OpenTable {
+        name,
+        connection_handle: ConnectionHandle(connection_handle),
+        reply_sender: reply_tx,
+        completion_sender: tx,
+        schema_callback,
+    }).is_err() {
+        report_result(Err("Error sending open table request.".to_string()), reply_tx, None);
+        return;
+    }
+    rx.blocking_recv().unwrap();
+}
+
+/// Drop a table from the database. This function will drop a table with
+/// the given name, using the connection provided. WARNING: this invalidates
+/// any cached table handles referencing the table.
+#[no_mangle]
+pub extern "C" fn drop_table(name: *const c_char, connection_handle: i64, reply_tx: ErrorReportFn) {
+    let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
+    let (tx, rx) = get_completion_pair();
+    if send_command(LanceDbCommand::DropTable {
+        name,
+        connection_handle: ConnectionHandle(connection_handle),
+        reply_sender: reply_tx,
+        completion_sender: tx,
     }).is_err() {
         report_result(Err("Error sending drop table request.".to_string()), reply_tx, None);
         return;
@@ -228,8 +266,7 @@ pub(crate) async fn do_create_table_with_schema(
     reply_sender: ErrorReportFn,
     completion_sender: CompletionSender,
 ) {
-    if let Some(cnn) = get_connection(connections.clone(), connection_handle).await {
-        let (tx, rx) = tokio::sync::oneshot::channel();
+    if let Some(_cnn) = get_connection(connections.clone(), connection_handle).await {
         tables.send(TableCommand::AddEmptyTable {
             name: name.clone(),
             schema: schema.clone(),
@@ -248,6 +285,7 @@ pub(crate) async fn do_open_table(
     connection_handle: ConnectionHandle,
     reply_sender: ErrorReportFn,
     completion_sender: CompletionSender,
+    schema_callback: Option<extern "C" fn(bytes: *const u8, len: u64)>,
 ) {
     let (tx, rx) = tokio::sync::oneshot::channel();
     tables.send(TableCommand::GetTableByName {
@@ -255,18 +293,19 @@ pub(crate) async fn do_open_table(
         connection_handle,
         connections: connections.clone(),
         reply_sender: tx,
+        schema_callback,
     }).await.unwrap();
     match rx.await {
-        Ok(Ok((handle))) => {
-            let _ = report_result(Ok(handle.0), reply_sender, Some(completion_sender)).await;
+        Ok(Ok(handle)) => {
+            let _ = report_result(Ok(handle.0), reply_sender, Some(completion_sender));
         }
         Ok(Err(e)) => {
             let err = format!("Error opening table: {:?}", e);
-            let _ = report_result(Err(err), reply_sender, Some(completion_sender)).await;
+            let _ = report_result(Err(err), reply_sender, Some(completion_sender));
         }
         Err(e) => {
             let err = format!("Error receiving table handle: {:?}", e);
-            let _ = report_result(Err(err), reply_sender, Some(completion_sender)).await;
+            let _ = report_result(Err(err), reply_sender, Some(completion_sender));
         }
     }
 }
@@ -279,16 +318,14 @@ pub(crate) async fn do_drop_table(
     completion_sender: CompletionSender,
     connections: Sender<ConnectionCommand>,
 ) {
-    let (tx, rx) = get_completion_pair();
     if tables.send(TableCommand::DropTable {
         name,
         connection_handle,
         connections: connections.clone(),
         reply_sender,
-        completion_sender: tx,
-    }).is_err() {
-        report_result(Err("Error sending drop table request.".to_string()), reply_sender, Some(completion_sender));
+        completion_sender,
+    }).await.is_err() {
+        report_result(Err("Error sending drop table request.".to_string()), reply_sender, None);
         return;
     }
-    rx.await.unwrap();
 }

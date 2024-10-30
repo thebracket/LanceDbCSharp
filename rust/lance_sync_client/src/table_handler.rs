@@ -1,9 +1,10 @@
 use std::collections::HashMap;
-use lancedb::{Connection, Table};
+use lancedb::Table;
 use arrow_schema::SchemaRef;
 use tokio::sync::mpsc::Sender;
 use crate::connection_handler::{ConnectionCommand, ConnectionHandle};
 use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorReportFn};
+use crate::serialization::schema_to_bytes;
 
 /// Strongly typed table handle (to disambiguate from the other handles).
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -27,6 +28,7 @@ pub enum TableCommand {
         connection_handle: ConnectionHandle,
         connections: Sender<ConnectionCommand>,
         reply_sender: tokio::sync::oneshot::Sender<Result<TableHandle, String>>,
+        schema_callback: Option<extern "C" fn(bytes: *const u8, len: u64)>,
     },
     DropTable {
         name: String,
@@ -77,17 +79,24 @@ impl TableActor {
                             let _ = reply_sender.send(None);
                         }
                     }
-                    TableCommand::GetTableByName { name, connection_handle, connections, reply_sender } => {
+                    TableCommand::GetTableByName { name, connection_handle, connections, reply_sender, schema_callback } => {
                         let Some(cnn) = get_connection(connections.clone(), connection_handle).await else {
                             let _ = reply_sender.send(Err("Error getting connection".to_string()));
                             continue;
                         };
-                        let table = cnn.open_table(&name).await;
+                        let table = cnn.open_table(&name).execute().await;
                         match table {
                             Ok(t) => {
+                                if let Some(cb) = schema_callback {
+                                    let schema = t.schema().await.unwrap();
+                                    let schema_bytes = schema_to_bytes(&schema);
+                                    cb(schema_bytes.as_ptr(), schema_bytes.len() as u64);
+                                }
+
                                 let new_id = next_id;
                                 next_id += 1;
                                 tables.insert(TableHandle(new_id), t);
+
                                 let _ = reply_sender.send(Ok(TableHandle(new_id)));
                             }
                             Err(e) => {

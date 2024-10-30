@@ -36,42 +36,39 @@ public class Table : IDisposable
     {
         if (disposing)
         {
-            long result = Ffi.close_table(_connectionHandle, _tableId);
-            if (result < 0)
+            Ffi.close_table(_connectionHandle, _tableId, (code, message) =>
             {
-                var errorMessage = Ffi.GetErrorMessageOnce(result);
-                throw new Exception("Failed to close the table: " + errorMessage);
-            }
+                if (code < 0 && message != null)
+                {
+                    throw new Exception("Failed to close the table: " + message);
+                }
+            });
         }
     }
     
     public long CountRows()
     {
-        return Ffi.count_rows(_connectionHandle, _tableId);
+        var count = 0L;
+        Ffi.count_rows(_connectionHandle, _tableId, (code, message) =>
+        {
+            if (code < 0 && message != null)
+            {
+                throw new Exception("Failed to count rows: " + message);
+            }
+            count = code;
+        });
+        return count;
     }
 
     public void CreateScalarIndex(string columnName, IndexType indexType = IndexType.BTree, bool replace = true)
     {
         // TODO: Not handling index type yet
-        Ffi.create_scalar_index(_connectionHandle, _tableId, columnName, 0, replace);
-    }
-    
-    public void Add(RecordBatch data, WriteMode mode = WriteMode.Append, BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0.0F)
-    {
-        var bytes = Ffi.SerializeRecordBatch(data);
-        var len = (ulong)bytes.Length;
-        var result = -1L;
-        unsafe
+        Ffi.create_scalar_index(_connectionHandle, _tableId, columnName, 0, replace, (code, message) =>
         {
-            fixed (byte* p = bytes)
+            if (code < 0 && message != null)
             {
-                result = Ffi.add_rows(_connectionHandle, _tableId, p, len);
+                throw new Exception("Failed to create the scalar index: " + message);
             }
-        }
-        if (result < 0)
-        {
-            var errorMessage = Ffi.GetErrorMessageOnce(result);
-            throw new Exception("Failed to add rows: " + errorMessage);
-        }
+        });
     }
 }

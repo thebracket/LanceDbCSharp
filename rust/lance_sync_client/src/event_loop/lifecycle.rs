@@ -3,10 +3,8 @@ use crate::event_loop::event_loop;
 use crate::event_loop::command::LanceDbCommand;
 use crate::event_loop::helpers::send_command;
 use anyhow::Result;
-use crate::event_loop::errors::clear_errors;
 
 pub(crate) static INSTANCE_COUNT: AtomicI64 = AtomicI64::new(0);
-pub(crate) static CONNECTION_COUNT: AtomicI64 = AtomicI64::new(0);
 
 pub fn is_already_setup() -> bool {
     INSTANCE_COUNT.load(std::sync::atomic::Ordering::Relaxed) > 0
@@ -57,7 +55,6 @@ pub(crate) fn setup() -> Result<()> {
 /// In practice, regular tear-down will stop the event-loop
 /// anyway - but this avoids any leakage.
 pub(crate) fn shutdown() -> i32 {
-    clear_errors();
     let (tx, rx) = tokio::sync::oneshot::channel();
     let _ = send_command(LanceDbCommand::Quit { reply_sender: tx});
     let _ = rx.blocking_recv();

@@ -60,14 +60,15 @@ public class Connection : IDisposable
         {
             fixed (byte* p = schemaBytes)
             {
-                tableHandle = Ffi.create_empty_table(name, _connectionId, p, (ulong)schemaBytes.Length);
+                Ffi.create_empty_table(name, _connectionId, p, (ulong)schemaBytes.Length, (code, message) =>
+                {
+                    tableHandle = code;
+                    if (message != null)
+                    {
+                        throw new Exception("Failed to create the table: " + message);
+                    }
+                });
             }
-        }
-
-        if (tableHandle < 0)
-        {
-            var errorMessage = Ffi.GetErrorMessageOnce(tableHandle);
-            throw new Exception("Failed to create the table: " + errorMessage);
         }
         
         return new Table(name, tableHandle, _connectionId, schema);
@@ -84,20 +85,23 @@ public class Connection : IDisposable
         Schema? schema = null;
         unsafe
         {
-            tableHandle = Ffi.open_table(name, _connectionId,
+            Ffi.open_table(name, _connectionId,
                 (bytes, len) =>
                 {
                     // Convert byte pointer and length to byte[]
                     var schemaBytes = new byte[len];
                     Marshal.Copy((IntPtr)bytes, schemaBytes, 0, (int)len);
                     schema = Ffi.DeserializeSchema(schemaBytes);
-                });
-        }
-
-        if (tableHandle < 0)
-        {
-            var errorMessage = Ffi.GetErrorMessageOnce(tableHandle);
-            throw new Exception("Failed to open the table: " + errorMessage);
+                }
+                , (code, message) =>
+                {
+                    tableHandle = code;
+                    if (message != null)
+                    {
+                        throw new Exception("Failed to open the table: " + message);
+                    }
+                }
+            );
         }
 
         return new Table(name, tableHandle, _connectionId, schema);
@@ -109,16 +113,14 @@ public class Connection : IDisposable
         {
             throw new Exception("Connection is not open");
         }
-        var status = Ffi.drop_table(name, _connectionId);
-        if (status < 0)
+
+        Ffi.drop_table(name, _connectionId, (code, message) =>
         {
-            var errorMessage = Ffi.GetErrorMessageOnce(status);
-            if (ignoreMissing && errorMessage.Contains("not found"))
+            if (code < 0 && message != null)
             {
-                return;
+                throw new Exception("Failed to drop the table: " + message);
             }
-            throw new Exception("Failed to drop the table: " + errorMessage);
-        }
+        });
     }
     
     public void DropDatabase()
