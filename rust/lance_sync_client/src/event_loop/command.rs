@@ -1,7 +1,7 @@
-use std::ffi::c_char;
-use arrow_schema::SchemaRef;
 use crate::connection_handler::ConnectionHandle;
 use crate::table_handler::TableHandle;
+use arrow_schema::SchemaRef;
+use std::ffi::c_char;
 
 /// Used to synchronize timings - make sure that the function
 /// does not return until all async processing is complete.
@@ -16,14 +16,10 @@ pub(crate) fn get_completion_pair() -> (CompletionSender, tokio::sync::oneshot::
 #[derive(Debug)]
 pub(crate) enum LanceDbCommand {
     /// Request to create a new connection to the database.
-    ConnectionRequest{
-        uri: String,
-    },
+    ConnectionRequest { uri: String },
 
     /// Request to disconnect a connection from the database.
-    Disconnect{
-        handle: ConnectionHandle,
-    },
+    Disconnect { handle: ConnectionHandle },
 
     /// Request to create a new table in the database.
     CreateTableWithSchema {
@@ -57,9 +53,7 @@ pub(crate) enum LanceDbCommand {
     },
 
     /// Drop a database from the connection.
-    DropDatabase {
-        connection_handle: ConnectionHandle,
-    },
+    DropDatabase { connection_handle: ConnectionHandle },
 
     /// Count the number of rows in a table.
     CountRows {
@@ -76,5 +70,7 @@ pub(crate) enum LanceDbCommand {
     },
 
     /// Gracefully shut down the event-loop.
-    Quit { reply_sender: tokio::sync::oneshot::Sender<()> },
+    Quit {
+        reply_sender: tokio::sync::oneshot::Sender<()>,
+    },
 }

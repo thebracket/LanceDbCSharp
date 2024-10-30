@@ -14,11 +14,11 @@
 /// This should be moved to a configuration item in the future.
 const MAX_COMMANDS: usize = 100;
 
-mod event_loop;
 mod connection_handler;
-mod testing;
-mod table_handler;
-mod serialization;
+mod event_loop;
 mod exports;
+mod serialization;
+mod table_handler;
+mod testing;
 
 pub use exports::*;

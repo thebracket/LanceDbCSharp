@@ -1,33 +1,34 @@
-use std::ffi::c_char;
+use crate::connection_handler::{ConnectionCommand, ConnectionHandle};
+use crate::event_loop::errors::{report_result, ErrorReportFn};
+use crate::event_loop::CompletionSender;
+use crate::table_handler::{TableCommand, TableHandle};
 use arrow_schema::SchemaRef;
 use lancedb::{Connection, Table};
+use std::ffi::c_char;
 use tokio::sync::mpsc::Sender;
-use crate::connection_handler::{ConnectionCommand, ConnectionHandle};
-use crate::event_loop::CompletionSender;
-use crate::event_loop::errors::{report_result, ErrorReportFn};
-use crate::table_handler::{TableCommand, TableHandle};
 
 pub(crate) async fn get_connection(
     connections: Sender<ConnectionCommand>,
     handle: ConnectionHandle,
 ) -> Option<Connection> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    let _ = connections.send(ConnectionCommand::GetConnection {
-        handle,
-        reply_sender: tx,
-    }).await;
+    let _ = connections
+        .send(ConnectionCommand::GetConnection {
+            handle,
+            reply_sender: tx,
+        })
+        .await;
     rx.await.unwrap()
 }
 
-pub(crate) async fn get_table(
-    tables: Sender<TableCommand>,
-    handle: TableHandle,
-) -> Option<Table> {
+pub(crate) async fn get_table(tables: Sender<TableCommand>, handle: TableHandle) -> Option<Table> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    let _ = tables.send(TableCommand::GetTable {
-        handle,
-        reply_sender: tx,
-    }).await;
+    let _ = tables
+        .send(TableCommand::GetTable {
+            handle,
+            reply_sender: tx,
+        })
+        .await;
     rx.await.unwrap()
 }
 
@@ -37,11 +38,13 @@ pub(crate) async fn do_connection_request(
     reply_sender: ErrorReportFn,
     completion_sender: CompletionSender,
 ) {
-    let _ = connections.send(ConnectionCommand::NewConnection {
-        uri,
-        reply_sender,
-        completion_sender,
-    }).await;
+    let _ = connections
+        .send(ConnectionCommand::NewConnection {
+            uri,
+            reply_sender,
+            completion_sender,
+        })
+        .await;
 }
 
 pub(crate) async fn do_disconnect(
@@ -50,11 +53,13 @@ pub(crate) async fn do_disconnect(
     reply_sender: ErrorReportFn,
     completion_sender: CompletionSender,
 ) {
-    let _ = connections.send(ConnectionCommand::Disconnect {
-        handle,
-        reply_sender,
-        completion_sender,
-    }).await;
+    let _ = connections
+        .send(ConnectionCommand::Disconnect {
+            handle,
+            reply_sender,
+            completion_sender,
+        })
+        .await;
 }
 
 pub(crate) async fn do_drop_database(
@@ -84,7 +89,7 @@ pub(crate) async fn do_list_tables(
     connection_handle: ConnectionHandle,
     reply_sender: ErrorReportFn,
     completion_sender: CompletionSender,
-    string_callback: Option<extern "C" fn(*const c_char)>
+    string_callback: Option<extern "C" fn(*const c_char)>,
 ) {
     if let Some(cnn) = get_connection(connections, connection_handle).await {
         match cnn.table_names().execute().await {
@@ -118,14 +123,17 @@ pub(crate) async fn do_create_table_with_schema(
     completion_sender: CompletionSender,
 ) {
     if let Some(_cnn) = get_connection(connections.clone(), connection_handle).await {
-        tables.send(TableCommand::AddEmptyTable {
-            name: name.clone(),
-            schema: schema.clone(),
-            connections: connections.clone(),
-            connection_handle,
-            reply_sender: reply_sender.clone(),
-            completion_sender,
-        }).await.unwrap();
+        tables
+            .send(TableCommand::AddEmptyTable {
+                name: name.clone(),
+                schema: schema.clone(),
+                connections: connections.clone(),
+                connection_handle,
+                reply_sender: reply_sender.clone(),
+                completion_sender,
+            })
+            .await
+            .unwrap();
     }
 }
 
@@ -139,13 +147,16 @@ pub(crate) async fn do_open_table(
     schema_callback: Option<extern "C" fn(bytes: *const u8, len: u64)>,
 ) {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    tables.send(TableCommand::GetTableByName {
-        name,
-        connection_handle,
-        connections: connections.clone(),
-        reply_sender: tx,
-        schema_callback,
-    }).await.unwrap();
+    tables
+        .send(TableCommand::GetTableByName {
+            name,
+            connection_handle,
+            connections: connections.clone(),
+            reply_sender: tx,
+            schema_callback,
+        })
+        .await
+        .unwrap();
     match rx.await {
         Ok(Ok(handle)) => {
             let _ = report_result(Ok(handle.0), reply_sender, Some(completion_sender));
@@ -169,14 +180,22 @@ pub(crate) async fn do_drop_table(
     completion_sender: CompletionSender,
     connections: Sender<ConnectionCommand>,
 ) {
-    if tables.send(TableCommand::DropTable {
-        name,
-        connection_handle,
-        connections: connections.clone(),
-        reply_sender,
-        completion_sender,
-    }).await.is_err() {
-        report_result(Err("Error sending drop table request.".to_string()), reply_sender, None);
+    if tables
+        .send(TableCommand::DropTable {
+            name,
+            connection_handle,
+            connections: connections.clone(),
+            reply_sender,
+            completion_sender,
+        })
+        .await
+        .is_err()
+    {
+        report_result(
+            Err("Error sending drop table request.".to_string()),
+            reply_sender,
+            None,
+        );
         return;
     }
 }

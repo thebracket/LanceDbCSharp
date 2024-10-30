@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-use lancedb::Table;
-use arrow_schema::SchemaRef;
-use tokio::sync::mpsc::Sender;
 use crate::connection_handler::{ConnectionCommand, ConnectionHandle};
 use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorReportFn};
 use crate::serialization::schema_to_bytes;
+use arrow_schema::SchemaRef;
+use lancedb::Table;
+use std::collections::HashMap;
+use tokio::sync::mpsc::Sender;
 
 /// Strongly typed table handle (to disambiguate from the other handles).
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -37,7 +37,9 @@ pub enum TableCommand {
         reply_sender: ErrorReportFn,
         completion_sender: CompletionSender,
     },
-    ReleaseTable { handle: TableHandle },
+    ReleaseTable {
+        handle: TableHandle,
+    },
     Quit,
 }
 
@@ -52,14 +54,25 @@ impl TableActor {
 
             while let Some(command) = rx.recv().await {
                 match command {
-                    TableCommand::AddEmptyTable { name, schema, connections, connection_handle, reply_sender, completion_sender } => {
-                        let Some(cnn) = get_connection(connections.clone(), connection_handle).await else {
-                            report_result(Err("Error getting connection".to_string()), reply_sender, Some(completion_sender));
+                    TableCommand::AddEmptyTable {
+                        name,
+                        schema,
+                        connections,
+                        connection_handle,
+                        reply_sender,
+                        completion_sender,
+                    } => {
+                        let Some(cnn) =
+                            get_connection(connections.clone(), connection_handle).await
+                        else {
+                            report_result(
+                                Err("Error getting connection".to_string()),
+                                reply_sender,
+                                Some(completion_sender),
+                            );
                             continue;
                         };
-                        let table = cnn.create_empty_table(&name, schema.into())
-                            .execute()
-                            .await;
+                        let table = cnn.create_empty_table(&name, schema.into()).execute().await;
                         match table {
                             Ok(t) => {
                                 let new_id = next_id;
@@ -68,19 +81,34 @@ impl TableActor {
                                 report_result(Ok(new_id), reply_sender, Some(completion_sender));
                             }
                             Err(e) => {
-                                report_result(Err(format!("Error creating table: {e:?}")), reply_sender, Some(completion_sender));
+                                report_result(
+                                    Err(format!("Error creating table: {e:?}")),
+                                    reply_sender,
+                                    Some(completion_sender),
+                                );
                             }
                         }
                     }
-                    TableCommand::GetTable { handle, reply_sender } => {
+                    TableCommand::GetTable {
+                        handle,
+                        reply_sender,
+                    } => {
                         if let Some(table) = tables.get(&handle) {
                             let _ = reply_sender.send(Some(table.clone()));
                         } else {
                             let _ = reply_sender.send(None);
                         }
                     }
-                    TableCommand::GetTableByName { name, connection_handle, connections, reply_sender, schema_callback } => {
-                        let Some(cnn) = get_connection(connections.clone(), connection_handle).await else {
+                    TableCommand::GetTableByName {
+                        name,
+                        connection_handle,
+                        connections,
+                        reply_sender,
+                        schema_callback,
+                    } => {
+                        let Some(cnn) =
+                            get_connection(connections.clone(), connection_handle).await
+                        else {
                             let _ = reply_sender.send(Err("Error getting connection".to_string()));
                             continue;
                         };
@@ -105,9 +133,21 @@ impl TableActor {
                             }
                         }
                     }
-                    TableCommand::DropTable { name, connection_handle, connections, reply_sender, completion_sender } => {
-                        let Some(cnn) = get_connection(connections.clone(), connection_handle).await else {
-                            report_result(Err("Error getting connection".to_string()), reply_sender, Some(completion_sender));
+                    TableCommand::DropTable {
+                        name,
+                        connection_handle,
+                        connections,
+                        reply_sender,
+                        completion_sender,
+                    } => {
+                        let Some(cnn) =
+                            get_connection(connections.clone(), connection_handle).await
+                        else {
+                            report_result(
+                                Err("Error getting connection".to_string()),
+                                reply_sender,
+                                Some(completion_sender),
+                            );
                             continue;
                         };
                         let result = cnn.drop_table(&name).await;

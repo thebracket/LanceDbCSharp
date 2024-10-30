@@ -1,7 +1,7 @@
 //! Provides FileReader/FileWriter Arrow IPC format conversion to/from byte arrays.
 
-use std::io::Cursor;
 use arrow_schema::SchemaRef;
+use std::io::Cursor;
 
 pub(crate) fn schema_to_bytes(schema: &SchemaRef) -> Vec<u8> {
     let mut buf = vec![];

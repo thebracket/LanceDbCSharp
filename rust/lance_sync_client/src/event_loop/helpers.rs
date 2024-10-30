@@ -1,7 +1,9 @@
 use crate::event_loop::command::LanceDbCommand;
-use crate::event_loop::{setup, CompletionSender, ErrorReportFn, LanceDbCommandSet, COMMAND_SENDER};
-use anyhow::Result;
 use crate::event_loop::lifecycle::INSTANCE_COUNT;
+use crate::event_loop::{
+    setup, CompletionSender, ErrorReportFn, LanceDbCommandSet, COMMAND_SENDER,
+};
+use anyhow::Result;
 
 /// Send a command to the event loop. This is intended to be used by the
 /// FFI-exposed API to submit calls for processing inside the tokio runtime.
@@ -11,7 +13,11 @@ use crate::event_loop::lifecycle::INSTANCE_COUNT;
 /// # Arguments
 ///
 /// * `command` - The command to send to the event loop.
-pub(crate) fn send_command(command: LanceDbCommand, reply_tx: ErrorReportFn, completion_sender: CompletionSender) -> Result<()> {
+pub(crate) fn send_command(
+    command: LanceDbCommand,
+    reply_tx: ErrorReportFn,
+    completion_sender: CompletionSender,
+) -> Result<()> {
     let mut tries = 0;
     while INSTANCE_COUNT.load(std::sync::atomic::Ordering::Relaxed) == 0 {
         setup().inspect_err(|e| println!("Error setting up event loop: {:?}", e))?;
@@ -28,7 +34,7 @@ pub(crate) fn send_command(command: LanceDbCommand, reply_tx: ErrorReportFn, com
             reply_tx,
             completion_sender,
         })
-            .inspect_err(|e| println!("Error sending command: {:?}", e))?;
+        .inspect_err(|e| println!("Error sending command: {:?}", e))?;
         Ok(())
     } else {
         println!("No command sender found.");

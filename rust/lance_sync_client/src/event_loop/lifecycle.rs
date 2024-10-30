@@ -1,6 +1,6 @@
-use std::sync::atomic::AtomicI64;
 use crate::event_loop::event_loop;
 use anyhow::Result;
+use std::sync::atomic::AtomicI64;
 
 pub(crate) static INSTANCE_COUNT: AtomicI64 = AtomicI64::new(0);
 
@@ -21,7 +21,8 @@ pub(crate) fn setup() -> Result<()> {
             match tokio::runtime::Builder::new_multi_thread()
                 .worker_threads(4)
                 .enable_all()
-                .build() {
+                .build()
+            {
                 Ok(runtime) => {
                     runtime.block_on(async move { event_loop(ready_tx).await });
                 }
@@ -40,7 +41,7 @@ pub(crate) fn setup() -> Result<()> {
             } else {
                 Ok(())
             }
-        },
+        }
         Err(e) => {
             eprintln!("Error spawning thread: {:?}", e);
             Err(anyhow::anyhow!("Error spawning thread."))
