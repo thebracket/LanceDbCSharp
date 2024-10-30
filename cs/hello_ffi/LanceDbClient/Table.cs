@@ -67,7 +67,7 @@ public class Table : ITable, IDisposable
     {
         // TODO: Not handling index type yet
         Exception? exception = null;
-        Ffi.create_scalar_index(_connectionHandle, _tableHandle, columnName, 0, replace, (code, message) =>
+        Ffi.create_scalar_index(_connectionHandle, _tableHandle, columnName, (uint)indexType, replace, (code, message) =>
         {
             if (code < 0 && message != null)
             {

@@ -1,6 +1,9 @@
+use lancedb::index::Index;
+use lancedb::index::scalar::{BTreeIndexBuilder, BitmapIndexBuilder, LabelListIndexBuilder};
 use tokio::sync::mpsc::Sender;
 use crate::connection_handler::{ConnectionCommand, ConnectionHandle};
 use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorReportFn};
+use crate::event_loop::command::IndexType;
 use crate::event_loop::connection::get_table;
 use crate::table_handler::{TableCommand, TableHandle};
 
@@ -36,13 +39,29 @@ pub(crate) async fn crate_scalar_index(
     tables: Sender<TableCommand>,
     table_handle: TableHandle,
     column_name: String,
+    index_type: IndexType,
+    replace: bool,
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
 ) {
     if let Some(table) = get_table(tables.clone(), table_handle).await {
-        // TODO: Need to support different index types
-        match table
-            .create_index(&[column_name], lancedb::index::Index::Auto)
+        let build_command = match index_type {
+            IndexType::BTree => {
+                let builder = BTreeIndexBuilder::default();
+                table.create_index(&[column_name], Index::BTree(builder))
+            },
+            IndexType::Bitmap => {
+                let builder = BitmapIndexBuilder::default();
+                table.create_index(&[column_name], Index::Bitmap(builder))
+            }
+            IndexType::LabelList => {
+                let builder = LabelListIndexBuilder::default();
+                table.create_index(&[column_name], Index::LabelList(builder))
+            }
+        };
+
+        match build_command
+            .replace(replace)
             .execute()
             .await
         {

@@ -66,7 +66,7 @@ pub(crate) enum LanceDbCommand {
         connection_handle: ConnectionHandle,
         table_handle: TableHandle,
         column_name: String,
-        index_type: u32,
+        index_type: IndexType,
         replace: bool,
     },
 
@@ -74,4 +74,24 @@ pub(crate) enum LanceDbCommand {
     Quit {
         reply_sender: tokio::sync::oneshot::Sender<()>,
     },
+}
+
+/// Index types that can be created.
+#[derive(Debug, Clone, Copy)]
+#[repr(u32)]
+pub(crate) enum IndexType {
+    BTree=1,
+    Bitmap=2,
+    LabelList=3,
+}
+
+impl From<u32> for IndexType {
+    fn from(value: u32) -> Self {
+        match value {
+            1 => Self::BTree,
+            2 => Self::Bitmap,
+            3 => Self::LabelList,
+            _ => panic!("Invalid index type: {}", value),
+        }
+    }
 }

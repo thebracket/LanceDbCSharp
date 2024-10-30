@@ -173,13 +173,15 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                 connection_handle: _,
                 table_handle,
                 column_name,
-                index_type: _,
-                replace: _,
+                index_type,
+                replace,
             } => {
                 tokio::spawn(table::crate_scalar_index(
                     tables.clone(),
                     table_handle,
                     column_name,
+                    index_type,
+                    replace,
                     reply_tx,
                     completion_sender,
                 ));

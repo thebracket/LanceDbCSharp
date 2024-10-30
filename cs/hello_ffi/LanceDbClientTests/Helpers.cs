@@ -7,7 +7,7 @@ namespace LanceDbClientTests;
 
 internal static class Helpers
 {
-    public static Schema GetSchema()
+    internal static Schema GetSchema()
     {
         // Define the "id" field (Int32, not nullable)
         var idField = new Field("id", Int32Type.Default, nullable: false);

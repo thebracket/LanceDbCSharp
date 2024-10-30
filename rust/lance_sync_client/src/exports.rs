@@ -173,7 +173,7 @@ pub extern "C" fn create_scalar_index(
             connection_handle: ConnectionHandle(connection_handle),
             table_handle: TableHandle(table_handle),
             column_name,
-            index_type,
+            index_type: index_type.into(),
             replace,
         },
         "CreateScalarIndex",

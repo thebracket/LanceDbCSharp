@@ -2,7 +2,7 @@ using LanceDbClient;
 
 namespace LanceDbClientTests;
 
-public class Tests
+public partial class Tests
 {
     [SetUp]
     public void Setup()
