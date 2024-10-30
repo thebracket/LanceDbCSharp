@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LanceDbClient", "LanceDbCli
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiTestbed", "ApiTestbed\ApiTestbed.csproj", "{782DCCAE-3886-4972-90BE-8B6BA0786B0B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LanceDbClientTests", "LanceDbClientTests\LanceDbClientTests.csproj", "{8EBD6D2C-11FC-44D9-9DB4-ED9095674B7E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +26,9 @@ Global
 		{782DCCAE-3886-4972-90BE-8B6BA0786B0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{782DCCAE-3886-4972-90BE-8B6BA0786B0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{782DCCAE-3886-4972-90BE-8B6BA0786B0B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8EBD6D2C-11FC-44D9-9DB4-ED9095674B7E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8EBD6D2C-11FC-44D9-9DB4-ED9095674B7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8EBD6D2C-11FC-44D9-9DB4-ED9095674B7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8EBD6D2C-11FC-44D9-9DB4-ED9095674B7E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

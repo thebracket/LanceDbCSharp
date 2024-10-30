@@ -4,25 +4,27 @@ using LanceDbInterface;
 
 namespace LanceDbClient;
 
-public class Connection : IConnection, IDisposable
+public class Connection : IConnection
 {
     // <summary>
     // Creates a new connection to the database.
     // </summary>
     // <param name="uri">The URI of the database to connect to.</param>
-    // <exception cref="Exception">If the connection fails.</exception>
+    // <exception cref="Exception">If the connection fails, or is already open.</exception>
     public Connection(Uri uri)
     {
+        if (IsOpen) throw new Exception("Connection is already open");
         _connectionId = -1L;
+        Exception? exception = null;
         Ffi.connect(uri.AbsolutePath, ((result, message) =>
         {
             _connectionId = result;
-            if (message != null)
+            if (result < 0 && message != null)
             {
-                throw new Exception(message);
+                exception = new Exception(message);
             }
         }));
-        _connected = true;
+        if (exception != null) throw exception;
         Uri = uri;
         IsOpen = true;
     }
@@ -34,21 +36,20 @@ public class Connection : IConnection, IDisposable
     /// <exception cref="Exception">If the connection is not open, or table names are unavailable.</exception>
     public IEnumerable<string> TableNames()
     {
-        if (!this.IsOpen)
-        {
-            IsOpen = false;
-            throw new Exception("Connection is not open");
-        }
+        if (!this.IsOpen) throw new Exception("Connection is not open");
+        
         var strings = new List<string>();
+        Exception? exception = null;
         Ffi.list_table_names(_connectionId, 
             s => strings.Add(s),
             (code, message) =>
             {
                 if (code < 0 && message != null)
                 {
-                    throw new Exception("Failed to list table names: " + message);
+                    exception = new Exception("Failed to list table names: " + message);
                 }
             });
+        if (exception != null) throw exception;
         return strings;
     }
 
@@ -61,13 +62,11 @@ public class Connection : IConnection, IDisposable
     /// <exception cref="Exception"></exception>
     public ITable CreateTable(string name, Schema schema)
     {
-        if (!IsOpen)
-        {
-            throw new Exception("Connection is not open");
-        }
+        if (!IsOpen) throw new Exception("Connection is not open");
 
         var schemaBytes = Ffi.SerializeSchemaOnly(schema);
         var tableHandle = -1L;
+        Exception? exception = null;
 
         unsafe
         {
@@ -78,11 +77,12 @@ public class Connection : IConnection, IDisposable
                     tableHandle = code;
                     if (message != null)
                     {
-                        throw new Exception("Failed to create the table: " + message);
+                        exception = new Exception("Failed to create the table: " + message);
                     }
                 });
             }
         }
+        if (exception != null) throw exception;
         
         return new Table(name, tableHandle, _connectionId, schema);
     }
@@ -95,13 +95,11 @@ public class Connection : IConnection, IDisposable
     /// <exception cref="Exception">If the connection isn't open, if the table isn't found.</exception>
     public ITable OpenTable(string name)
     {
-        if (!IsOpen)
-        {
-            throw new Exception("Connection is not open");
-        }
+        if (!IsOpen) throw new Exception("Connection is not open");
 
         var tableHandle = -1L;
         Schema? schema = null;
+        Exception? exception = null;
         unsafe
         {
             Ffi.open_table(name, _connectionId,
@@ -117,15 +115,13 @@ public class Connection : IConnection, IDisposable
                     tableHandle = code;
                     if (message != null)
                     {
-                        throw new Exception("Failed to open the table: " + message);
+                        exception = new Exception("Failed to open the table: " + message);
                     }
                 }
             );
         }
-        if (schema == null)
-        {
-            throw new Exception("Failed to open the table: schema is null");
-        }
+        if (exception != null) throw exception;
+        if (schema == null) throw new Exception("Failed to open the table: schema is null");
 
         return new Table(name, tableHandle, _connectionId, schema);
     }
@@ -138,18 +134,17 @@ public class Connection : IConnection, IDisposable
     /// <exception cref="Exception">If the connection is unavailable, or the table doesn't exist and you didn't specify ignoreMissing.</exception>
     public void DropTable(string name, bool ignoreMissing = false)
     {
-        if (!IsOpen)
-        {
-            throw new Exception("Connection is not open");
-        }
+        if (!IsOpen) throw new Exception("Connection is not open");
 
+        Exception? exception = null;
         Ffi.drop_table(name, _connectionId, ignoreMissing, (code, message) =>
         {
             if (code < 0 && message != null)
             {
-                throw new Exception("Failed to drop the table: " + message);
+                exception = new Exception("Failed to drop the table: " + message);
             }
         });
+        if (exception != null) throw exception;
     }
     
     /// <summary>
@@ -158,18 +153,18 @@ public class Connection : IConnection, IDisposable
     /// <exception cref="Exception">If the connection is not open.</exception>
     public void DropDatabase()
     {
-        if (!IsOpen)
-        {
-            throw new Exception("Connection is not open");
-        }
+        if (!IsOpen) throw new Exception("Connection is not open");
 
+        Exception? exception = null;
         Ffi.drop_database(_connectionId, (code, message) =>
         {
             if (code < 0 && message != null)
             {
-                throw new Exception("Failed to drop the database: " + message);
+                exception = new Exception("Failed to drop the database: " + message);
             }
         });
+        if (exception != null) throw exception;
+        IsOpen = false;
     }
 
     public Task<IEnumerable<string>> TableNamesAsync(CancellationToken cancellationToken = default)
@@ -203,13 +198,16 @@ public class Connection : IConnection, IDisposable
     /// <exception cref="Exception">If the disconnect FFI call returns an error.</exception>
     public void Close()
     {
+        if (!IsOpen) throw new Exception("Connection is not open");
+        Exception? exception = null;
         Ffi.disconnect(this._connectionId, (code, message) =>
         {
             if (code < 0 && message != null)
             {
-                throw new Exception("Failed to disconnect: " + message);
+                exception = new Exception("Failed to disconnect: " + message);
             }
         });
+        if (exception != null) throw exception;
         IsOpen = false;
     }
 
@@ -237,30 +235,30 @@ public class Connection : IConnection, IDisposable
     
     protected virtual void Dispose(bool disposing)
     {
-        if (!_connected)
+        if (!IsOpen)
         {
             return;
         }
 
         if (disposing)
         {
+            Exception? exception = null;
             Ffi.disconnect(this._connectionId, (code, message) =>
             {
                 if (code < 0 && message != null)
                 {
-                    throw new Exception("Failed to disconnect: " + message);
+                    exception = new Exception("Failed to disconnect: " + message);
                 }
             });
+            if (exception != null) throw exception;
             this.IsOpen = false;
         }
 
-        _connected = false;
         _connectionId = -1;
     }
     
     
 
     private long _connectionId;
-    private bool _connected;
     public bool IsOpen { get; private set; }
 }

@@ -35,40 +35,46 @@ public class Table : ITable, IDisposable
     {
         if (disposing)
         {
+            Exception? exception = null;
             Ffi.close_table(_connectionHandle, _tableHandle, (code, message) =>
             {
                 if (code < 0 && message != null)
                 {
-                    throw new Exception("Failed to close the table: " + message);
+                    exception = new Exception("Failed to close the table: " + message);
                 }
             });
+            if (exception != null) throw exception;
         }
     }
     
     public int CountRows(string? filter = null)
     {
         var count = 0L;
+        Exception? exception = null;
         Ffi.count_rows(_connectionHandle, _tableHandle, (code, message) =>
         {
             if (code < 0 && message != null)
             {
-                throw new Exception("Failed to count rows: " + message);
+                exception = new Exception("Failed to count rows: " + message);
             }
             count = code;
         });
+        if (exception != null) throw exception;
         return (int)count;
     }
 
     public void CreateScalarIndex(string columnName, LanceDbInterface.IndexType indexType = LanceDbInterface.IndexType.BTree, bool replace = true)
     {
         // TODO: Not handling index type yet
+        Exception? exception = null;
         Ffi.create_scalar_index(_connectionHandle, _tableHandle, columnName, 0, replace, (code, message) =>
         {
             if (code < 0 && message != null)
             {
-                throw new Exception("Failed to create the scalar index: " + message);
+                exception = new Exception("Failed to create the scalar index: " + message);
             }
         });
+        if (exception != null) throw exception;
     }
 
     public Task CreateScalarIndexAsync(string columnName, LanceDbInterface.IndexType indexType = LanceDbInterface.IndexType.BTree, bool replace = true,
