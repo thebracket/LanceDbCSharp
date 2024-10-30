@@ -1,13 +1,13 @@
-use arrow_array::{RecordBatch, RecordBatchIterator};
-use arrow_schema::ArrowError;
-use lancedb::index::Index;
-use lancedb::index::scalar::{BTreeIndexBuilder, BitmapIndexBuilder, LabelListIndexBuilder};
-use tokio::sync::mpsc::Sender;
 use crate::connection_handler::{ConnectionCommand, ConnectionHandle};
-use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorReportFn};
 use crate::event_loop::command::{BadVectorHandling, IndexType, WriteMode};
 use crate::event_loop::connection::get_table;
+use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorReportFn};
 use crate::table_handler::{TableCommand, TableHandle};
+use arrow_array::{RecordBatch, RecordBatchIterator};
+use arrow_schema::ArrowError;
+use lancedb::index::scalar::{BTreeIndexBuilder, BitmapIndexBuilder, LabelListIndexBuilder};
+use lancedb::index::Index;
+use tokio::sync::mpsc::Sender;
 
 pub(crate) async fn do_count_rows(
     connections: Sender<ConnectionCommand>,
@@ -58,14 +58,15 @@ pub(crate) async fn do_add_record_batch(
     // TODO: Implement fill value
 
     let Ok(schema) = table.schema().await else {
-        report_result(Err("Error getting table schema".to_string()), reply_tx, Some(completion_sender));
+        report_result(
+            Err("Error getting table schema".to_string()),
+            reply_tx,
+            Some(completion_sender),
+        );
         return;
     };
     let batch = RecordBatchIterator::new(batch, schema);
-    let result = table.add(batch)
-        .mode(write_mode.into())
-        .execute()
-        .await;
+    let result = table.add(batch).mode(write_mode.into()).execute().await;
 
     match result {
         Ok(_) => {
@@ -92,7 +93,7 @@ pub(crate) async fn do_crate_scalar_index(
             IndexType::BTree => {
                 let builder = BTreeIndexBuilder::default();
                 table.create_index(&[column_name], Index::BTree(builder))
-            },
+            }
             IndexType::Bitmap => {
                 let builder = BitmapIndexBuilder::default();
                 table.create_index(&[column_name], Index::Bitmap(builder))
@@ -103,11 +104,7 @@ pub(crate) async fn do_crate_scalar_index(
             }
         };
 
-        match build_command
-            .replace(replace)
-            .execute()
-            .await
-        {
+        match build_command.replace(replace).execute().await {
             Ok(_) => {
                 report_result(Ok(0), reply_tx, Some(completion_sender));
                 return;

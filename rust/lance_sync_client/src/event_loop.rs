@@ -156,7 +156,14 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     .unwrap();
                 report_result(Ok(0), reply_tx, Some(completion_sender));
             }
-            LanceDbCommand::AddRecordBatch { connection_handle: _, table_handle, write_mode, bad_vector_handling, fill_value, batch } => {
+            LanceDbCommand::AddRecordBatch {
+                connection_handle: _,
+                table_handle,
+                write_mode,
+                bad_vector_handling,
+                fill_value,
+                batch,
+            } => {
                 tokio::spawn(table::do_add_record_batch(
                     tables.clone(),
                     table_handle,

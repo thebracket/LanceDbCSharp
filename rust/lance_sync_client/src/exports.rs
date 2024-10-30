@@ -127,7 +127,12 @@ pub extern "C" fn open_table(
 /// the given name, using the connection provided. WARNING: this invalidates
 /// any cached table handles referencing the table.
 #[no_mangle]
-pub extern "C" fn drop_table(name: *const c_char, connection_handle: i64, ignore_missing: bool, reply_tx: ErrorReportFn) {
+pub extern "C" fn drop_table(
+    name: *const c_char,
+    connection_handle: i64,
+    ignore_missing: bool,
+    reply_tx: ErrorReportFn,
+) {
     let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
     command_from_ffi!(
         LanceDbCommand::DropTable {
@@ -168,7 +173,11 @@ pub extern "C" fn add_record_batch(
     let data = unsafe { std::slice::from_raw_parts(data, len) };
     let batch = bytes_to_batch(data);
     if let Err(e) = batch {
-        report_result(Err(format!("Could not parse record batch: {:?}", e)), reply_tx, None);
+        report_result(
+            Err(format!("Could not parse record batch: {:?}", e)),
+            reply_tx,
+            None,
+        );
         return;
     }
     command_from_ffi!(
@@ -215,11 +224,20 @@ pub extern "C" fn create_scalar_index(
 
 /// Count the number of rows in a table
 #[no_mangle]
-pub extern "C" fn count_rows(connection_handle: i64, table_handle: i64, filter: *const c_char, reply_tx: ErrorReportFn) {
+pub extern "C" fn count_rows(
+    connection_handle: i64,
+    table_handle: i64,
+    filter: *const c_char,
+    reply_tx: ErrorReportFn,
+) {
     let filter = if filter.is_null() {
         None
     } else {
-        Some(unsafe { std::ffi::CStr::from_ptr(filter).to_string_lossy().to_string() })
+        Some(unsafe {
+            std::ffi::CStr::from_ptr(filter)
+                .to_string_lossy()
+                .to_string()
+        })
     };
     command_from_ffi!(
         LanceDbCommand::CountRows {

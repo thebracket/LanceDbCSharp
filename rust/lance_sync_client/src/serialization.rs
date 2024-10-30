@@ -1,8 +1,8 @@
 //! Provides FileReader/FileWriter Arrow IPC format conversion to/from byte arrays.
 
+use arrow_array::RecordBatch;
 use arrow_schema::{ArrowError, SchemaRef};
 use std::io::Cursor;
-use arrow_array::RecordBatch;
 
 pub(crate) fn schema_to_bytes(schema: &SchemaRef) -> Vec<u8> {
     let mut buf = vec![];
@@ -21,8 +21,6 @@ pub(crate) fn bytes_to_schema(bytes: &[u8]) -> anyhow::Result<SchemaRef> {
 
 pub(crate) fn bytes_to_batch(bytes: &[u8]) -> anyhow::Result<Vec<Result<RecordBatch, ArrowError>>> {
     let reader = arrow_ipc::reader::FileReader::try_new(Cursor::new(bytes), None)?;
-    let batches: Vec<_> = reader.collect::<Vec<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
+    let batches: Vec<_> = reader.collect::<Vec<_>>().into_iter().collect::<Vec<_>>();
     Ok(batches)
 }

@@ -1,9 +1,9 @@
 use crate::connection_handler::ConnectionHandle;
 use crate::table_handler::TableHandle;
-use arrow_schema::{ArrowError, SchemaRef};
-use std::ffi::c_char;
 use arrow_array::RecordBatch;
+use arrow_schema::{ArrowError, SchemaRef};
 use lancedb::table::AddDataMode;
+use std::ffi::c_char;
 
 /// Used to synchronize timings - make sure that the function
 /// does not return until all async processing is complete.
@@ -92,9 +92,9 @@ pub(crate) enum LanceDbCommand {
 #[derive(Debug, Clone, Copy)]
 #[repr(u32)]
 pub(crate) enum IndexType {
-    BTree=1,
-    Bitmap=2,
-    LabelList=3,
+    BTree = 1,
+    Bitmap = 2,
+    LabelList = 3,
 }
 
 impl From<u32> for IndexType {
@@ -111,8 +111,8 @@ impl From<u32> for IndexType {
 #[derive(Debug, Clone, Copy)]
 #[repr(u32)]
 pub(crate) enum WriteMode {
-    Append=1,
-    Overwrite=2,
+    Append = 1,
+    Overwrite = 2,
 }
 
 impl From<u32> for WriteMode {
@@ -137,9 +137,9 @@ impl From<WriteMode> for AddDataMode {
 #[derive(Debug, Clone, Copy)]
 #[repr(u32)]
 pub(crate) enum BadVectorHandling {
-    Error=1,
-    Drop=2,
-    Fill=3
+    Error = 1,
+    Drop = 2,
+    Fill = 3,
 }
 
 impl From<u32> for BadVectorHandling {
