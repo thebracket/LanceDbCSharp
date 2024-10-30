@@ -5,6 +5,49 @@ namespace LanceDbClientTests;
 public partial class Tests
 {
     [Test]
+    public void CloseTable()
+    {
+        var uri = new Uri("file:///tmp/test_table_close");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                table.Close();
+                Assert.That(table.IsOpen, Is.False);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+
+    [Test]
+    public void CloseTableAlreadyClosed()
+    {
+        var uri = new Uri("file:///tmp/test_table_close_already_closed");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                table.Close();
+                Assert.That(table.IsOpen, Is.False);
+                Assert.Throws<Exception>(() => table.Close());
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
     public void CountRowsEmpty()
     {
         var uri = new Uri("file:///tmp/test_table_empty_count");

@@ -24,6 +24,7 @@ public class Table : ITable, IDisposable
         _tableHandle = tableHandle;
         _connectionHandle = connectionId;
         Schema = schema;
+        IsOpen = true;
     }
 
     private readonly long _tableHandle;
@@ -61,11 +62,12 @@ public class Table : ITable, IDisposable
     /// <summary>
     /// Count the number of rows in the table.
     /// </summary>
-    /// <param name="filter"></param>
-    /// <returns></returns>
-    /// <exception cref="Exception"></exception>
+    /// <param name="filter">Filter to apply</param>
+    /// <returns>Row count</returns>
+    /// <exception cref="Exception">If the table is not open or the operation fails</exception>
     public int CountRows(string? filter = null)
     {
+        if (!IsOpen) throw new Exception("Table is not open.");
         var count = 0L;
         Exception? exception = null;
         Ffi.count_rows(_connectionHandle, _tableHandle, filter, (code, message) =>
@@ -82,7 +84,7 @@ public class Table : ITable, IDisposable
 
     public void CreateScalarIndex(string columnName, LanceDbInterface.IndexType indexType = LanceDbInterface.IndexType.BTree, bool replace = true)
     {
-        // TODO: Not handling index type yet
+        if (!IsOpen) throw new Exception("Table is not open.");
         Exception? exception = null;
         Ffi.create_scalar_index(_connectionHandle, _tableHandle, columnName, (uint)indexType, replace, (code, message) =>
         {
@@ -171,9 +173,23 @@ public class Table : ITable, IDisposable
         throw new NotImplementedException();
     }
 
+    /// <summary>
+    /// Close the table.
+    /// </summary>
+    /// <exception cref="Exception">If the table is open, or the operation fails</exception>
     public void Close()
     {
-        throw new NotImplementedException();
+        if (!IsOpen) throw new Exception("Table is not open.");
+        Exception? exception = null;
+        Ffi.close_table(_connectionHandle, _tableHandle, (code, message) =>
+        {
+            if (code < 0 && message != null)
+            {
+                exception = new Exception("Failed to close the table: " + message);
+            }
+        });
+        if (exception != null) throw exception;
+        IsOpen = false;
     }
 
     public Task CloseAsync(CancellationToken cancellationToken = default)
@@ -201,7 +217,7 @@ public class Table : ITable, IDisposable
         throw new NotImplementedException();
     }
 
-    public bool IsOpen { get; }
+    public bool IsOpen { get; private set; }
     public Schema Schema { get; }
     public string Name { get; }
 
