@@ -8,6 +8,7 @@ mod connection;
 mod errors;
 pub(crate) mod helpers;
 mod lifecycle;
+mod table;
 
 use crate::connection_handler::{ConnectionActor, ConnectionCommand};
 use crate::table_handler::{TableActor, TableCommand};
@@ -18,7 +19,7 @@ use tokio::sync::mpsc::{channel, Sender};
 
 use crate::event_loop::connection::{
     do_connection_request, do_create_table_with_schema, do_disconnect, do_drop_database,
-    do_drop_table, do_list_tables, do_open_table, get_table,
+    do_drop_table, do_list_tables, do_open_table,
 };
 pub(crate) use command::CompletionSender;
 pub(crate) use connection::get_connection;
@@ -157,24 +158,14 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                 connection_handle,
                 table_handle,
             } => {
-                if let Some(_cnn) = get_connection(connections.clone(), connection_handle).await {
-                    if let Some(table) = get_table(tables.clone(), table_handle).await {
-                        match table.count_rows(None).await {
-                            Ok(count) => {
-                                report_result(Ok(count as i64), reply_tx, Some(completion_sender));
-                                continue;
-                            }
-                            Err(e) => {
-                                let err = format!("Error counting rows: {:?}", e);
-                                report_result(Err(err), reply_tx, Some(completion_sender));
-                                continue;
-                            }
-                        }
-                    }
-                } else {
-                    eprintln!("Connection handle {} not found.", connection_handle.0);
-                }
-                completion_sender.send(()).unwrap();
+                tokio::spawn(table::count_rows(
+                    connections.clone(),
+                    tables.clone(),
+                    connection_handle,
+                    table_handle,
+                    reply_tx,
+                    completion_sender,
+                ));
             }
             LanceDbCommand::CreateScalarIndex {
                 connection_handle: _,
@@ -183,25 +174,13 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                 index_type: _,
                 replace: _,
             } => {
-                if let Some(table) = get_table(tables.clone(), table_handle).await {
-                    // TODO: Need to support different index types
-                    match table
-                        .create_index(&[column_name], lancedb::index::Index::Auto)
-                        .execute()
-                        .await
-                    {
-                        Ok(_) => {
-                            report_result(Ok(0), reply_tx, Some(completion_sender));
-                            continue;
-                        }
-                        Err(e) => {
-                            let err = format!("Error creating index: {:?}", e);
-                            report_result(Err(err), reply_tx, Some(completion_sender));
-                            continue;
-                        }
-                    }
-                }
-                completion_sender.send(()).unwrap();
+                tokio::spawn(table::crate_scalar_index(
+                    tables.clone(),
+                    table_handle,
+                    column_name,
+                    reply_tx,
+                    completion_sender,
+                ));
             }
             LanceDbCommand::Quit { reply_sender } => {
                 tables.send(TableCommand::Quit).await.unwrap();
