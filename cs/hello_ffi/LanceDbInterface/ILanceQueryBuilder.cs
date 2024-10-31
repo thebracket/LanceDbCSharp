@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Apache.Arrow;
 using MathNet.Numerics.LinearAlgebra;
 
 namespace LanceDbInterface
@@ -26,5 +22,8 @@ namespace LanceDbInterface
         Task<Apache.Arrow.Table> ToArrowAsync(CancellationToken token = default);
         IEnumerable<IDictionary<string, object>> ToList();
         Task<IEnumerable<IDictionary<string, object>>> ToListAsync(CancellationToken token = default);
+        
+        IEnumerable<RecordBatch> ToBatches(int batchSize); 
+        IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default); 
     }
 }
