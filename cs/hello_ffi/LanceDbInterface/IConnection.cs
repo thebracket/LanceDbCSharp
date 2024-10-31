@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Apache.Arrow;
+﻿using Apache.Arrow;
 
 namespace LanceDbInterface
 {
@@ -12,7 +7,6 @@ namespace LanceDbInterface
         IEnumerable<string> TableNames();
         Task<IEnumerable<string>> TableNamesAsync(CancellationToken cancellationToken = default);
 
-        // The Schema is Apache.Arrow.Schema, if it doesn't work with the FFI layer, then we have to create these classes ourselve.
         ITable CreateTable(string name, Schema schema);
         Task<ITable> CreateTableAsync(string name, Schema schema, CancellationToken cancellationToken = default);
 
