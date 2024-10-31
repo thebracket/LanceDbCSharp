@@ -1,5 +1,6 @@
 using Apache.Arrow;
 using LanceDbInterface;
+using MathNet.Numerics.LinearAlgebra;
 using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;
@@ -207,12 +208,32 @@ public class Table : ITable, IDisposable
         throw new NotImplementedException();
     }
 
+    public ILanceQueryBuilder Search()
+    {
+        throw new NotImplementedException();
+    }
+
     public ILanceQueryBuilder Search(Array vector, string vectorColumnName, QueryType queryType = QueryType.Auto)
     {
         throw new NotImplementedException();
     }
 
     public ILanceQueryBuilder Search(ChunkedArray vectors, string vectorColumnName, QueryType queryType = QueryType.Auto)
+    {
+        throw new NotImplementedException();
+    }
+
+    public ILanceQueryBuilder Search<T>(List<T> vector, string vectorColumnName, QueryType queryType = QueryType.Auto)
+    {
+        throw new NotImplementedException();
+    }
+
+    public ILanceQueryBuilder Search<T>(Vector<T> vector, string vectorColumnName, QueryType queryType = QueryType.Auto) where T : struct, IEquatable<T>, IFormattable
+    {
+        throw new NotImplementedException();
+    }
+
+    public ILanceQueryBuilder Search<T>(Matrix<T> vector, string vectorColumnName, QueryType queryType = QueryType.Auto) where T : struct, IEquatable<T>, IFormattable
     {
         throw new NotImplementedException();
     }
