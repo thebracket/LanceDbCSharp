@@ -7,6 +7,7 @@ use arrow_array::{RecordBatch, RecordBatchIterator};
 use arrow_schema::ArrowError;
 use lancedb::index::scalar::{BTreeIndexBuilder, BitmapIndexBuilder, LabelListIndexBuilder};
 use lancedb::index::Index;
+use lancedb::table::OptimizeAction;
 use tokio::sync::mpsc::Sender;
 
 pub(crate) async fn do_count_rows(
@@ -135,6 +136,28 @@ pub(crate) async fn do_crate_scalar_index(
             }
             Err(e) => {
                 let err = format!("Error creating index: {:?}", e);
+                report_result(Err(err), reply_tx, Some(completion_sender));
+                return;
+            }
+        }
+    }
+    completion_sender.send(()).unwrap();
+}
+
+pub(crate) async fn do_compact_files(
+    tables: Sender<TableCommand>,
+    table_handle: TableHandle,
+    reply_tx: ErrorReportFn,
+    completion_sender: CompletionSender,
+) {
+    if let Some(table) = get_table(tables.clone(), table_handle).await {
+        match table.optimize(OptimizeAction::All).await {
+            Ok(_) => {
+                report_result(Ok(0), reply_tx, Some(completion_sender));
+                return;
+            }
+            Err(e) => {
+                let err = format!("Error compacting files: {:?}", e);
                 report_result(Err(err), reply_tx, Some(completion_sender));
                 return;
             }

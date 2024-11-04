@@ -135,11 +135,11 @@ pub(crate) enum LanceDbCommand {
         table_handle: TableHandle,
         where_clause: Option<String>,
     },
-    //
-    // CompactFiles {
-    //     connection_handle: ConnectionHandle,
-    //     table_handle: TableHandle,
-    // },
+
+    CompactFiles {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+    },
 
     // TODO: Search
 

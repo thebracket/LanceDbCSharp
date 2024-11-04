@@ -60,6 +60,9 @@ static partial class Ffi
     internal static extern void delete_rows(long connectionHandle, long tableHandle, string? filter, ResultCallback onResult);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void compact_files(long connectionHandle, long tableHandle, ResultCallback onResult);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void create_scalar_index(long connectionHandle, long tableHandle, string columnName,
         uint indexType, bool replace, ResultCallback onResult);
     

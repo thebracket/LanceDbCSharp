@@ -211,7 +211,16 @@ public class Table : ITable, IDisposable
 
     public void CompactFiles()
     {
-        throw new NotImplementedException();
+        if (!IsOpen) throw new Exception("Table is not open.");
+        Exception? exception = null;
+        Ffi.compact_files(_connectionHandle, _tableHandle, (code, message) =>
+        {
+            if (code < 0 && message != null)
+            {
+                exception = new Exception("Failed to compact files: " + message);
+            }
+        });
+        if (exception != null) throw exception;
     }
 
     public Task CompactFilesAsync(CancellationToken token = default)

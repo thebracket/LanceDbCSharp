@@ -298,3 +298,16 @@ pub extern "C" fn count_rows(
         reply_tx
     );
 }
+
+/// Compact files
+#[no_mangle]
+pub extern "C" fn compact_files(connection_handle: i64, table_handle: i64, reply_tx: ErrorReportFn) {
+    command_from_ffi!(
+        LanceDbCommand::CompactFiles {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+        },
+        "CompactFiles",
+        reply_tx
+    );
+}

@@ -223,6 +223,14 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     completion_sender,
                 ));
             }
+            LanceDbCommand::CompactFiles { connection_handle, table_handle } => {
+                tokio::spawn(table::do_compact_files(
+                    tables.clone(),
+                    table_handle,
+                    reply_tx,
+                    completion_sender,
+                ));
+            }
             LanceDbCommand::Quit { reply_sender } => {
                 tables.send(TableCommand::Quit).await.unwrap();
                 connections.send(ConnectionCommand::Quit).await.unwrap();
