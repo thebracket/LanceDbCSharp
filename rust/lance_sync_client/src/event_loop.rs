@@ -17,10 +17,7 @@ pub(crate) use command::LanceDbCommand;
 use std::sync::OnceLock;
 use tokio::sync::mpsc::{channel, Sender};
 
-use crate::event_loop::connection::{
-    do_connection_request, do_create_table_with_schema, do_disconnect, do_drop_database,
-    do_drop_table, do_list_tables, do_open_table,
-};
+use crate::event_loop::connection::{do_connection_request, do_create_table_with_schema, do_disconnect, do_drop_database, do_drop_table, do_list_tables, do_open_table, do_rename_table};
 pub(crate) use command::CompletionSender;
 pub(crate) use connection::get_connection;
 pub(crate) use errors::{report_result, ErrorReportFn};
@@ -142,6 +139,16 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     completion_sender,
                     connections.clone(),
                     ignore_missing,
+                ));
+            }
+            LanceDbCommand::RenameTable { connection_handle, old_name, new_name } => {
+                tokio::spawn(do_rename_table(
+                    connection_handle,
+                    connections.clone(),
+                    old_name,
+                    new_name,
+                    reply_tx,
+                    completion_sender,
                 ));
             }
             LanceDbCommand::CloseTable {

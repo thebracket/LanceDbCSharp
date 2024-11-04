@@ -7,9 +7,9 @@ namespace LanceDbClient;
 static partial class Ffi
 {
     // Use this one for local builds
-    //private const string DllName = "../../../../../../rust/target/debug/liblance_sync_client.so";
+    private const string DllName = "../../../../../../rust/target/debug/liblance_sync_client.so";
     // Use this one for Docker 
-    private const string DllName = "liblance_sync_client.so";
+    //private const string DllName = "liblance_sync_client.so";
     
     /* Delegate types */
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -37,6 +37,9 @@ static partial class Ffi
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void drop_table(string name, long connectionHandle, bool ignore_missing, ResultCallback onResult);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void rename_table(long connectionHandle, string oldName, string newName, ResultCallback onResult);
     
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]

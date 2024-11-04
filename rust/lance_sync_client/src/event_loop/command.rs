@@ -55,6 +55,12 @@ pub(crate) enum LanceDbCommand {
         ignore_missing: bool,
     },
 
+    RenameTable {
+        connection_handle: ConnectionHandle,
+        old_name: String,
+        new_name: String,
+    },
+
     // TODO: Add Dictionary
     // TODO: Add Table
 

@@ -158,6 +158,27 @@ pub extern "C" fn close_table(connection_handle: i64, table_handle: i64, reply_t
     );
 }
 
+/// Rename a table
+#[no_mangle]
+pub extern "C" fn rename_table(
+    connection_handle: i64,
+    old_name: *const c_char,
+    new_name: *const c_char,
+    reply_tx: ErrorReportFn,
+) {
+    let old_name = unsafe { std::ffi::CStr::from_ptr(old_name).to_string_lossy().to_string() };
+    let new_name = unsafe { std::ffi::CStr::from_ptr(new_name).to_string_lossy().to_string() };
+    command_from_ffi!(
+        LanceDbCommand::RenameTable {
+            connection_handle: ConnectionHandle(connection_handle),
+            old_name,
+            new_name,
+        },
+        "RenameTable",
+        reply_tx
+    );
+}
+
 /// Add a record batch to a table
 #[no_mangle]
 pub extern "C" fn add_record_batch(

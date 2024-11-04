@@ -146,6 +146,20 @@ public class Connection : IConnection
         });
         if (exception != null) throw exception;
     }
+
+    public void RenameTable(string oldName, string newName)
+    {
+        if (!IsOpen) throw new Exception("Connection is not open");
+        Exception? exception = null;
+        Ffi.rename_table(_connectionId, oldName, newName, (code, message) =>
+        {
+            if (code < 0 && message != null)
+            {
+                exception = new Exception("Failed to rename the table: " + message);
+            }
+        });
+        if (exception != null) throw exception;
+    }
     
     /// <summary>
     /// Drops the entire database, including all tables.

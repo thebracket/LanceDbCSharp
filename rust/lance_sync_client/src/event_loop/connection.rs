@@ -201,3 +201,30 @@ pub(crate) async fn do_drop_table(
         return;
     }
 }
+
+pub(crate) async fn do_rename_table(
+    connection_handle: ConnectionHandle,
+    connections: Sender<ConnectionCommand>,
+    old_name: String,
+    new_name: String,
+    reply_sender: ErrorReportFn,
+    completion_sender: CompletionSender,
+) {
+    let Some(cnn) = get_connection(connections.clone(), connection_handle).await else {
+        report_result(
+            Err("Connection handle not found.".to_string()),
+            reply_sender,
+            Some(completion_sender),
+        );
+        return;
+    };
+
+    match cnn.rename_table(&old_name, &new_name).await {
+        Ok(_) => {
+            report_result(Ok(0), reply_sender, Some(completion_sender));
+        }
+        Err(e) => {
+            report_result(Err(format!("Error renaming table: {:?}", e)), reply_sender, Some(completion_sender));
+        }
+    }
+}

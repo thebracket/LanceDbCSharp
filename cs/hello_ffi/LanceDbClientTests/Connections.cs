@@ -87,6 +87,34 @@ public partial class Tests
 
         Assert.Pass();
     }
+    
+    [Test]
+    public void TestRenameTable()
+    {
+        // Implemented for completeness, I didn't realize that the OSS version of LanceDB doesn't
+        // support renaming tables.
+        var uri = new Uri("file:///tmp/test_rename_table");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.Multiple(() =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(cnn.TableNames(), Does.Contain("table1"));
+                });
+                Assert.Throws<Exception>(() => cnn.RenameTable("table1", "table2"));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
 
     [Test]
     public void TestListTablesEmpty()
