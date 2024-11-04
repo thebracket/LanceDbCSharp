@@ -9,6 +9,7 @@ mod errors;
 pub(crate) mod helpers;
 mod lifecycle;
 mod table;
+mod queries;
 
 use crate::connection_handler::{ConnectionActor, ConnectionCommand};
 use crate::table_handler::{TableActor, TableCommand};
@@ -204,6 +205,15 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     where_clause.unwrap_or("".to_string()),
                     reply_tx,
                     completion_sender,
+                ));
+            }
+            LanceDbCommand::Query { connection_handle, table_handle, batch_callback } => {
+                tokio::spawn(queries::do_query(
+                    tables.clone(),
+                    table_handle,
+                    reply_tx,
+                    completion_sender,
+                    batch_callback,
                 ));
             }
             LanceDbCommand::CreateScalarIndex {

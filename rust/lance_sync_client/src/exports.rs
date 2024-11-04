@@ -311,3 +311,22 @@ pub extern "C" fn compact_files(connection_handle: i64, table_handle: i64, reply
         reply_tx
     );
 }
+
+/// Initial query code
+#[no_mangle]
+pub extern "C" fn query(
+    connection_handle: i64,
+    table_handle: i64,
+    batch_callback: Option<extern "C" fn(*const u8, u64)>,
+    reply_tx: ErrorReportFn,
+) {
+    command_from_ffi!(
+        LanceDbCommand::Query {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+            batch_callback,
+        },
+        "Query",
+        reply_tx
+    );
+}

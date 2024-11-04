@@ -143,6 +143,13 @@ pub(crate) enum LanceDbCommand {
 
     // TODO: Search
 
+    // This is starting as an "everything in no order" dump
+    Query {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+        batch_callback: Option<extern "C" fn(*const u8, u64)>,
+    },
+
     /// Gracefully shut down the event-loop.
     Quit {
         reply_sender: tokio::sync::oneshot::Sender<()>,

@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Apache.Arrow;
 using LanceDbInterface;
 using MathNet.Numerics.LinearAlgebra;
@@ -85,9 +86,30 @@ public class QueryBuilder : ILanceQueryBuilder
         throw new NotImplementedException();
     }
 
-    public IEnumerable<RecordBatch> ToBatches(int batchSize)
+    public unsafe IEnumerable<RecordBatch> ToBatches(int batchSize)
     {
-        throw new NotImplementedException();
+        // TODO: We're ignoring batch size completely right now
+        var result = new List<RecordBatch>();
+        Exception? exception = null;
+        
+        Ffi.query(_connectionId, _tableId, (bytes, len) =>
+        {
+            // Marshall schema/length into a managed object
+            var schemaBytes = new byte[len];
+            Marshal.Copy((IntPtr)bytes, schemaBytes, 0, (int)len);
+            var batch = Ffi.DeserializeRecordBatch(schemaBytes);
+            result.Add(batch);
+        }, (code, message) =>
+        {
+            // If an error occurred, turn it into an exception
+            if (code < 0 && message != null)
+            {
+                exception = new Exception("Failed to compact files: " + message);
+            }
+        });
+        
+        if (exception != null) throw exception;
+        return result;
     }
 
     public IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)

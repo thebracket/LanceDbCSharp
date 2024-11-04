@@ -13,7 +13,7 @@ static partial class Ffi
     
     /* Delegate types */
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    internal unsafe delegate void SetSchemaCallback(byte* schema, ulong schemaLength);
+    internal unsafe delegate void BlobCallback(byte* schema, ulong schemaLength);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void ResultCallback(long code, string? message);
@@ -33,7 +33,7 @@ static partial class Ffi
     internal static extern unsafe void create_empty_table(string name, long connectionHandle, byte* schema, ulong schemaLength, ResultCallback onResult);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern void open_table(string name, long connectionHandle, SetSchemaCallback callback, ResultCallback onResult);
+    internal static extern void open_table(string name, long connectionHandle, BlobCallback callback, ResultCallback onResult);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void drop_table(string name, long connectionHandle, bool ignore_missing, ResultCallback onResult);
@@ -61,6 +61,9 @@ static partial class Ffi
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void compact_files(long connectionHandle, long tableHandle, ResultCallback onResult);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern unsafe void query(long connectionHandle, long tableHandle, BlobCallback onRecBatch, ResultCallback onResult);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void create_scalar_index(long connectionHandle, long tableHandle, string columnName,
@@ -98,6 +101,13 @@ static partial class Ffi
         using var ms = new MemoryStream(schemaBytes);
         using var reader = new ArrowFileReader(ms);
         return reader.Schema;
+    }
+    
+    internal static RecordBatch DeserializeRecordBatch(byte[] batch)
+    {
+        using var ms = new MemoryStream(batch);
+        using var reader = new ArrowFileReader(ms);
+        return reader.ReadNextRecordBatch();
     }
 }
 
