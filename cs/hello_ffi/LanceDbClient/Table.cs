@@ -230,7 +230,7 @@ public class Table : ITable, IDisposable
 
     public ILanceQueryBuilder Search()
     {
-        throw new NotImplementedException();
+        return new QueryBuilder(_connectionHandle, _tableHandle);
     }
 
     public ILanceQueryBuilder Search(Array vector, string vectorColumnName, QueryType queryType = QueryType.Auto)
