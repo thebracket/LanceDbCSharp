@@ -82,6 +82,11 @@ public class Table : ITable, IDisposable
         if (exception != null) throw exception;
         return (int)count;
     }
+    
+    public Task<int> CountRowsAsync(string? filter = null, CancellationToken token = default)
+    {
+        throw new NotImplementedException();
+    }
 
     public void CreateScalarIndex(string columnName, LanceDbInterface.IndexType indexType = LanceDbInterface.IndexType.BTree, bool replace = true)
     {
@@ -129,10 +134,7 @@ public class Table : ITable, IDisposable
         throw new NotImplementedException();
     }
 
-    public Task<int> CountRowsAsync(string? filter = null, CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
+
 
     public ILanceMergeInsertBuilder MergeInsert(IEnumerable<string> on)
     {
