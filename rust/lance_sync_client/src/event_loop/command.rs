@@ -1,5 +1,5 @@
 use crate::connection_handler::ConnectionHandle;
-use crate::table_handler::TableHandle;
+use crate::table_handler::{TableActor, TableHandle};
 use arrow_array::RecordBatch;
 use arrow_schema::{ArrowError, SchemaRef};
 use lancedb::table::AddDataMode;
@@ -55,6 +55,9 @@ pub(crate) enum LanceDbCommand {
         ignore_missing: bool,
     },
 
+    // TODO: Add Dictionary
+    // TODO: Add Table
+
     /// Drop a database from the connection.
     DropDatabase { connection_handle: ConnectionHandle },
 
@@ -81,6 +84,58 @@ pub(crate) enum LanceDbCommand {
         index_type: IndexType,
         replace: bool,
     },
+
+    // TODO Items
+
+    // CreateIndex {
+    //     connection_handle: ConnectionHandle,
+    //     table_handle: TableHandle,
+    //     column_names: Vec<String>,
+    //     index_type: IndexType,
+    //     num_partitions: u32,
+    //     num_sub_vectors: u32,
+    //     replace: bool,
+    // },
+    //
+    // CreateFtsIndex {
+    //     connection_handle: ConnectionHandle,
+    //     table_handle: TableHandle,
+    //     column_names: Vec<String>,
+    //     ordering_column_names: Vec<String>,
+    //     replace: bool,
+    //     with_position: bool,
+    //     writer_heap_size: u64,
+    //     tokenizer_name: String,
+    //     use_tantivy: bool,
+    // },
+    //
+    //
+    // Update {
+    //     connection_handle: ConnectionHandle,
+    //     table_handle: TableHandle,
+    //     updates: Vec<(String, String)>,
+    //     where_clause: Option<String>,
+    // },
+    //
+    // UpdateSQL {
+    //     connection_handle: ConnectionHandle,
+    //     table_handle: TableHandle,
+    //     updates: Vec<(String, String)>,
+    //     where_clause: String,
+    // },
+    //
+    DeleteRows {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+        where_clause: Option<String>,
+    },
+    //
+    // CompactFiles {
+    //     connection_handle: ConnectionHandle,
+    //     table_handle: TableHandle,
+    // },
+
+    // TODO: Search
 
     /// Gracefully shut down the event-loop.
     Quit {

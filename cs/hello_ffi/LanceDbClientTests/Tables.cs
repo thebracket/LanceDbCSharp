@@ -177,6 +177,64 @@ public partial class Tests
     }
     
     [Test]
+    public void DeleteRowsWithFilter()
+    {
+        var uri = new Uri("file:///tmp/test_table_deleterows_filter");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                Assert.That(table.CountRows("id = 0"), Is.EqualTo(1));
+                table.Delete("id = 0");
+                Assert.That(table.CountRows("id = 0"), Is.EqualTo(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public void DeleteRowsWithoutFilter()
+    {
+        var uri = new Uri("file:///tmp/test_table_deleterows_nofilter");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                Assert.That(table.CountRows(), Is.GreaterThan(0));
+                table.Delete("0 = 0");
+                Assert.That(table.CountRows("id = 0"), Is.EqualTo(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
     public void CreateDefaultScalarIndexFailsOnEmpty()
     {
         var uri = new Uri("file:///tmp/test_table_empty_try_index");

@@ -79,6 +79,30 @@ pub(crate) async fn do_add_record_batch(
     }
 }
 
+pub(crate) async fn do_delete_rows(
+    tables: Sender<TableCommand>,
+    table_handle: TableHandle,
+    where_clause: String,
+    reply_tx: ErrorReportFn,
+    completion_sender: CompletionSender,
+) {
+    let Some(table) = get_table(tables.clone(), table_handle).await else {
+        let err = format!("Table not found: {table_handle:?}");
+        report_result(Err(err), reply_tx, Some(completion_sender));
+        return;
+    };
+    match table.delete(&where_clause).await {
+        Ok(_) => {
+            report_result(Ok(0), reply_tx, Some(completion_sender));
+        }
+        Err(e) => {
+            let err = format!("Error deleting rows: {:?}", e);
+            report_result(Err(err), reply_tx, Some(completion_sender));
+        }
+    }
+
+}
+
 pub(crate) async fn do_crate_scalar_index(
     tables: Sender<TableCommand>,
     table_handle: TableHandle,

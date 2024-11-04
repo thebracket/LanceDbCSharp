@@ -194,6 +194,34 @@ pub extern "C" fn add_record_batch(
     );
 }
 
+/// Delete rows from a table
+#[no_mangle]
+pub extern "C" fn delete_rows(
+    connection_handle: i64,
+    table_handle: i64,
+    filter: *const c_char,
+    reply_tx: ErrorReportFn,
+) {
+    let where_clause = if filter.is_null() {
+        None
+    } else {
+        Some(unsafe {
+            std::ffi::CStr::from_ptr(filter)
+                .to_string_lossy()
+                .to_string()
+        })
+    };
+    command_from_ffi!(
+        LanceDbCommand::DeleteRows {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+            where_clause,
+        },
+        "DeleteRows",
+        reply_tx
+    );
+}
+
 /// Create a scalar index on a table
 #[no_mangle]
 pub extern "C" fn create_scalar_index(

@@ -190,6 +190,15 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     completion_sender,
                 ));
             }
+            LanceDbCommand::DeleteRows { connection_handle, table_handle, where_clause } => {
+                tokio::spawn(table::do_delete_rows(
+                    tables.clone(),
+                    table_handle,
+                    where_clause.unwrap_or("".to_string()),
+                    reply_tx,
+                    completion_sender,
+                ));
+            }
             LanceDbCommand::CreateScalarIndex {
                 connection_handle: _,
                 table_handle,

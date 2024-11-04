@@ -168,7 +168,16 @@ public class Table : ITable, IDisposable
 
     public void Delete(string whereClause)
     {
-        throw new NotImplementedException();
+        if (!IsOpen) throw new Exception("Table is not open.");
+        Exception? exception = null;
+        Ffi.delete_rows(_connectionHandle, _tableHandle, whereClause, (code, message) =>
+        {
+            if (code < 0 && message != null)
+            {
+                exception = new Exception("Failed to delete rows: " + message);
+            }
+        });
+        if (exception != null) throw exception;
     }
 
     public Task DeleteAsync(string whereClause, CancellationToken token = default)
