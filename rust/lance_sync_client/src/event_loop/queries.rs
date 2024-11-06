@@ -53,9 +53,7 @@ pub(crate) async fn do_query(
     }
 
     // Explain handling
-    println!("Explain callback: {:?}", explain_callback);
     if let Some((verbose, explain_callback)) = explain_callback {
-        println!("Explaining query");
         match query_builder.explain_plan(verbose).await {
             Err(e) => {
                 let err = format!("Error explaining query: {:?}", e);
