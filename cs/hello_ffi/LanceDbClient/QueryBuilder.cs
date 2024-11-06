@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Apache.Arrow;
 using LanceDbInterface;
@@ -9,16 +10,19 @@ public class QueryBuilder : ILanceQueryBuilder
 {
     readonly long _connectionId;
     readonly long _tableId;
-    
+    private ulong _limit;
+
     internal QueryBuilder(long connectionId, long tableId)
     {
         _connectionId = connectionId;
         _tableId = tableId;
+        _limit = 0;
     }
     
     public ILanceQueryBuilder Limit(int limit)
     {
-        throw new NotImplementedException();
+        _limit = (ulong)limit;
+        return this;
     }
 
     public ILanceQueryBuilder SelectColumns(IEnumerable<string> selectColumns)
@@ -106,7 +110,7 @@ public class QueryBuilder : ILanceQueryBuilder
             {
                 exception = new Exception("Failed to compact files: " + message);
             }
-        });
+        }, _limit);
         
         if (exception != null) throw exception;
         return result;

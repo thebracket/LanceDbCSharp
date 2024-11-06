@@ -67,8 +67,58 @@ public partial class Tests
                 Assert.That(q, Is.Not.Null);
                 var batches = q.ToBatches(0);
                 Assert.That(batches, Is.Not.Empty);
-                Assert.That(batches.Count(), Is.EqualTo(1));
-                Assert.That(batches.First().Column(0).Length, Is.EqualTo(8));
+                Assert.Multiple(() =>
+                {
+                    Assert.That(batches.Count(), Is.EqualTo(1));
+                    Assert.That(batches.First().Column(0).Length, Is.EqualTo(8));
+                });
+                var length = batches.Sum(batch => batch.Length);
+                Assert.That(length, Is.EqualTo(8));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
+    
+    [Test]
+    public void MinimalDumpQueryWithLimit()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_dump_query");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.Multiple(() =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(cnn.TableNames(), Does.Contain("table1"));
+                });
+                
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 200, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+
+                var q = table.Search().Limit(1);
+                Assert.That(q, Is.Not.Null);
+                var batches = q.ToBatches(0);
+                Assert.That(batches, Is.Not.Empty);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(batches.Count(), Is.EqualTo(1));
+                    Assert.That(batches.First().Column(0).Length, Is.EqualTo(1));
+                });
+                var length = batches.Sum(batch => batch.Length);
+                Assert.That(length, Is.EqualTo(1));
             }
         }
         finally

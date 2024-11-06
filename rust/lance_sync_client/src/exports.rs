@@ -319,12 +319,14 @@ pub extern "C" fn query(
     table_handle: i64,
     batch_callback: Option<extern "C" fn(*const u8, u64)>,
     reply_tx: ErrorReportFn,
+    limit: u64,
 ) {
     command_from_ffi!(
         LanceDbCommand::Query {
             connection_handle: ConnectionHandle(connection_handle),
             table_handle: TableHandle(table_handle),
             batch_callback,
+            limit: if limit == 0 { None } else { Some(limit as usize) },
         },
         "Query",
         reply_tx

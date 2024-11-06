@@ -1,5 +1,5 @@
 use futures::TryStreamExt;
-use lancedb::query::ExecutableQuery;
+use lancedb::query::{ExecutableQuery, QueryBase};
 use tokio::sync::mpsc::Sender;
 use crate::event_loop::connection::get_table;
 use crate::event_loop::{report_result, CompletionSender, ErrorReportFn};
@@ -12,6 +12,7 @@ pub(crate) async fn do_query(
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
     batch_callback: Option<extern "C" fn(*const u8, u64)>,
+    limit: Option<usize>,
 ) {
     let Some(table) = get_table(tables.clone(), table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
@@ -28,7 +29,14 @@ pub(crate) async fn do_query(
         return;
     };
 
-    match table.query().execute().await {
+    // Use the query builder setup
+    let mut query_builder = table.query();
+    if let Some(limit) = limit {
+        println!("Limiting query to: {}", limit);
+        query_builder = query_builder.limit(limit);
+    }
+
+    match query_builder.execute().await {
         Ok(query) => {
             // We have the result - need to transmit it back to the caller
             let records = query.try_collect::<Vec<_>>()

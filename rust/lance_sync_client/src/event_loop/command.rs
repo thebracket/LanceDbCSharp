@@ -148,6 +148,7 @@ pub(crate) enum LanceDbCommand {
         connection_handle: ConnectionHandle,
         table_handle: TableHandle,
         batch_callback: Option<extern "C" fn(*const u8, u64)>,
+        limit: Option<usize>,
     },
 
     /// Gracefully shut down the event-loop.
