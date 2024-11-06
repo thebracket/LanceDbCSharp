@@ -7,8 +7,8 @@ namespace LanceDbClient;
 
 public class QueryBuilder : ILanceQueryBuilder
 {
-    long _connectionId;
-    long _tableId;
+    readonly long _connectionId;
+    readonly long _tableId;
     
     internal QueryBuilder(long connectionId, long tableId)
     {
