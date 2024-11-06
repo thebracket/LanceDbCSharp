@@ -60,12 +60,11 @@ pub(crate) async fn do_query(
                 return;
             };
             for record in records.iter() {
-                let Ok(bytes) = batch_to_bytes(record, &schema) else {
-                    report_result(Err("Unable to convert result to bytes".to_string()), reply_tx, Some(completion_sender));
-                    return;
-                };
                 if let Some(batch_callback) = batch_callback {
-                    println!("{:?}", record);
+                    let Ok(bytes) = batch_to_bytes(record, &schema) else {
+                        report_result(Err("Unable to convert result to bytes".to_string()), reply_tx, Some(completion_sender));
+                        return;
+                    };
                     batch_callback(bytes.as_ptr(), bytes.len() as u64);
                 }
             }
