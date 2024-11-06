@@ -207,7 +207,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     completion_sender,
                 ));
             }
-            LanceDbCommand::Query { connection_handle, table_handle, batch_callback, limit, where_clause } => {
+            LanceDbCommand::Query { connection_handle, table_handle, batch_callback, limit, where_clause, with_row_id } => {
                 tokio::spawn(queries::do_query(
                     tables.clone(),
                     table_handle,
@@ -216,6 +216,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     batch_callback,
                     limit,
                     where_clause,
+                    with_row_id,
                 ));
             }
             LanceDbCommand::CreateScalarIndex {

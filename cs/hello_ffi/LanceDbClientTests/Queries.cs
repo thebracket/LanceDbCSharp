@@ -132,7 +132,7 @@ public partial class Tests
     [Test]
     public void MinimalDumpQueryWithWhere()
     {
-        var uri = new Uri("file:///tmp/test_open_table_dump_query");
+        var uri = new Uri("file:///tmp/test_open_table_dump_query_where");
         try
         {
             using (var cnn = new Connection(uri))
@@ -171,6 +171,52 @@ public partial class Tests
             Cleanup(uri);
         }
 
+        Assert.Pass();
+    }
+    
+    [Test]
+    public void MinimalDumpQueryWithRowId()
+    {
+        // Currently always fails. Running `.with_rowid()` on the server side
+        // appears to ONLY return row IDs at present. The result fails to
+        // deserialize as a batch - so there's an edge case here?
+        //
+        // Currently, this asserts that the edge case throws correctly.
+        
+        var uri = new Uri("file:///tmp/test_open_table_dump_query_where");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.Multiple(() =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(cnn.TableNames(), Does.Contain("table1"));
+                });
+                
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+
+                var q = table.Search().WithRowId(true);
+                Assert.That(q, Is.Not.Null);
+                Assert.Throws<Exception>(() =>
+                {
+                    var batches = q.ToBatches(0);
+                });
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+        
         Assert.Pass();
     }
 }

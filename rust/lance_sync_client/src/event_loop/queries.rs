@@ -14,6 +14,7 @@ pub(crate) async fn do_query(
     batch_callback: Option<extern "C" fn(*const u8, u64)>,
     limit: Option<usize>,
     where_clause: Option<String>,
+    with_row_id: bool,
 ) {
     let Some(table) = get_table(tables.clone(), table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
@@ -44,6 +45,11 @@ pub(crate) async fn do_query(
         query_builder = query_builder.only_if(where_clause);
     }
 
+    // Return Row IDs
+    if with_row_id {
+        query_builder = query_builder.with_row_id();
+    }
+
     match query_builder.execute().await {
         Ok(query) => {
             // We have the result - need to transmit it back to the caller
@@ -59,6 +65,7 @@ pub(crate) async fn do_query(
                     return;
                 };
                 if let Some(batch_callback) = batch_callback {
+                    println!("{:?}", record);
                     batch_callback(bytes.as_ptr(), bytes.len() as u64);
                 }
             }

@@ -12,6 +12,7 @@ public class QueryBuilder : ILanceQueryBuilder
     private readonly long _tableId;
     private ulong _limit;
     private string? _whereClause;
+    private bool _withRowId;
 
     internal QueryBuilder(long connectionId, long tableId)
     {
@@ -19,6 +20,7 @@ public class QueryBuilder : ILanceQueryBuilder
         _tableId = tableId;
         _limit = 0;
         _whereClause = null;
+        _withRowId = false;
     }
     
     public ILanceQueryBuilder Limit(int limit)
@@ -40,7 +42,8 @@ public class QueryBuilder : ILanceQueryBuilder
 
     public ILanceQueryBuilder WithRowId(bool withRowId)
     {
-        throw new NotImplementedException();
+        _withRowId = withRowId;
+        return this;
     }
 
     public string ExplainPlan(bool verbose = false)
@@ -99,6 +102,8 @@ public class QueryBuilder : ILanceQueryBuilder
         var result = new List<RecordBatch>();
         Exception? exception = null;
         
+        if (_withRowId) throw new Exception("Row ID does not work with RecordBatch queries");
+        
         Ffi.query(_connectionId, _tableId, (bytes, len) =>
         {
             // Marshall schema/length into a managed object
@@ -113,7 +118,7 @@ public class QueryBuilder : ILanceQueryBuilder
             {
                 exception = new Exception("Failed to compact files: " + message);
             }
-        }, _limit, _whereClause);
+        }, _limit, _whereClause, _withRowId);
         
         if (exception != null) throw exception;
         return result;

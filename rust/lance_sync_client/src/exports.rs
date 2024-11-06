@@ -321,6 +321,7 @@ pub extern "C" fn query(
     reply_tx: ErrorReportFn,
     limit: u64,
     where_clause: *const c_char,
+    with_row_id: bool,
 ) {
     let where_clause = if where_clause.is_null() {
         None
@@ -338,6 +339,7 @@ pub extern "C" fn query(
             batch_callback,
             limit: if limit == 0 { None } else { Some(limit as usize) },
             where_clause,
+            with_row_id,
         },
         "Query",
         reply_tx
