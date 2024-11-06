@@ -78,7 +78,11 @@ public class QueryBuilder : ILanceQueryBuilder
 
     public Apache.Arrow.Table ToArrow()
     {
-        throw new NotImplementedException();
+        var batches = ToBatches(0);
+        var batchesList = batches.ToList();
+        var schema = batches.First().Schema;
+        Apache.Arrow.Table table = Apache.Arrow.Table.TableFromRecordBatches(schema, batchesList);
+        return table;
     }
 
     public Task<Apache.Arrow.Table> ToArrowAsync(CancellationToken token = default)

@@ -219,4 +219,43 @@ public partial class Tests
         
         Assert.Pass();
     }
+    
+    [Test]
+    public void MinimalAsTableQuery()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_dump_query_table");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.Multiple(() =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(cnn.TableNames(), Does.Contain("table1"));
+                });
+                
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+
+                var q = table.Search();
+                Assert.That(q, Is.Not.Null);
+                var newTable = q.ToArrow();
+                Assert.That(newTable.ColumnCount, Is.EqualTo(2));
+                Assert.That(newTable.RowCount, Is.EqualTo(8));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
 }
