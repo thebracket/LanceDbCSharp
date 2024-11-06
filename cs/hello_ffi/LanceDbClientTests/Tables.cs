@@ -309,4 +309,34 @@ public partial class Tests
             Cleanup(uri);
         }
     }
+
+    [Test]
+    public void AddRowsFromArrowTable()
+    {
+        var uri = new Uri("file:///tmp/test_table_arrow_table");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 1, 128
+                );
+
+                // Put recordBatch into a list
+                var array = new List<RecordBatch>() { recordBatch };;
+                var arrowTable = Apache.Arrow.Table.TableFromRecordBatches(Helpers.GetSchema(), array);
+                table.Add(arrowTable);
+                Assert.That(table.CountRows(), Is.GreaterThan(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+        
+        Assert.Pass();
+    }
 }
