@@ -72,19 +72,12 @@ pub(crate) async fn do_query(
         }
     }
 
-    // Query execution
+    // Query execution (synchronous - using try_next is a better idea)
     match query_builder.execute().await {
-        Ok(query) => {
-            // We have the result - need to transmit it back to the caller
-            let records = query.try_collect::<Vec<_>>()
-                .await;
-            let Ok(records) = records else {
-                report_result(Err("Error collecting query results".to_string()), reply_tx, Some(completion_sender));
-                return;
-            };
-            for record in records.iter() {
+        Ok(mut query) => {
+            while let Ok(Some(record)) = query.try_next().await {
                 if let Some(batch_callback) = batch_callback {
-                    let Ok(bytes) = batch_to_bytes(record, &schema) else {
+                    let Ok(bytes) = batch_to_bytes(&record, &schema) else {
                         report_result(Err("Unable to convert result to bytes".to_string()), reply_tx, Some(completion_sender));
                         return;
                     };
