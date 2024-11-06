@@ -13,6 +13,7 @@ pub(crate) async fn do_query(
     completion_sender: CompletionSender,
     batch_callback: Option<extern "C" fn(*const u8, u64)>,
     limit: Option<usize>,
+    where_clause: Option<String>,
 ) {
     let Some(table) = get_table(tables.clone(), table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
@@ -36,6 +37,11 @@ pub(crate) async fn do_query(
     if let Some(limit) = limit {
         println!("Limiting query to: {}", limit);
         query_builder = query_builder.limit(limit);
+    }
+
+    // Add a where clause if one is provided
+    if let Some(where_clause) = where_clause {
+        query_builder = query_builder.only_if(where_clause);
     }
 
     match query_builder.execute().await {

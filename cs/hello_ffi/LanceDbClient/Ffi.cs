@@ -63,7 +63,7 @@ static partial class Ffi
     internal static extern void compact_files(long connectionHandle, long tableHandle, ResultCallback onResult);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern unsafe void query(long connectionHandle, long tableHandle, BlobCallback onRecBatch, ResultCallback onResult, ulong limit);
+    internal static extern unsafe void query(long connectionHandle, long tableHandle, BlobCallback onRecBatch, ResultCallback onResult, ulong limit, string? whereClause);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void create_scalar_index(long connectionHandle, long tableHandle, string columnName,

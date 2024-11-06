@@ -149,6 +149,7 @@ pub(crate) enum LanceDbCommand {
         table_handle: TableHandle,
         batch_callback: Option<extern "C" fn(*const u8, u64)>,
         limit: Option<usize>,
+        where_clause: Option<String>,
     },
 
     /// Gracefully shut down the event-loop.

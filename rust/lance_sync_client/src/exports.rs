@@ -320,13 +320,24 @@ pub extern "C" fn query(
     batch_callback: Option<extern "C" fn(*const u8, u64)>,
     reply_tx: ErrorReportFn,
     limit: u64,
+    where_clause: *const c_char,
 ) {
+    let where_clause = if where_clause.is_null() {
+        None
+    } else {
+        Some(unsafe {
+            std::ffi::CStr::from_ptr(where_clause)
+                .to_string_lossy()
+                .to_string()
+        })
+    };
     command_from_ffi!(
         LanceDbCommand::Query {
             connection_handle: ConnectionHandle(connection_handle),
             table_handle: TableHandle(table_handle),
             batch_callback,
             limit: if limit == 0 { None } else { Some(limit as usize) },
+            where_clause,
         },
         "Query",
         reply_tx

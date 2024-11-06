@@ -8,15 +8,17 @@ namespace LanceDbClient;
 
 public class QueryBuilder : ILanceQueryBuilder
 {
-    readonly long _connectionId;
-    readonly long _tableId;
+    private readonly long _connectionId;
+    private readonly long _tableId;
     private ulong _limit;
+    private string? _whereClause;
 
     internal QueryBuilder(long connectionId, long tableId)
     {
         _connectionId = connectionId;
         _tableId = tableId;
         _limit = 0;
+        _whereClause = null;
     }
     
     public ILanceQueryBuilder Limit(int limit)
@@ -32,7 +34,8 @@ public class QueryBuilder : ILanceQueryBuilder
 
     public ILanceQueryBuilder WhereClause(string whereClause, bool prefilter = false)
     {
-        throw new NotImplementedException();
+        _whereClause = whereClause;
+        return this;
     }
 
     public ILanceQueryBuilder WithRowId(bool withRowId)
@@ -110,7 +113,7 @@ public class QueryBuilder : ILanceQueryBuilder
             {
                 exception = new Exception("Failed to compact files: " + message);
             }
-        }, _limit);
+        }, _limit, _whereClause);
         
         if (exception != null) throw exception;
         return result;
