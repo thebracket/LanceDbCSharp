@@ -152,6 +152,7 @@ pub(crate) enum LanceDbCommand {
         where_clause: Option<String>,
         with_row_id: bool,
         explain_callback: Option<(bool, extern "C" fn (*const c_char))>,
+        selected_columns: Option<Vec<String>>,
     },
 
     /// Gracefully shut down the event-loop.

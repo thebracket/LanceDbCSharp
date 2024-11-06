@@ -13,6 +13,7 @@ public class QueryBuilder : ILanceQueryBuilder
     private ulong _limit;
     private string? _whereClause;
     private bool _withRowId;
+    private List<string> _selectColumns;
 
     internal QueryBuilder(long connectionId, long tableId)
     {
@@ -21,6 +22,7 @@ public class QueryBuilder : ILanceQueryBuilder
         _limit = 0;
         _whereClause = null;
         _withRowId = false;
+        _selectColumns = [];
     }
     
     public ILanceQueryBuilder Limit(int limit)
@@ -31,7 +33,8 @@ public class QueryBuilder : ILanceQueryBuilder
 
     public ILanceQueryBuilder SelectColumns(IEnumerable<string> selectColumns)
     {
-        throw new NotImplementedException();
+        _selectColumns = selectColumns.ToList();
+        return this;
     }
 
     public ILanceQueryBuilder WhereClause(string whereClause, bool prefilter = false)
@@ -50,6 +53,11 @@ public class QueryBuilder : ILanceQueryBuilder
     {
         Exception? exception = null;
         string? result = null;
+        string[]? selectColumns = null;
+        if (_selectColumns.Count > 0)
+        {
+            selectColumns = _selectColumns.ToArray();
+        }
         Ffi.explain_query(_connectionId, _tableId, _limit, _whereClause, _withRowId, verbose, (message) =>
             {
                 result = message;
@@ -60,7 +68,8 @@ public class QueryBuilder : ILanceQueryBuilder
                 {
                     exception = new Exception("Failed to explain plan: " + message);
                 }
-            }
+            },
+            selectColumns, (ulong)_selectColumns.Count
         );
         if (exception != null) throw exception;
         return result ??= "No explanation returned";
@@ -143,6 +152,12 @@ public class QueryBuilder : ILanceQueryBuilder
         
         if (_withRowId) throw new Exception("Row ID does not work with RecordBatch queries");
         
+        string[]? selectColumns = null;
+        if (_selectColumns.Count > 0)
+        {
+            selectColumns = _selectColumns.ToArray();
+        }
+        
         Ffi.query(_connectionId, _tableId, (bytes, len) =>
         {
             // Marshall schema/length into a managed object
@@ -157,7 +172,7 @@ public class QueryBuilder : ILanceQueryBuilder
             {
                 exception = new Exception("Failed to compact files: " + message);
             }
-        }, _limit, _whereClause, _withRowId);
+        }, _limit, _whereClause, _withRowId, selectColumns, (ulong)_selectColumns.Count);
         
         if (exception != null) throw exception;
         return result;

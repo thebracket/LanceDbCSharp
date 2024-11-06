@@ -63,10 +63,14 @@ static partial class Ffi
     internal static extern void compact_files(long connectionHandle, long tableHandle, ResultCallback onResult);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern void query(long connectionHandle, long tableHandle, BlobCallback onRecBatch, ResultCallback onResult, ulong limit, string? whereClause, bool withRowId);
+    internal static extern void query(long connectionHandle, long tableHandle, BlobCallback onRecBatch, 
+        ResultCallback onResult, ulong limit, string? whereClause, bool withRowId,
+        string[] columns, ulong columnsLength);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern void explain_query(long connectionHandle, long tableHandle, ulong limit, string? whereClause, bool withRowId, bool verbose, StringCallback stringCallback, ResultCallback onResult);
+    internal static extern void explain_query(long connectionHandle, long tableHandle, ulong limit, 
+        string? whereClause, bool withRowId, bool verbose, StringCallback stringCallback, 
+        ResultCallback onResult, string[] columns, ulong columnsLength);
 
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]

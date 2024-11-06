@@ -322,6 +322,8 @@ pub extern "C" fn query(
     limit: u64,
     where_clause: *const c_char,
     with_row_id: bool,
+    selected_columns: *const *const c_char,
+    selected_columns_len: u64,
 ) {
     let where_clause = if where_clause.is_null() {
         None
@@ -332,6 +334,23 @@ pub extern "C" fn query(
                 .to_string()
         })
     };
+
+    // Selected columns - C array of strings
+    let selected_columns = if selected_columns.is_null() {
+        None
+    } else {
+        let mut columns = Vec::new();
+        for i in 0..selected_columns_len {
+            let column = unsafe {
+                std::ffi::CStr::from_ptr(*selected_columns.offset(i as isize))
+                    .to_string_lossy()
+                    .to_string()
+            };
+            columns.push(column);
+        }
+        Some(columns)
+    };
+
     command_from_ffi!(
         LanceDbCommand::Query {
             connection_handle: ConnectionHandle(connection_handle),
@@ -341,6 +360,7 @@ pub extern "C" fn query(
             where_clause,
             with_row_id,
             explain_callback: None,
+            selected_columns,
         },
         "Query",
         reply_tx
@@ -358,6 +378,8 @@ pub extern "C" fn explain_query(
     verbose: bool,
     explain_callback: extern "C" fn(*const c_char),
     reply_tx: ErrorReportFn,
+    selected_columns: *const *const c_char,
+    selected_columns_len: u64,
 ) {
     let where_clause = if where_clause.is_null() {
         None
@@ -368,6 +390,23 @@ pub extern "C" fn explain_query(
                 .to_string()
         })
     };
+
+    // Selected columns - C array of strings
+    let selected_columns = if selected_columns.is_null() {
+        None
+    } else {
+        let mut columns = Vec::new();
+        for i in 0..selected_columns_len {
+            let column = unsafe {
+                std::ffi::CStr::from_ptr(*selected_columns.offset(i as isize))
+                    .to_string_lossy()
+                    .to_string()
+            };
+            columns.push(column);
+        }
+        Some(columns)
+    };
+
     command_from_ffi!(
         LanceDbCommand::Query {
             connection_handle: ConnectionHandle(connection_handle),
@@ -377,6 +416,7 @@ pub extern "C" fn explain_query(
             where_clause,
             with_row_id,
             explain_callback: Some((verbose, explain_callback)),
+            selected_columns,
         },
         "ExplainQuery",
         reply_tx
