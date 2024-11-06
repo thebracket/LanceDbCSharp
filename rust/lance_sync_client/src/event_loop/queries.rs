@@ -31,6 +31,8 @@ pub(crate) async fn do_query(
 
     // Use the query builder setup
     let mut query_builder = table.query();
+
+    // Limits the number of records returned
     if let Some(limit) = limit {
         println!("Limiting query to: {}", limit);
         query_builder = query_builder.limit(limit);
