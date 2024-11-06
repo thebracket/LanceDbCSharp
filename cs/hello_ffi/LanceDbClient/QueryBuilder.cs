@@ -107,7 +107,27 @@ public class QueryBuilder : ILanceQueryBuilder
 
     public IEnumerable<IDictionary<string, object>> ToList()
     {
-        throw new NotImplementedException();
+        // Referencing query.py line 1326, this function is implemented in Python as calling ToArrow and
+        // then morphing into a PyList.
+        // TODO: I'm not 100% sure about this?
+        var table = ToArrow();
+        var result = new List<IDictionary<string, object>>();
+        for (var i = 0; i < table.RowCount; i++)
+        {
+            var row = new Dictionary<string, object>();
+            for (var j = 0; j < table.ColumnCount; j++)
+            {
+                var column = table.Column(j);
+                var data = new List<object>();
+                for (var k=0; k<column.Data.Length; k++)
+                {
+                    data.Add(column.Data.Array(k));
+                }
+                row[column.Name] = data;
+            }
+            result.Add(row);
+        }
+        return result;
     }
 
     public Task<IEnumerable<IDictionary<string, object>>> ToListAsync(CancellationToken token = default)
