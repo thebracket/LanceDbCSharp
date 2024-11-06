@@ -1,3 +1,4 @@
+use std::ffi::c_char;
 use futures::TryStreamExt;
 use lancedb::query::{ExecutableQuery, QueryBase};
 use tokio::sync::mpsc::Sender;
@@ -15,6 +16,7 @@ pub(crate) async fn do_query(
     limit: Option<usize>,
     where_clause: Option<String>,
     with_row_id: bool,
+    explain_callback: Option<(bool, extern "C" fn (*const c_char))>,
 ) {
     let Some(table) = get_table(tables.clone(), table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
@@ -50,6 +52,27 @@ pub(crate) async fn do_query(
         query_builder = query_builder.with_row_id();
     }
 
+    // Explain handling
+    println!("Explain callback: {:?}", explain_callback);
+    if let Some((verbose, explain_callback)) = explain_callback {
+        println!("Explaining query");
+        match query_builder.explain_plan(verbose).await {
+            Err(e) => {
+                let err = format!("Error explaining query: {:?}", e);
+                report_result(Err(err), reply_tx, Some(completion_sender));
+                return;
+            }
+            Ok(explain) => {
+                let explain = format!("{:?}", explain);
+                let explain = std::ffi::CString::new(explain).unwrap();
+                explain_callback(explain.as_ptr());
+                report_result(Ok(0), reply_tx, Some(completion_sender));
+                return;
+            }
+        }
+    }
+
+    // Query execution
     match query_builder.execute().await {
         Ok(query) => {
             // We have the result - need to transmit it back to the caller

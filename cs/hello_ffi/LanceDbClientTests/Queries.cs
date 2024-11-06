@@ -258,4 +258,43 @@ public partial class Tests
 
         Assert.Pass();
     }
+    
+    [Test]
+    public void Explain()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_dump_query_explain");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.Multiple(() =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(cnn.TableNames(), Does.Contain("table1"));
+                });
+                
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+
+                var explanation = table.Search().WhereClause("id = 1").Limit(1).ExplainPlan();
+                TestContext.Out.WriteLine(explanation);
+                Assert.That(explanation, Is.Not.Null);
+                Assert.That(explanation, Is.Not.EqualTo("No explanation returned"));
+                // NUnit print the explanation
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
 }

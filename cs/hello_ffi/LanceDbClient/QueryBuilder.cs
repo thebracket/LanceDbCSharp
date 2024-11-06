@@ -48,7 +48,22 @@ public class QueryBuilder : ILanceQueryBuilder
 
     public string ExplainPlan(bool verbose = false)
     {
-        throw new NotImplementedException();
+        Exception? exception = null;
+        string? result = null;
+        Ffi.explain_query(_connectionId, _tableId, _limit, _whereClause, _withRowId, verbose, (message) =>
+            {
+                result = message;
+            },
+            (code, message) =>
+            {
+                if (code < 0 && message != null)
+                {
+                    exception = new Exception("Failed to explain plan: " + message);
+                }
+            }
+        );
+        if (exception != null) throw exception;
+        return result ??= "No explanation returned";
     }
 
     public ILanceQueryBuilder Vector<T>(List<T> vector)

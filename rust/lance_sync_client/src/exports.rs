@@ -340,8 +340,45 @@ pub extern "C" fn query(
             limit: if limit == 0 { None } else { Some(limit as usize) },
             where_clause,
             with_row_id,
+            explain_callback: None,
         },
         "Query",
+        reply_tx
+    );
+}
+
+/// Explain a query
+#[no_mangle]
+pub extern "C" fn explain_query(
+    connection_handle: i64,
+    table_handle: i64,
+    limit: u64,
+    where_clause: *const c_char,
+    with_row_id: bool,
+    verbose: bool,
+    explain_callback: extern "C" fn(*const c_char),
+    reply_tx: ErrorReportFn,
+) {
+    let where_clause = if where_clause.is_null() {
+        None
+    } else {
+        Some(unsafe {
+            std::ffi::CStr::from_ptr(where_clause)
+                .to_string_lossy()
+                .to_string()
+        })
+    };
+    command_from_ffi!(
+        LanceDbCommand::Query {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+            batch_callback: None,
+            limit: if limit == 0 { None } else { Some(limit as usize) },
+            where_clause,
+            with_row_id,
+            explain_callback: Some((verbose, explain_callback)),
+        },
+        "ExplainQuery",
         reply_tx
     );
 }
