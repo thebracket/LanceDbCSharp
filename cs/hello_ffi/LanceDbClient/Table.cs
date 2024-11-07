@@ -124,7 +124,16 @@ public class Table : ITable, IDisposable
         bool withPosition = true, int writerHeapSize = 1073741824, string tokenizerName = "default",
         bool useTantivy = true)
     {
-        throw new NotImplementedException();
+        if (!IsOpen) throw new Exception("Table is not open.");
+        Exception? exception = null;
+        Ffi.create_full_text_index(_connectionHandle, _tableHandle, columnNames.ToArray(), (ulong)columnNames.Count(), withPosition, replace, tokenizerName, (code, message) =>
+        {
+            if (code < 0 && message != null)
+            {
+                exception = new Exception("Failed to create the full text index: " + message);
+            }
+        });
+        if (exception != null) throw exception;
     }
 
     public Task CreateFtsIndexAsync(IEnumerable<string> columnNames, IEnumerable<string> orderingColumnNames, bool replace = false,

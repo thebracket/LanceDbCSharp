@@ -87,6 +87,11 @@ static partial class Ffi
     internal static extern void create_scalar_index(long connectionHandle, long tableHandle, string columnName,
         uint indexType, bool replace, ResultCallback onResult);
     
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void create_full_text_index(long connectionHandle, long tableHandle, 
+        string[] columns, ulong columnsLength, bool withPosition, bool replace, string tokenizerName, 
+        ResultCallback onResult);
+    
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
     internal static partial void drop_database(long connectionHandle, ResultCallback onResult);

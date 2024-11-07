@@ -282,6 +282,33 @@ public partial class Tests
     }
     
     [Test]
+    public void CreateDefaultFullTextSearchIndex()
+    {
+        // TODO: Need a text column to index on
+        var uri = new Uri("file:///tmp/test_table_try_fts_index");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                table.CreateFtsIndex(["id"], ["id"]);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
     public void Compact()
     {
         var uri = new Uri("file:///tmp/test_table_compact");

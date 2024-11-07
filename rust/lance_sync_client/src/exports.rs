@@ -271,6 +271,51 @@ pub extern "C" fn create_scalar_index(
     );
 }
 
+/// Create full text index
+#[no_mangle]
+pub extern "C" fn create_full_text_index(
+    connection_handle: i64,
+    table_handle: i64,
+    columns: *const *const c_char,
+    columns_len: u64,
+    with_position: bool,
+    replace: bool,
+    tokenizer_name: *const c_char,
+    reply_tx: ErrorReportFn,
+) {
+    let columns = if columns.is_null() {
+        None
+    } else {
+        let mut columns_list = Vec::new();
+        for i in 0..columns_len {
+            let column = unsafe {
+                std::ffi::CStr::from_ptr(*columns.offset(i as isize))
+                    .to_string_lossy()
+                    .to_string()
+            };
+            columns_list.push(column);
+        }
+        Some(columns_list)
+    };
+    let tokenizer_name = unsafe {
+        std::ffi::CStr::from_ptr(tokenizer_name)
+            .to_string_lossy()
+            .to_string()
+    };
+    command_from_ffi!(
+        LanceDbCommand::CreateFullTextIndex {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+            columns: columns.unwrap_or_default(),
+            with_position,
+            replace,
+            tokenizer_name,
+        },
+        "CreateFullTextIndex",
+        reply_tx
+    );
+}
+
 /// Count the number of rows in a table
 #[no_mangle]
 pub extern "C" fn count_rows(

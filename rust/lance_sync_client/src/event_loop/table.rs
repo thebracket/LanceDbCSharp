@@ -5,8 +5,8 @@ use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorRe
 use crate::table_handler::{TableCommand, TableHandle};
 use arrow_array::{RecordBatch, RecordBatchIterator};
 use arrow_schema::ArrowError;
-use lancedb::index::scalar::{BTreeIndexBuilder, BitmapIndexBuilder, LabelListIndexBuilder};
-use lancedb::index::Index;
+use lancedb::index::scalar::{BTreeIndexBuilder, BitmapIndexBuilder, FtsIndexBuilder, LabelListIndexBuilder};
+use lancedb::index::{Index, IndexBuilder};
 use lancedb::table::OptimizeAction;
 use tokio::sync::mpsc::Sender;
 
@@ -142,6 +142,50 @@ pub(crate) async fn do_crate_scalar_index(
         }
     }
     completion_sender.send(()).unwrap();
+}
+
+pub(crate) async fn do_add_fts_index(
+    tables: Sender<TableCommand>,
+    table_handle: TableHandle,
+    reply_tx: ErrorReportFn,
+    completion_sender: CompletionSender,
+    columns: Vec<String>,
+    with_position: bool,
+    replace: bool,
+    tokenizer_name: String,
+) {
+    //TODO: Where are the other options? OrderingColumns, tantivvy, etc.?
+    let Some(table) = get_table(tables.clone(), table_handle).await else {
+        let err = format!("Table not found: {table_handle:?}");
+        report_result(Err(err), reply_tx, Some(completion_sender));
+        return;
+    };
+
+    let mut fts_builder = FtsIndexBuilder::default();
+    fts_builder = fts_builder.with_position(with_position);
+
+    // Now the hard part: filling the tokenizer configs
+    // TODO: Is this right? It looks like "simple" is actually the default
+    let tokenizer_name = if tokenizer_name.is_empty() || tokenizer_name == "default" {
+        "simple".to_string()
+    } else {
+        tokenizer_name
+    };
+    fts_builder.tokenizer_configs = fts_builder.tokenizer_configs.base_tokenizer(tokenizer_name);
+
+    let columns = columns.iter().map(|c| c.as_str()).collect::<Vec<&str>>();
+    let mut index_builder = table.create_index(&columns, Index::FTS(fts_builder));
+    index_builder = index_builder.replace(replace);
+
+    match index_builder.execute().await {
+        Ok(_) => {
+            report_result(Ok(0), reply_tx, Some(completion_sender));
+        }
+        Err(e) => {
+            let err = format!("Error creating FTS index: {:?}", e);
+            report_result(Err(err), reply_tx, Some(completion_sender));
+        }
+    }
 }
 
 pub(crate) async fn do_optimize_table(

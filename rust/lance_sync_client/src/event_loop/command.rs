@@ -101,6 +101,15 @@ pub(crate) enum LanceDbCommand {
         replace: bool,
     },
 
+    CreateFullTextIndex {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+        columns: Vec<String>,
+        with_position: bool,
+        replace: bool,
+        tokenizer_name: String,
+    },
+
     // TODO Items
 
     // CreateIndex {
@@ -112,19 +121,6 @@ pub(crate) enum LanceDbCommand {
     //     num_sub_vectors: u32,
     //     replace: bool,
     // },
-    //
-    // CreateFtsIndex {
-    //     connection_handle: ConnectionHandle,
-    //     table_handle: TableHandle,
-    //     column_names: Vec<String>,
-    //     ordering_column_names: Vec<String>,
-    //     replace: bool,
-    //     with_position: bool,
-    //     writer_heap_size: u64,
-    //     tokenizer_name: String,
-    //     use_tantivy: bool,
-    // },
-    //
     //
     // Update {
     //     connection_handle: ConnectionHandle,

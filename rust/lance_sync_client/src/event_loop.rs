@@ -255,6 +255,18 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     completion_sender,
                 ));
             }
+            LanceDbCommand::CreateFullTextIndex { connection_handle, table_handle, columns, with_position, replace, tokenizer_name } => {
+                tokio::spawn(table::do_add_fts_index(
+                    tables.clone(),
+                    table_handle,
+                    reply_tx,
+                    completion_sender,
+                    columns,
+                    with_position,
+                    replace,
+                    tokenizer_name,
+                ));
+            }
             LanceDbCommand::OptimizeTable { connection_handle, table_handle, compaction_callback, prune_callback } => {
                 tokio::spawn(table::do_optimize_table(
                     tables.clone(),
