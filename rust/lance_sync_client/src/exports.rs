@@ -422,3 +422,86 @@ pub extern "C" fn explain_query(
         reply_tx
     );
 }
+
+/// MergeInsert with a record batch
+#[no_mangle]
+pub extern "C" fn merge_insert_with_record_batch(
+    connection_handle: i64,
+    table_handle: i64,
+    columns: *const *const c_char,
+    columns_len: u64,
+    when_not_matched_insert_all: bool,
+    where_clause: *const c_char,
+    when_not_matched_by_source_delete: *const c_char,
+    batch: *const u8,
+    batch_len: usize,
+    reply_tx: ErrorReportFn,
+) {
+    println!("RUNNING: merge_insert_with_record_batch");
+    let columns: Option<Vec<String>> = if columns.is_null() {
+        None
+    } else {
+        let mut column_list: Vec<String> = Vec::new();
+        for i in 0..columns_len {
+            let column = unsafe {
+                std::ffi::CStr::from_ptr(*columns.offset(i as isize))
+                    .to_string_lossy()
+                    .to_string()
+            };
+            column_list.push(column);
+        }
+        Some(column_list)
+    };
+    println!("COLUMNS DONE");
+
+    let where_clause = if where_clause.is_null() {
+        None
+    } else {
+        Some(unsafe {
+            std::ffi::CStr::from_ptr(where_clause)
+                .to_string_lossy()
+                .to_string()
+        })
+    };
+    println!("WHERE DONE");
+
+    let when_not_matched_by_source_delete = if when_not_matched_by_source_delete.is_null() {
+        None
+    } else {
+        Some(unsafe {
+            std::ffi::CStr::from_ptr(when_not_matched_by_source_delete)
+                .to_string_lossy()
+                .to_string()
+        })
+    };
+    println!("WHEN DONE");
+
+    let data = unsafe { std::slice::from_raw_parts(batch, batch_len) };
+    println!("DATA DONE");
+    let batch = bytes_to_batch(data);
+    println!("BATCH DONE");
+    if let Err(e) = batch {
+        println!("Calling report_result {:?}", e);
+        report_result(
+            Err(format!("Could not parse record batch: {:?}", e)),
+            reply_tx,
+            None,
+        );
+        return;
+    }
+    let batch = batch.unwrap();
+    println!("merge_insert_with_record_batch submitting");
+    command_from_ffi!(
+        LanceDbCommand::MergeInsert {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+            columns,
+            when_not_matched_insert_all,
+            where_clause,
+            when_not_matched_by_source_delete,
+            batch,
+        },
+        "MergeInsert",
+        reply_tx
+    );
+}

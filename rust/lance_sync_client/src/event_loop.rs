@@ -10,6 +10,7 @@ pub(crate) mod helpers;
 mod lifecycle;
 mod table;
 mod queries;
+mod merge_insert;
 
 use crate::connection_handler::{ConnectionActor, ConnectionCommand};
 use crate::table_handler::{TableActor, TableCommand};
@@ -182,6 +183,21 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     reply_tx,
                     completion_sender,
                 ));
+            }
+            LanceDbCommand::MergeInsert { connection_handle, table_handle, columns, when_not_matched_insert_all, where_clause, when_not_matched_by_source_delete, batch, } => {
+                tokio::spawn(
+                    merge_insert::do_merge_insert_with_record_batch(
+                        table_handle,
+                        tables.clone(),
+                        columns.unwrap_or_default(),
+                        when_not_matched_insert_all,
+                        where_clause,
+                        when_not_matched_by_source_delete,
+                        batch,
+                        reply_tx,
+                        completion_sender,
+                    )
+                );
             }
             LanceDbCommand::CountRows {
                 connection_handle,

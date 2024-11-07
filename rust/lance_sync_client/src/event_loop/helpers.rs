@@ -54,6 +54,11 @@ macro_rules! command_from_ffi {
             report_result(Err(err), $reply_sender, None);
             return;
         };
-        rx.blocking_recv().unwrap();
+        if let Err(e) = rx.blocking_recv() {
+            println!("ALMOST CERTAINLY: IMPLEMENTOR FORGOT TO HANDLE COMPLETION CALLER!");
+            let err = format!("Error processing command: {}", $name);
+            report_result(Err(err), $reply_sender, None);
+            return;
+        }
     };
 }

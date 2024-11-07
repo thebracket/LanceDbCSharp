@@ -76,6 +76,16 @@ pub(crate) enum LanceDbCommand {
         batch: Vec<Result<RecordBatch, ArrowError>>,
     },
 
+    MergeInsert {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+        columns: Option<Vec<String>>,
+        when_not_matched_insert_all: bool,
+        where_clause: Option<String>,
+        when_not_matched_by_source_delete: Option<String>,
+        batch: Vec<Result<RecordBatch, ArrowError>>,
+    },
+
     /// Count the number of rows in a table.
     CountRows {
         connection_handle: ConnectionHandle,

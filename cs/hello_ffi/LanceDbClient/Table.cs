@@ -134,11 +134,9 @@ public class Table : ITable, IDisposable
         throw new NotImplementedException();
     }
 
-
-
     public ILanceMergeInsertBuilder MergeInsert(IEnumerable<string> on)
     {
-        throw new NotImplementedException();
+        return new MergeInsertBuilder(_connectionHandle, _tableHandle, on);
     }
 
     public Task<ILanceMergeInsertBuilder> MergeInsertAsync(IEnumerable<string> on, CancellationToken token = default)
@@ -152,6 +150,16 @@ public class Table : ITable, IDisposable
     }
 
     public Task UpdateAsync(IDictionary<string, object> updates, string? whereClause = null, CancellationToken token = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void UpdateSql(IDictionary<string, string> updates, string? whereClause = null)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task UpdateSqlAsync(IDictionary<string, string> updates, string? whereClause = null, CancellationToken token = default)
     {
         throw new NotImplementedException();
     }
@@ -205,6 +213,16 @@ public class Table : ITable, IDisposable
     }
 
     public Task CloseAsync(CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public OptimizeStats Optimize(TimeSpan? cleanupOlderThan = null, bool deleteUnverified = false)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<OptimizeStats> OptimizeAsync(TimeSpan? cleanupOlderThan = null, bool deleteUnverified = false, CancellationToken token = default)
     {
         throw new NotImplementedException();
     }

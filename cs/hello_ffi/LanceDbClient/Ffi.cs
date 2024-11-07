@@ -57,6 +57,10 @@ static partial class Ffi
     internal static extern void count_rows(long connectionHandle, long tableHandle, string? filter, ResultCallback onResult);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern unsafe void merge_insert_with_record_batch(long connectionId, long tableId, string[] columns, ulong columnsLength, bool when_not_matched_insert_all,
+        string? where_clause, string? when_not_matched_by_source_delete, byte* data, ulong batch_len, ResultCallback onResult);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void delete_rows(long connectionHandle, long tableHandle, string? filter, ResultCallback onResult);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]

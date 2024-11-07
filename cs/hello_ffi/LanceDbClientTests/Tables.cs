@@ -284,7 +284,9 @@ public partial class Tests
     [Test]
     public void Compact()
     {
-        var uri = new Uri("file:///tmp/test_table_compact");
+        Assert.Fail();
+        // TODO: The compact method is now optimize.
+        /*var uri = new Uri("file:///tmp/test_table_compact");
         try
         {
             using (var cnn = new Connection(uri))
@@ -307,7 +309,7 @@ public partial class Tests
         finally
         {
             Cleanup(uri);
-        }
+        }*/
     }
 
     [Test]
