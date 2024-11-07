@@ -163,6 +163,7 @@ pub(crate) enum LanceDbCommand {
         with_row_id: bool,
         explain_callback: Option<(bool, extern "C" fn (*const c_char))>,
         selected_columns: Option<Vec<String>>,
+        full_text_search: Option<String>,
     },
 
     /// Gracefully shut down the event-loop.

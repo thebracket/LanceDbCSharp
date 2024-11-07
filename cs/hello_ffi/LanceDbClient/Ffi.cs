@@ -69,12 +69,12 @@ static partial class Ffi
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void query(long connectionHandle, long tableHandle, BlobCallback onRecBatch, 
         ResultCallback onResult, ulong limit, string? whereClause, bool withRowId,
-        string[] columns, ulong columnsLength);
+        string[] columns, ulong columnsLength, string? fullTextSearch);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void explain_query(long connectionHandle, long tableHandle, ulong limit, 
         string? whereClause, bool withRowId, bool verbose, StringCallback stringCallback, 
-        ResultCallback onResult, string[] columns, ulong columnsLength);
+        ResultCallback onResult, string[] columns, ulong columnsLength, string? fullTextSearch);
 
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]

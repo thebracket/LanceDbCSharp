@@ -324,6 +324,7 @@ pub extern "C" fn query(
     with_row_id: bool,
     selected_columns: *const *const c_char,
     selected_columns_len: u64,
+    full_text_search: *const c_char,
 ) {
     let where_clause = if where_clause.is_null() {
         None
@@ -351,6 +352,16 @@ pub extern "C" fn query(
         Some(columns)
     };
 
+    let full_text_search = if full_text_search.is_null() {
+        None
+    } else {
+        Some(unsafe {
+            std::ffi::CStr::from_ptr(full_text_search)
+                .to_string_lossy()
+                .to_string()
+        })
+    };
+
     command_from_ffi!(
         LanceDbCommand::Query {
             connection_handle: ConnectionHandle(connection_handle),
@@ -361,6 +372,7 @@ pub extern "C" fn query(
             with_row_id,
             explain_callback: None,
             selected_columns,
+            full_text_search,
         },
         "Query",
         reply_tx
@@ -380,6 +392,7 @@ pub extern "C" fn explain_query(
     reply_tx: ErrorReportFn,
     selected_columns: *const *const c_char,
     selected_columns_len: u64,
+    full_text_search: *const c_char,
 ) {
     let where_clause = if where_clause.is_null() {
         None
@@ -407,6 +420,16 @@ pub extern "C" fn explain_query(
         Some(columns)
     };
 
+    let full_text_search = if full_text_search.is_null() {
+        None
+    } else {
+        Some(unsafe {
+            std::ffi::CStr::from_ptr(full_text_search)
+                .to_string_lossy()
+                .to_string()
+        })
+    };
+
     command_from_ffi!(
         LanceDbCommand::Query {
             connection_handle: ConnectionHandle(connection_handle),
@@ -417,6 +440,7 @@ pub extern "C" fn explain_query(
             with_row_id,
             explain_callback: Some((verbose, explain_callback)),
             selected_columns,
+            full_text_search,
         },
         "ExplainQuery",
         reply_tx

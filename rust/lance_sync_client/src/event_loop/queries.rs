@@ -1,5 +1,6 @@
 use std::ffi::c_char;
 use futures::TryStreamExt;
+use lancedb::index::scalar::FullTextSearchQuery;
 use lancedb::query::{ExecutableQuery, QueryBase, Select};
 use tokio::sync::mpsc::Sender;
 use crate::event_loop::connection::get_table;
@@ -18,6 +19,7 @@ pub(crate) async fn do_query(
     with_row_id: bool,
     explain_callback: Option<(bool, extern "C" fn (*const c_char))>,
     selected_columns: Option<Vec<String>>,
+    full_text_search: Option<String>,
 ) {
     let Some(table) = get_table(tables.clone(), table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
@@ -36,6 +38,11 @@ pub(crate) async fn do_query(
 
     // Use the query builder setup
     let mut query_builder = table.query();
+
+    // Full text search
+    if let Some(query) = full_text_search {
+        query_builder = query_builder.full_text_search(FullTextSearchQuery::new(query));
+    }
 
     // Limits the number of records returned
     if let Some(limit) = limit {

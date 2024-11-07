@@ -14,6 +14,7 @@ public class QueryBuilder : ILanceQueryBuilder
     private string? _whereClause;
     private bool _withRowId;
     private List<string> _selectColumns;
+    private string? _fullTextSearch;
 
     internal QueryBuilder(long connectionId, long tableId)
     {
@@ -23,6 +24,7 @@ public class QueryBuilder : ILanceQueryBuilder
         _whereClause = null;
         _withRowId = false;
         _selectColumns = [];
+        _fullTextSearch = null;
     }
     
     public ILanceQueryBuilder Limit(int limit)
@@ -69,7 +71,8 @@ public class QueryBuilder : ILanceQueryBuilder
                     exception = new Exception("Failed to explain plan: " + message);
                 }
             },
-            selectColumns, (ulong)_selectColumns.Count
+            selectColumns, (ulong)_selectColumns.Count,
+            _fullTextSearch
         );
         if (exception != null) throw exception;
         return result ??= "No explanation returned";
@@ -92,11 +95,13 @@ public class QueryBuilder : ILanceQueryBuilder
 
     public ILanceQueryBuilder Text(string text)
     {
-        throw new NotImplementedException();
+        _fullTextSearch = text;
+        return this;
     }
 
-    public ILanceQueryBuilder Rerank(IReranker reranker)
+    public virtual ILanceQueryBuilder Rerank(IReranker reranker)
     {
+        // Rerankers appear to be Full Text Search specific, so we're not implementing this (yet)
         throw new NotImplementedException();
     }
 
@@ -172,7 +177,8 @@ public class QueryBuilder : ILanceQueryBuilder
             {
                 exception = new Exception("Failed to compact files: " + message);
             }
-        }, _limit, _whereClause, _withRowId, selectColumns, (ulong)_selectColumns.Count);
+        }, _limit, _whereClause, _withRowId, selectColumns, (ulong)_selectColumns.Count,
+            _fullTextSearch);
         
         if (exception != null) throw exception;
         return result;
