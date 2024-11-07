@@ -284,9 +284,7 @@ public partial class Tests
     [Test]
     public void Compact()
     {
-        Assert.Fail();
-        // TODO: The compact method is now optimize.
-        /*var uri = new Uri("file:///tmp/test_table_compact");
+        var uri = new Uri("file:///tmp/test_table_compact");
         try
         {
             using (var cnn = new Connection(uri))
@@ -302,14 +300,14 @@ public partial class Tests
                 array.Add(recordBatch);
                 table.Add(array);
                 Assert.That(table.CountRows(), Is.GreaterThan(0));
-                table.CompactFiles();
+                var results = table.Optimize();
                 Assert.That(table.CountRows(), Is.GreaterThan(0));
             }
         }
         finally
         {
             Cleanup(uri);
-        }*/
+        }
     }
 
     [Test]

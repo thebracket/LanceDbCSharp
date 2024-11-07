@@ -219,29 +219,46 @@ public class Table : ITable, IDisposable
 
     public OptimizeStats Optimize(TimeSpan? cleanupOlderThan = null, bool deleteUnverified = false)
     {
-        throw new NotImplementedException();
-    }
-
-    public Task<OptimizeStats> OptimizeAsync(TimeSpan? cleanupOlderThan = null, bool deleteUnverified = false, CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
-    public void CompactFiles()
-    {
         if (!IsOpen) throw new Exception("Table is not open.");
+
+        CompactionMetrics? compaction = null;
+        RemovalStats? prune = null;
+        
         Exception? exception = null;
-        Ffi.compact_files(_connectionHandle, _tableHandle, (code, message) =>
+        Ffi.optimize_table(_connectionHandle, _tableHandle, (code, message) =>
         {
             if (code < 0 && message != null)
             {
                 exception = new Exception("Failed to compact files: " + message);
             }
-        });
+        }, (fragmentsRemoved, fragmentsAdded, filesRemoved, filesAdded) =>
+        {
+            compaction = new CompactionMetrics
+            {
+                FragmentsRemoved = (int)fragmentsRemoved,
+                FragmentsAdded = (int)fragmentsAdded,
+                FilesRemoved = (int)filesRemoved,
+                FilesAdded = (int)filesAdded
+            };
+        }, (removed, added) =>
+        {
+            prune = new RemovalStats
+            {
+                BytesRemoved = (int)removed,
+                OldVersionsRemoved = (int)added
+            };
+        }
+            );
         if (exception != null) throw exception;
+        
+        return new OptimizeStats
+        {
+            Compaction = compaction,
+            Prune = prune
+        };
     }
 
-    public Task CompactFilesAsync(CancellationToken token = default)
+    public Task<OptimizeStats> OptimizeAsync(TimeSpan? cleanupOlderThan = null, bool deleteUnverified = false, CancellationToken token = default)
     {
         throw new NotImplementedException();
     }

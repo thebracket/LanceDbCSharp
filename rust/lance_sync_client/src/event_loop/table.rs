@@ -144,15 +144,28 @@ pub(crate) async fn do_crate_scalar_index(
     completion_sender.send(()).unwrap();
 }
 
-pub(crate) async fn do_compact_files(
+pub(crate) async fn do_optimize_table(
     tables: Sender<TableCommand>,
     table_handle: TableHandle,
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
+    compaction_callback: extern "C" fn(u64, u64, u64, u64),
+    prune_callback: extern "C" fn(u64, u64),
 ) {
     if let Some(table) = get_table(tables.clone(), table_handle).await {
         match table.optimize(OptimizeAction::All).await {
-            Ok(_) => {
+            Ok(stats) => {
+                if let Some(stats) = stats.compaction {
+                    compaction_callback(
+                        stats.files_added as u64,
+                        stats.files_removed as u64,
+                        stats.fragments_added as u64,
+                        stats.fragments_removed as u64,
+                    );
+                }
+                if let Some(stats) = stats.prune {
+                    prune_callback(stats.bytes_removed, stats.old_versions);
+                }
                 report_result(Ok(0), reply_tx, Some(completion_sender));
                 return;
             }

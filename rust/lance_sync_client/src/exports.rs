@@ -301,11 +301,19 @@ pub extern "C" fn count_rows(
 
 /// Compact files
 #[no_mangle]
-pub extern "C" fn compact_files(connection_handle: i64, table_handle: i64, reply_tx: ErrorReportFn) {
+pub extern "C" fn optimize_table(
+    connection_handle: i64,
+    table_handle: i64,
+    reply_tx: ErrorReportFn,
+    compaction_callback: extern "C" fn(u64, u64, u64, u64),
+    prune_callback: extern "C" fn(u64, u64),
+) {
     command_from_ffi!(
-        LanceDbCommand::CompactFiles {
+        LanceDbCommand::OptimizeTable {
             connection_handle: ConnectionHandle(connection_handle),
             table_handle: TableHandle(table_handle),
+            compaction_callback,
+            prune_callback,
         },
         "CompactFiles",
         reply_tx

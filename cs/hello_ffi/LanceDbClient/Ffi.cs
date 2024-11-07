@@ -20,6 +20,12 @@ static partial class Ffi
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void StringCallback(string s);
+    
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate void CompactCallback(ulong fragmentsRemoved, ulong fragmentsAdded, ulong filesRemoved, ulong filesAdded);
+    
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate void PruneCallback(ulong removed, ulong added);
 
     /* FFI functions */
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
@@ -64,7 +70,7 @@ static partial class Ffi
     internal static extern void delete_rows(long connectionHandle, long tableHandle, string? filter, ResultCallback onResult);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern void compact_files(long connectionHandle, long tableHandle, ResultCallback onResult);
+    internal static extern void optimize_table(long connectionHandle, long tableHandle, ResultCallback onResult, CompactCallback compactCallback, PruneCallback pruneCallback);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void query(long connectionHandle, long tableHandle, BlobCallback onRecBatch, 

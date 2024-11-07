@@ -146,9 +146,11 @@ pub(crate) enum LanceDbCommand {
         where_clause: Option<String>,
     },
 
-    CompactFiles {
+    OptimizeTable {
         connection_handle: ConnectionHandle,
         table_handle: TableHandle,
+        compaction_callback: extern "C" fn(u64, u64, u64, u64),
+        prune_callback: extern "C" fn(u64, u64),
     },
 
     // TODO: Search

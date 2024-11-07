@@ -255,12 +255,14 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     completion_sender,
                 ));
             }
-            LanceDbCommand::CompactFiles { connection_handle, table_handle } => {
-                tokio::spawn(table::do_compact_files(
+            LanceDbCommand::OptimizeTable { connection_handle, table_handle, compaction_callback, prune_callback } => {
+                tokio::spawn(table::do_optimize_table(
                     tables.clone(),
                     table_handle,
                     reply_tx,
                     completion_sender,
+                    compaction_callback,
+                    prune_callback,
                 ));
             }
             LanceDbCommand::Quit { reply_sender } => {
