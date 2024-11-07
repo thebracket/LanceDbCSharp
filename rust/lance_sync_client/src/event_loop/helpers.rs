@@ -56,7 +56,7 @@ macro_rules! command_from_ffi {
         };
         if let Err(e) = rx.blocking_recv() {
             println!("ALMOST CERTAINLY: IMPLEMENTOR FORGOT TO HANDLE COMPLETION CALLER!");
-            let err = format!("Error processing command: {}", $name);
+            let err = format!("Error processing command: {}, {e:?}", $name);
             report_result(Err(err), $reply_sender, None);
             return;
         }

@@ -1,5 +1,5 @@
 use crate::connection_handler::ConnectionHandle;
-use crate::table_handler::{TableActor, TableHandle};
+use crate::table_handler::TableHandle;
 use arrow_array::RecordBatch;
 use arrow_schema::{ArrowError, SchemaRef};
 use lancedb::table::AddDataMode;

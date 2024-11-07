@@ -19,6 +19,5 @@ mod event_loop;
 mod exports;
 mod serialization;
 mod table_handler;
-mod testing;
 
 pub use exports::*;

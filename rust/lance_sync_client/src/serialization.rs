@@ -3,7 +3,6 @@
 use arrow_array::RecordBatch;
 use arrow_schema::{ArrowError, SchemaRef};
 use std::io::Cursor;
-use tokio::io::AsyncWriteExt;
 
 pub(crate) fn schema_to_bytes(schema: &SchemaRef) -> Vec<u8> {
     let mut buf = vec![];
