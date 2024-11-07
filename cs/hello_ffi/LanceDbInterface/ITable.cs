@@ -32,8 +32,8 @@ namespace LanceDbInterface
         void Update(IDictionary<string, Object> updates, string? whereClause = null);
         Task UpdateAsync(IDictionary<string, Object> updates, string? whereClause = null, CancellationToken token = default);
 
-        void UpdateSQL(IDictionary<string, string> updates, string? whereClause = null);
-        Task UpdateSQLAsync(IDictionary<string, string> updates, string? whereClause = null, CancellationToken token = default);
+        void UpdateSql(IDictionary<string, string> updates, string? whereClause = null);
+        Task UpdateSqlAsync(IDictionary<string, string> updates, string? whereClause = null, CancellationToken token = default);
 
         void Delete(string whereClause);
         Task DeleteAsync(string whereClause, CancellationToken token = default);
@@ -41,8 +41,8 @@ namespace LanceDbInterface
         void Close();
         Task CloseAsync(CancellationToken cancellationToken = default);
 
-        void CompactFiles();
-        Task CompactFilesAsync(CancellationToken token = default);
+        OptimizeStats Optimize(TimeSpan? cleanupOlderThan = null, bool deleteUnverified = false);
+        Task<OptimizeStats> OptimizeAsync(TimeSpan? cleanupOlderThan = null, bool deleteUnverified = false, CancellationToken token = default);
 
         ILanceQueryBuilder Search();
         ILanceQueryBuilder Search(Apache.Arrow.Array vector, string vectorColumnName, QueryType queryType = QueryType.Auto);
