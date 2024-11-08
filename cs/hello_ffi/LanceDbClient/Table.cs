@@ -260,6 +260,10 @@ public partial class Table : ITable, IDisposable
         };
     }
     
+    /// <summary>
+    /// Create a query builder for searching the table.
+    /// </summary>
+    /// <returns>A ready to use QueryBuilder</returns>
     public ILanceQueryBuilder Search()
     {
         return new QueryBuilder(_connectionHandle, _tableHandle);
