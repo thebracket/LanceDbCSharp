@@ -167,8 +167,9 @@ public partial class Table : ITable, IDisposable
     /// <summary>
     /// Update rows in the table.
     /// </summary>
-    /// <param name="updates">A dictionary of (column => value) updates. Currently, value MUST be a string - the Rust API expects it.</param>
+    /// <param name="updates">A dictionary of (column => value) updates. Objects are cast to strings and wrapped in SQL update syntax.</param>
     /// <param name="whereClause">Optional where clause for update</param>
+    /// <returns>The number of records that were updated</returns>
     /// <exception cref="Exception">If the table is closed, or the command fails.</exception>
     public ulong Update(IDictionary<string, object> updates, string? whereClause = null)
     {
@@ -178,7 +179,17 @@ public partial class Table : ITable, IDisposable
         var updateList = new List<string>();
         foreach (var (key, value) in updates)
         {
-            updateList.Add(key + "=" + value.ToString());
+            var s = value as string;
+            if (s != null)
+            {
+                // SQL Sanitizing
+                s = s.Replace("'", "''");
+                updateList.Add(key + "='" + s + "'");
+            }
+            else
+            {
+                updateList.Add(key + "=" + value.ToString());
+            }
         }
 
         var rowsUpdated = 0ul;
@@ -206,10 +217,49 @@ public partial class Table : ITable, IDisposable
         return rowsUpdated;
     }
     
-    public void UpdateSql(IDictionary<string, string> updates, string? whereClause = null)
+    /// <summary>
+    /// Update rows in a table, using explicit SQL syntax.
+    /// </summary>
+    /// <param name="updates">(column, SQL expression) dictionary.</param>
+    /// <param name="whereClause">Any filtering clause to apply</param>
+    /// <returns>The number of records that were updated</returns>
+    /// <exception cref="Exception"></exception>
+    public ulong UpdateSql(IDictionary<string, string> updates, string? whereClause = null)
     {
-        // TODO: This isn't implemented in the NodeJS API, or directly in the Rust API.
-        throw new NotImplementedException();
+        if (!IsOpen) throw new Exception("Table is not open.");
+        Exception? exception = null;
+
+        var updateList = new List<string>();
+        foreach (var (key, value) in updates)
+        {
+            // In this case they are all guaranteed to be strings - because full SQL statements
+            // with escaping already baked in are expected.
+            updateList.Add(key + "=" + value);
+        }
+
+        var rowsUpdated = 0ul;
+        
+        Ffi.update_rows(
+            _connectionHandle,
+            _tableHandle,
+            updateList.ToArray(),
+            (ulong)updateList.Count,
+            whereClause,
+            (code, message) =>
+            {
+                if (code < 0 && message != null)
+                {
+                    exception = new Exception("Failed to update rows: " + message);
+                }
+            },
+            (rows =>
+            {
+                rowsUpdated += rows;
+            })
+        );
+        if (exception != null) throw exception;
+
+        return rowsUpdated;
     }
     
     /// <summary>

@@ -32,7 +32,7 @@ namespace LanceDbInterface
         ulong Update(IDictionary<string, Object> updates, string? whereClause = null);
         Task UpdateAsync(IDictionary<string, Object> updates, string? whereClause = null, CancellationToken token = default);
 
-        void UpdateSql(IDictionary<string, string> updates, string? whereClause = null);
+        ulong UpdateSql(IDictionary<string, string> updates, string? whereClause = null);
         Task UpdateSqlAsync(IDictionary<string, string> updates, string? whereClause = null, CancellationToken token = default);
 
         void Delete(string whereClause);

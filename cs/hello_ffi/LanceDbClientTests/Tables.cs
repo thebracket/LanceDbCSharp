@@ -253,8 +253,38 @@ public partial class Tests
                 var array = new List<RecordBatch> { recordBatch };
                 table.Add(array);
                 Assert.That(table.CountRows(), Is.GreaterThan(0));
-                var updates = new Dictionary<string, object> { { "id", "'test'" } };
+                var updates = new Dictionary<string, object> { { "id", "test" } };
                 var updatedCount = table.Update(updates, "id = '0'");
+                Assert.That(table.CountRows("id = 'test'"), Is.EqualTo(1));
+                Assert.That(updatedCount, Is.EqualTo(1));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public void UpdateRowsSql()
+    {
+        var uri = new Uri("file:///tmp/test_table_updaterowssql_nofilter");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch> { recordBatch };
+                table.Add(array);
+                Assert.That(table.CountRows(), Is.GreaterThan(0));
+                var updates = new Dictionary<string, string> { { "id", "'test'" } };
+                var updatedCount = table.UpdateSql(updates, "id = '0'");
                 Assert.That(table.CountRows("id = 'test'"), Is.EqualTo(1));
                 Assert.That(updatedCount, Is.EqualTo(1));
             }
