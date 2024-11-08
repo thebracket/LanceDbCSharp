@@ -43,3 +43,6 @@ or in a directory that's in your `LD_LIBRARY_PATH`.
 * `Table`: Implemented except for:
   * `UpdateSql` - there is no Rust equivalent in the API, more research/porting required.
   * `Search` other than the no-parameter version.
+* `QueryBuilder` - implemented other than:
+  * The vector variants.
+  * The re-ranker, which appears to only be implemented in Python in LanceDB.
