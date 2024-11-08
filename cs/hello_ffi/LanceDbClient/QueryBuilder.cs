@@ -195,7 +195,6 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <exception cref="Exception">If the query fails</exception>
     public virtual unsafe IEnumerable<RecordBatch> ToBatches(int batchSize)
     {
-        // TODO: We're ignoring batch size completely right now
         var result = new List<RecordBatch>();
         Exception? exception = null;
         
@@ -220,7 +219,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
                 exception = new Exception("Failed to compact files: " + message);
             }
         }, _limit, _whereClause, _withRowId, selectColumns, (ulong)_selectColumns.Count,
-            _fullTextSearch);
+            _fullTextSearch, (uint)batchSize);
         
         if (exception != null) throw exception;
         return result;

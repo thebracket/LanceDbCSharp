@@ -160,6 +160,7 @@ pub(crate) enum LanceDbCommand {
         explain_callback: Option<(bool, extern "C" fn (*const c_char))>,
         selected_columns: Option<Vec<String>>,
         full_text_search: Option<String>,
+        batch_size: u32,
     },
 
     VectorQuery {
@@ -175,6 +176,7 @@ pub(crate) enum LanceDbCommand {
         metric: DistanceType,
         n_probes: usize,
         refine_factor: u32,
+        batch_size: u32,
     },
 
     /// Gracefully shut down the event-loop.

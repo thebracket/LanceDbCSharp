@@ -5,7 +5,7 @@ use futures::TryStreamExt;
 use half::f16;
 use lancedb::DistanceType;
 use lancedb::index::scalar::FullTextSearchQuery;
-use lancedb::query::{ExecutableQuery, QueryBase, Select};
+use lancedb::query::{ExecutableQuery, QueryBase, QueryExecutionOptions, Select};
 use tokio::sync::mpsc::Sender;
 use crate::connection_handler::ConnectionHandle;
 use crate::event_loop::connection::get_table;
@@ -92,6 +92,7 @@ pub(crate) async fn do_query(
     explain_callback: Option<(bool, extern "C" fn (*const c_char))>,
     selected_columns: Option<Vec<String>>,
     full_text_search: Option<String>,
+    batch_size: u32,
 ) {
     let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
@@ -146,7 +147,15 @@ pub(crate) async fn do_query(
         }
     }
 
-    match query_builder.execute().await {
+    let options = if batch_size > 0 {
+        let mut qo = QueryExecutionOptions::default();
+        qo.max_batch_length = batch_size;
+        qo
+    } else {
+        QueryExecutionOptions::default()
+    };
+
+    match query_builder.execute_with_options(options).await {
         Ok(mut query) => {
             while let Ok(Some(record)) = query.try_next().await {
                 // Return results as a batch
@@ -186,6 +195,7 @@ pub(crate) async fn do_vector_query(
     metric: DistanceType,
     n_probes: usize,
     refine_factor: u32,
+    batch_size: u32,
 ) {
     let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
@@ -261,7 +271,15 @@ pub(crate) async fn do_vector_query(
         }
     }
 
-    match query_builder.execute().await {
+    let options = if batch_size > 0 {
+        let mut qo = QueryExecutionOptions::default();
+        qo.max_batch_length = batch_size;
+        qo
+    } else {
+        QueryExecutionOptions::default()
+    };
+
+    match query_builder.execute_with_options(options).await {
         Ok(mut query) => {
             while let Ok(Some(record)) = query.try_next().await {
                 // Return results as a batch

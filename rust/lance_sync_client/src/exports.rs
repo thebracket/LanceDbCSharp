@@ -412,6 +412,7 @@ pub extern "C" fn query(
     selected_columns: *const *const c_char,
     selected_columns_len: u64,
     full_text_search: *const c_char,
+    batch_size: u32,
 ) {
     let where_clause = if where_clause.is_null() {
         None
@@ -460,6 +461,7 @@ pub extern "C" fn query(
             explain_callback: None,
             selected_columns,
             full_text_search,
+            batch_size,
         },
         "Query",
         reply_tx
@@ -485,6 +487,7 @@ pub extern "C" fn vector_query(
     metric: u32,
     n_probes: u64,
     refine_factor: u32,
+    batch_size: u32,
 ) {
     let metric: MetricType = metric.into();
     let where_clause = if where_clause.is_null() {
@@ -529,6 +532,7 @@ pub extern "C" fn vector_query(
             metric: metric.into(),
             n_probes: n_probes as usize,
             refine_factor,
+            batch_size,
         },
         "Query",
         reply_tx
@@ -597,6 +601,7 @@ pub extern "C" fn explain_query(
             explain_callback: Some((verbose, explain_callback)),
             selected_columns,
             full_text_search,
+            batch_size: 0,
         },
         "ExplainQuery",
         reply_tx
@@ -667,6 +672,7 @@ pub extern "C" fn explain_vector_query(
             metric: metric.into(),
             n_probes: n_probes as usize,
             refine_factor,
+            batch_size: 0,
         },
         "Query",
         reply_tx

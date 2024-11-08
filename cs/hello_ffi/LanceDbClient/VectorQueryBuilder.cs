@@ -101,7 +101,6 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
     /// <exception cref="Exception">If the query fails</exception>
     public override unsafe IEnumerable<RecordBatch> ToBatches(int batchSize)
     {
-        // TODO: We're ignoring batch size completely right now
         var result = new List<RecordBatch>();
         Exception? exception = null;
         
@@ -130,7 +129,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
                     }
                 }, _limit, _whereClause, _withRowId, selectColumns, (ulong)_selectColumns.Count,
                 (uint)_vectorData.DataType, b, (ulong)_vectorData.Data.Length, _vectorData.Length,
-                (uint)_metric, (ulong)_nProbes, (uint)_refineFactor);
+                (uint)_metric, (ulong)_nProbes, (uint)_refineFactor, (uint)batchSize);
         }
 
         if (exception != null) throw exception;
