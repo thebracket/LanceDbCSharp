@@ -3,7 +3,7 @@
 
 use crate::command_from_ffi;
 use crate::connection_handler::ConnectionHandle;
-use crate::event_loop::{report_result, ErrorReportFn, LanceDbCommand, MetricType};
+use crate::event_loop::{report_result, ErrorReportFn, LanceDbCommand, MetricType, VectorDataType};
 use crate::serialization::{bytes_to_batch, bytes_to_schema};
 use crate::table_handler::TableHandle;
 use std::ffi::c_char;
@@ -465,6 +465,68 @@ pub extern "C" fn query(
     );
 }
 
+/// Initial query code
+#[no_mangle]
+pub extern "C" fn vector_query(
+    connection_handle: i64,
+    table_handle: i64,
+    batch_callback: Option<extern "C" fn(*const u8, u64)>,
+    reply_tx: ErrorReportFn,
+    limit: u64,
+    where_clause: *const c_char,
+    with_row_id: bool,
+    selected_columns: *const *const c_char,
+    selected_columns_len: u64,
+    vector_type: u32,
+    vector_blob: *const u8,
+    vector_blob_len: u64,
+    vector_num_elements: u64,
+) {
+    let where_clause = if where_clause.is_null() {
+        None
+    } else {
+        Some(unsafe {
+            std::ffi::CStr::from_ptr(where_clause)
+                .to_string_lossy()
+                .to_string()
+        })
+    };
+
+    // Selected columns - C array of strings
+    let selected_columns = if selected_columns.is_null() {
+        None
+    } else {
+        let mut columns = Vec::new();
+        for i in 0..selected_columns_len {
+            let column = unsafe {
+                std::ffi::CStr::from_ptr(*selected_columns.offset(i as isize))
+                    .to_string_lossy()
+                    .to_string()
+            };
+            columns.push(column);
+        }
+        Some(columns)
+    };
+
+    let vector_data = VectorDataType::from_blob(vector_type, vector_blob, vector_blob_len, vector_num_elements);
+
+    command_from_ffi!(
+        LanceDbCommand::VectorQuery {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+            batch_callback,
+            limit: if limit == 0 { None } else { Some(limit as usize) },
+            where_clause,
+            with_row_id,
+            explain_callback: None,
+            selected_columns,
+            vector_data,
+        },
+        "Query",
+        reply_tx
+    );
+}
+
 /// Explain a query
 #[no_mangle]
 pub extern "C" fn explain_query(
@@ -529,6 +591,69 @@ pub extern "C" fn explain_query(
             full_text_search,
         },
         "ExplainQuery",
+        reply_tx
+    );
+}
+
+/// Explain a vector query
+#[no_mangle]
+pub extern "C" fn explain_vector_query(
+    connection_handle: i64,
+    table_handle: i64,
+    reply_tx: ErrorReportFn,
+    limit: u64,
+    where_clause: *const c_char,
+    with_row_id: bool,
+    verbose: bool,
+    explain_callback: extern "C" fn(*const c_char),
+    selected_columns: *const *const c_char,
+    selected_columns_len: u64,
+    vector_type: u32,
+    vector_blob: *const u8,
+    vector_blob_len: u64,
+    vector_num_elements: u64,
+) {
+    let where_clause = if where_clause.is_null() {
+        None
+    } else {
+        Some(unsafe {
+            std::ffi::CStr::from_ptr(where_clause)
+                .to_string_lossy()
+                .to_string()
+        })
+    };
+
+    // Selected columns - C array of strings
+    let selected_columns = if selected_columns.is_null() {
+        None
+    } else {
+        let mut columns = Vec::new();
+        for i in 0..selected_columns_len {
+            let column = unsafe {
+                std::ffi::CStr::from_ptr(*selected_columns.offset(i as isize))
+                    .to_string_lossy()
+                    .to_string()
+            };
+            columns.push(column);
+        }
+        Some(columns)
+    };
+
+    let vector_data = VectorDataType::from_blob(vector_type, vector_blob, vector_blob_len, vector_num_elements);
+
+    command_from_ffi!(
+        LanceDbCommand::VectorQuery {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+            batch_callback: None,
+            limit: if limit == 0 { None } else { Some(limit as usize) },
+            where_clause,
+            with_row_id,
+            explain_callback: Some((verbose, explain_callback)),
+            selected_columns,
+            vector_data,
+        },
+        "Query",
         reply_tx
     );
 }

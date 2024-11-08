@@ -283,6 +283,7 @@ public partial class Tests
                 Assert.That(explanation, Is.Not.Null);
                 Assert.That(explanation, Is.Not.EqualTo("No explanation returned"));
                 // NUnit print the explanation
+                TestContext.Out.WriteLine(explanation);
             }
         }
         finally
@@ -370,5 +371,85 @@ public partial class Tests
         {
             Cleanup(uri);
         }
+    }
+    
+    [Test]
+    public void BasicVectorQuery()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_vec_query_select");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.Multiple(() =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(cnn.TableNames(), Does.Contain("table1"));
+                });
+                
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+
+                var target = new List<float>();
+                for (var i=0; i<128; i++) target.Add(1.0f);
+                var batches = table.Search().Vector(target).SelectColumns(["id", "vector"]).ToBatches(0);
+                Assert.That(batches, Is.Not.Empty);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
+    
+    [Test]
+    public void ExplainVecQuery()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_vec_query_explain");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.Multiple(() =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(cnn.TableNames(), Does.Contain("table1"));
+                });
+                
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+
+                var target = new List<float>();
+                for (var i=0; i<128; i++) target.Add(1.0f);
+                var explanation = table.Search().Vector(target).SelectColumns(["id", "vector"]).ExplainPlan();
+                TestContext.Out.WriteLine(explanation);
+                Assert.That(explanation, Is.Not.Null);
+                Assert.That(explanation, Is.Not.EqualTo("No explanation returned"));
+                // NUnit print the explanation
+                TestContext.Out.WriteLine(explanation);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
     }
 }

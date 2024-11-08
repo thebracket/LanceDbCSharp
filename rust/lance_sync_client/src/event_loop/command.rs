@@ -5,6 +5,7 @@ use arrow_schema::{ArrowError, SchemaRef};
 use lancedb::table::AddDataMode;
 use std::ffi::c_char;
 use lancedb::DistanceType;
+use crate::event_loop::VectorDataType;
 
 /// Used to synchronize timings - make sure that the function
 /// does not return until all async processing is complete.
@@ -149,9 +150,6 @@ pub(crate) enum LanceDbCommand {
         prune_callback: extern "C" fn(u64, u64),
     },
 
-    // TODO: Search
-
-    // This is starting as an "everything in no order" dump
     Query {
         connection_handle: ConnectionHandle,
         table_handle: TableHandle,
@@ -162,6 +160,18 @@ pub(crate) enum LanceDbCommand {
         explain_callback: Option<(bool, extern "C" fn (*const c_char))>,
         selected_columns: Option<Vec<String>>,
         full_text_search: Option<String>,
+    },
+
+    VectorQuery {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+        batch_callback: Option<extern "C" fn(*const u8, u64)>,
+        limit: Option<usize>,
+        where_clause: Option<String>,
+        with_row_id: bool,
+        explain_callback: Option<(bool, extern "C" fn (*const c_char))>,
+        selected_columns: Option<Vec<String>>,
+        vector_data: VectorDataType,
     },
 
     /// Gracefully shut down the event-loop.

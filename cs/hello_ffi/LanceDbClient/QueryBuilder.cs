@@ -3,17 +3,18 @@ using System.Runtime.InteropServices;
 using Apache.Arrow;
 using LanceDbInterface;
 using MathNet.Numerics.LinearAlgebra;
+using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;
 
 public partial class QueryBuilder : ILanceQueryBuilder
 {
-    private readonly long _connectionId;
-    private readonly long _tableId;
-    private ulong _limit;
-    private string? _whereClause;
-    private bool _withRowId;
-    private List<string> _selectColumns;
+    protected readonly long _connectionId;
+    protected readonly long _tableId;
+    protected ulong _limit;
+    protected string? _whereClause;
+    protected bool _withRowId;
+    protected List<string> _selectColumns;
     private string? _fullTextSearch;
 
     internal QueryBuilder(long connectionId, long tableId)
@@ -78,7 +79,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <param name="verbose">Verbose provides more information</param>
     /// <returns>A string containing the query execution plan.</returns>
     /// <exception cref="Exception">If the call fails.</exception>
-    public string ExplainPlan(bool verbose = false)
+    public virtual string ExplainPlan(bool verbose = false)
     {
         Exception? exception = null;
         string? result = null;
@@ -105,9 +106,16 @@ public partial class QueryBuilder : ILanceQueryBuilder
         return result ??= "No explanation returned";
     }
 
+    /// <summary>
+    /// Constructs a new vector query builder.
+    /// </summary>
+    /// <param name="vector">A list of either f16 (half), f32, f64</param>
+    /// <typeparam name="T">Half, f16 or f32</typeparam>
+    /// <returns>A VectorQueryBuilder</returns>
     public ILanceQueryBuilder Vector<T>(List<T> vector)
     {
-        throw new NotImplementedException();
+        var vectorData = CastVectorList(vector);
+        return new VectorQueryBuilder(_connectionId, _tableId, vectorData, _limit, _whereClause, _withRowId, _selectColumns);
     }
 
     public ILanceQueryBuilder Vector<T>(Vector<T> vector) where T : struct, IEquatable<T>, IFormattable
@@ -185,7 +193,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <param name="batchSize">Not implemented yet.</param>
     /// <returns>The queyr result</returns>
     /// <exception cref="Exception">If the query fails</exception>
-    public unsafe IEnumerable<RecordBatch> ToBatches(int batchSize)
+    public virtual unsafe IEnumerable<RecordBatch> ToBatches(int batchSize)
     {
         // TODO: We're ignoring batch size completely right now
         var result = new List<RecordBatch>();
@@ -216,5 +224,75 @@ public partial class QueryBuilder : ILanceQueryBuilder
         
         if (exception != null) throw exception;
         return result;
+    }
+    
+    public enum TypeIndex
+    {
+        Half = 1,
+        Float = 2,
+        Double = 3,
+        Array = 4
+    }
+
+    public struct VectorDataImpl
+    {
+        public byte[] Data;
+        public ulong Length;
+        public TypeIndex DataType;
+    }
+    
+    // This is a placeholder for a more generic approach
+    private static unsafe VectorDataImpl CastVectorList<T>(List<T> vector)
+    {
+        // Calculate the buffer size
+        var bufferSize = vector.Count * Unsafe.SizeOf<T>();
+        // Adjust size to ensure 32-bit alignment
+        if (bufferSize % 4 != 0)
+        {
+            bufferSize += 4 - (bufferSize % 4);
+        }
+        // Allocate byte array
+        var data = new byte[bufferSize];
+        Buffer.BlockCopy(vector.ToArray(), 0, data, 0, data.Length);
+
+        if (typeof(T) == typeof(Half))
+        {
+            return new VectorDataImpl
+            {
+                Data = data,
+                Length = (ulong)vector.Count,
+                DataType = TypeIndex.Half
+            };
+        }
+        if (typeof(T) == typeof(float))
+        {
+            return new VectorDataImpl
+            {
+                Data = data,
+                Length = (ulong)vector.Count,
+                DataType = TypeIndex.Float
+            };
+        }
+        if (typeof(T) == typeof(double))
+        {
+            return new VectorDataImpl
+            {
+                Data = data,
+                Length = (ulong)vector.Count,
+                DataType = TypeIndex.Double
+            };
+        }
+        if (typeof(T) == typeof(Array))
+        {
+            // Handle the Array case
+            return new VectorDataImpl
+            {
+                Data = data,
+                Length = (ulong)vector.Count,
+                DataType = TypeIndex.Array
+            };
+        }
+        
+        throw new Exception("Unsupported type: " + typeof(T) + ". Supported types are Half, float, double, and Apache.Arrow.Array.");
     }
 }

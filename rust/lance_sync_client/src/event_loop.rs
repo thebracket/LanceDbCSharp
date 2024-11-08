@@ -26,6 +26,7 @@ pub(crate) use connection::get_connection;
 pub(crate) use errors::{report_result, ErrorReportFn};
 pub(crate) use lifecycle::setup;
 pub(crate) use metric::MetricType;
+pub(crate) use queries::VectorDataType;
 
 /// This static variable holds the sender for the LanceDB command.
 pub(crate) static COMMAND_SENDER: OnceLock<Sender<LanceDbCommandSet>> = OnceLock::new();
@@ -243,6 +244,22 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     explain_callback,
                     selected_columns,
                     full_text_search,
+                ));
+            }
+            LanceDbCommand::VectorQuery { connection_handle, table_handle, batch_callback, limit, where_clause, with_row_id, explain_callback, selected_columns, vector_data } => {
+                tokio::spawn(queries::do_vector_query(
+                    connection_handle,
+                    tables.clone(),
+                    table_handle,
+                    reply_tx,
+                    completion_sender,
+                    batch_callback,
+                    limit,
+                    where_clause,
+                    with_row_id,
+                    explain_callback,
+                    selected_columns,
+                    vector_data,
                 ));
             }
             LanceDbCommand::CreateScalarIndex {

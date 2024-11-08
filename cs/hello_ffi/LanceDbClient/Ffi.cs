@@ -82,6 +82,20 @@ static partial class Ffi
         string[] columns, ulong columnsLength, string? fullTextSearch);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern unsafe void vector_query(long connectionHandle, long tableHandle, BlobCallback onRecBatch, 
+        ResultCallback onResult, ulong limit, string? whereClause, bool withRowId,
+        string[] columns, ulong columnsLength, uint vectorType, byte* vectorBlob,
+        ulong vectorBlogLength, ulong numElements);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern unsafe void explain_vector_query(long connectionHandle, long tableHandle, 
+        ResultCallback onResult, ulong limit, string? whereClause, bool withRowId,
+        bool verbose, StringCallback stringCallback,
+        string[] columns, ulong columnsLength,
+        uint vectorType, byte* vectorBlob,
+        ulong vectorBlogLength, ulong numElements);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void explain_query(long connectionHandle, long tableHandle, ulong limit, 
         string? whereClause, bool withRowId, bool verbose, StringCallback stringCallback, 
         ResultCallback onResult, string[] columns, ulong columnsLength, string? fullTextSearch);
