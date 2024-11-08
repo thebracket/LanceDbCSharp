@@ -155,8 +155,6 @@ public class QueryBuilder : ILanceQueryBuilder
         var result = new List<RecordBatch>();
         Exception? exception = null;
         
-        if (_withRowId) throw new Exception("Row ID does not work with RecordBatch queries");
-        
         string[]? selectColumns = null;
         if (_selectColumns.Count > 0)
         {

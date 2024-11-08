@@ -204,12 +204,7 @@ public partial class Tests
                 array.Add(recordBatch);
                 table.Add(array);
 
-                var q = table.Search().WithRowId(true);
-                Assert.That(q, Is.Not.Null);
-                Assert.Throws<Exception>(() =>
-                {
-                    var batches = q.ToBatches(0);
-                });
+                var q = table.Search().WithRowId(true).ToBatches(0);
             }
         }
         finally
@@ -346,5 +341,34 @@ public partial class Tests
         }
 
         Assert.Pass();
+    }
+    
+    [Test]
+    public void FullTextSearchWithIndex()
+    {
+        var uri = new Uri("file:///tmp/test_table_try_fts_index_search");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                table.CreateFtsIndex(["id"], ["id"]);
+                var search = table.Search().Text("'1'").ToList();
+                TestContext.Out.WriteLine(search);
+                Assert.That(search, Is.Not.Null);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
     }
 }

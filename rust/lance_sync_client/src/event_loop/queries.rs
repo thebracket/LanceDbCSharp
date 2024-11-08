@@ -27,15 +27,6 @@ pub(crate) async fn do_query(
         return;
     };
 
-    let Ok(schema) = table.schema().await else {
-        report_result(
-            Err("Could not get schema for table.".to_string()),
-            reply_tx,
-            Some(completion_sender),
-        );
-        return;
-    };
-
     // Use the query builder setup
     let mut query_builder = table.query();
 
@@ -87,7 +78,9 @@ pub(crate) async fn do_query(
     match query_builder.execute().await {
         Ok(mut query) => {
             while let Ok(Some(record)) = query.try_next().await {
+                // Return results as a batch
                 if let Some(batch_callback) = batch_callback {
+                    let schema = record.schema();
                     let Ok(bytes) = batch_to_bytes(&record, &schema) else {
                         report_result(Err("Unable to convert result to bytes".to_string()), reply_tx, Some(completion_sender));
                         return;
