@@ -6,7 +6,7 @@ using MathNet.Numerics.LinearAlgebra;
 
 namespace LanceDbClient;
 
-public class QueryBuilder : ILanceQueryBuilder
+public partial class QueryBuilder : ILanceQueryBuilder
 {
     private readonly long _connectionId;
     private readonly long _tableId;
@@ -113,12 +113,7 @@ public class QueryBuilder : ILanceQueryBuilder
         Apache.Arrow.Table table = Apache.Arrow.Table.TableFromRecordBatches(schema, batchesList);
         return table;
     }
-
-    public Task<Apache.Arrow.Table> ToArrowAsync(CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public IEnumerable<IDictionary<string, object>> ToList()
     {
         // Referencing query.py line 1326, this function is implemented in Python as calling ToArrow and
@@ -143,12 +138,7 @@ public class QueryBuilder : ILanceQueryBuilder
         }
         return result;
     }
-
-    public Task<IEnumerable<IDictionary<string, object>>> ToListAsync(CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public unsafe IEnumerable<RecordBatch> ToBatches(int batchSize)
     {
         // TODO: We're ignoring batch size completely right now
@@ -180,10 +170,5 @@ public class QueryBuilder : ILanceQueryBuilder
         
         if (exception != null) throw exception;
         return result;
-    }
-
-    public IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)
-    {
-        throw new NotImplementedException();
     }
 }

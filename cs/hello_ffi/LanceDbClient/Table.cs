@@ -5,8 +5,7 @@ using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;
 
-//TODO: Implement IDiposable and the matching FFI call
-public class Table : ITable, IDisposable
+public partial class Table : ITable, IDisposable
 {
     /// <summary>
     /// Creates a Table object, which represents a table in the database. It's represented as a handle,
@@ -83,11 +82,6 @@ public class Table : ITable, IDisposable
         return (int)count;
     }
     
-    public Task<int> CountRowsAsync(string? filter = null, CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
     public void CreateScalarIndex(string columnName, LanceDbInterface.IndexType indexType = LanceDbInterface.IndexType.BTree, bool replace = true)
     {
         if (!IsOpen) throw new Exception("Table is not open.");
@@ -101,25 +95,13 @@ public class Table : ITable, IDisposable
         });
         if (exception != null) throw exception;
     }
-
-    public Task CreateScalarIndexAsync(string columnName, LanceDbInterface.IndexType indexType = LanceDbInterface.IndexType.BTree, bool replace = true,
-        CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public void CreateIndex(string columnName, Metric metric = Metric.L2, int numPartitions = 256, int numSubVectors = 96,
         bool replace = true)
     {
         throw new NotImplementedException();
     }
-
-    public Task CreateIndexAsync(string columnName, Metric metric = Metric.L2, int numPartitions = 256, int numSubVectors = 96,
-        bool replace = true, CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public void CreateFtsIndex(IEnumerable<string> columnNames, IEnumerable<string> orderingColumnNames, bool replace = false,
         bool withPosition = true, int writerHeapSize = 1073741824, string tokenizerName = "default",
         bool useTantivy = true)
@@ -135,54 +117,22 @@ public class Table : ITable, IDisposable
         });
         if (exception != null) throw exception;
     }
-
-    public Task CreateFtsIndexAsync(IEnumerable<string> columnNames, IEnumerable<string> orderingColumnNames, bool replace = false,
-        bool withPosition = true, int writerHeapSize = 1073741824, string tokenizerName = "default", bool useTantivy = true,
-        CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public ILanceMergeInsertBuilder MergeInsert(IEnumerable<string> on)
     {
         return new MergeInsertBuilder(_connectionHandle, _tableHandle, on);
     }
-
-    public Task<ILanceMergeInsertBuilder> MergeInsertAsync(IEnumerable<string> on, CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public void Update(IDictionary<string, object> updates, string? whereClause = null)
     {
         throw new NotImplementedException();
     }
-
-    public Task UpdateAsync(IDictionary<string, object> updates, string? whereClause = null, CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public void UpdateSql(IDictionary<string, string> updates, string? whereClause = null)
     {
         throw new NotImplementedException();
     }
-
-    public Task UpdateSqlAsync(IDictionary<string, string> updates, string? whereClause = null, CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
-    public void UpdateSQL(IDictionary<string, string> updates, string? whereClause = null)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task UpdateSQLAsync(IDictionary<string, string> updates, string? whereClause = null, CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public void Delete(string whereClause)
     {
         if (!IsOpen) throw new Exception("Table is not open.");
@@ -196,12 +146,7 @@ public class Table : ITable, IDisposable
         });
         if (exception != null) throw exception;
     }
-
-    public Task DeleteAsync(string whereClause, CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     /// <summary>
     /// Close the table.
     /// </summary>
@@ -220,12 +165,7 @@ public class Table : ITable, IDisposable
         if (exception != null) throw exception;
         IsOpen = false;
     }
-
-    public Task CloseAsync(CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public OptimizeStats Optimize(TimeSpan? cleanupOlderThan = null, bool deleteUnverified = false)
     {
         if (!IsOpen) throw new Exception("Table is not open.");
@@ -266,12 +206,7 @@ public class Table : ITable, IDisposable
             Prune = prune
         };
     }
-
-    public Task<OptimizeStats> OptimizeAsync(TimeSpan? cleanupOlderThan = null, bool deleteUnverified = false, CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public ILanceQueryBuilder Search()
     {
         return new QueryBuilder(_connectionHandle, _tableHandle);
@@ -305,27 +240,13 @@ public class Table : ITable, IDisposable
     public bool IsOpen { get; private set; }
     public Schema Schema { get; }
     public string Name { get; }
-
-    public Task AddAsync(IEnumerable<Dictionary<string, object>> data, WriteMode mode = WriteMode.Append,
-        BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0,
-        CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public void Add(IEnumerable<Dictionary<string, object>> data, WriteMode mode = WriteMode.Append,
         BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0)
     {
         throw new NotImplementedException();
     }
-
-    public Task AddAsync(IEnumerable<RecordBatch> data, WriteMode mode = WriteMode.Append,
-        BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0,
-        CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public unsafe void Add(IEnumerable<RecordBatch> data, WriteMode mode = WriteMode.Append,
         BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0)
     {
@@ -349,14 +270,7 @@ public class Table : ITable, IDisposable
             if (exception != null) throw exception;
         }
     }
-
-    public Task AddAsync(Apache.Arrow.Table data, WriteMode mode = WriteMode.Append,
-        BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0,
-        CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public void Add(Apache.Arrow.Table data, WriteMode mode = WriteMode.Append, BadVectorHandling badVectorHandling = BadVectorHandling.Error,
         float fillValue = 0)
     {

@@ -4,7 +4,7 @@ using LanceDbInterface;
 
 namespace LanceDbClient;
 
-public class Connection : IConnection
+public partial class Connection : IConnection
 {
     // <summary>
     // Creates a new connection to the database.
@@ -180,32 +180,7 @@ public class Connection : IConnection
         if (exception != null) throw exception;
         IsOpen = false;
     }
-
-    public Task<IEnumerable<string>> TableNamesAsync(CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task<ITable> CreateTableAsync(string name, Schema schema, CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task<ITable> OpenTableAsync(string name, CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task DropTableAsync(string name, bool ignoreMissing = false, CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task DropDatabaseAsync(CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     /// <summary>
     /// Close the connection to the database.
     /// </summary>
@@ -224,12 +199,7 @@ public class Connection : IConnection
         if (exception != null) throw exception;
         IsOpen = false;
     }
-
-    public Task CloseAsync(CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public Uri Uri { get; }
 
     ~Connection()

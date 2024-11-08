@@ -3,7 +3,7 @@ using LanceDbInterface;
 
 namespace LanceDbClient;
 
-public class MergeInsertBuilder : ILanceMergeInsertBuilder
+public partial class MergeInsertBuilder : ILanceMergeInsertBuilder
 {
     private readonly long _connectionId;
     private readonly long _tableId;
@@ -58,12 +58,7 @@ public class MergeInsertBuilder : ILanceMergeInsertBuilder
         var recordBatches = new List<RecordBatch> { recordBatch };
         Execute(recordBatches);
     }
-
-    public Task ExecuteAsync(Apache.Arrow.Table data, CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public unsafe void Execute(IEnumerable<RecordBatch> data)
     {
         Exception? exception = null;
@@ -96,19 +91,10 @@ public class MergeInsertBuilder : ILanceMergeInsertBuilder
             }
         }
     }
-
-    public Task ExecuteAsync(IEnumerable<RecordBatch> data, CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
-
+    
     public void Execute(IEnumerable<Dictionary<string, object>> data)
     {
         throw new NotImplementedException();
     }
 
-    public Task ExecuteAsync(IEnumerable<Dictionary<string, object>> data, CancellationToken token = default)
-    {
-        throw new NotImplementedException();
-    }
 }
