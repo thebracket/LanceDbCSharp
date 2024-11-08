@@ -3,7 +3,7 @@
 
 use crate::command_from_ffi;
 use crate::connection_handler::ConnectionHandle;
-use crate::event_loop::{report_result, ErrorReportFn, LanceDbCommand};
+use crate::event_loop::{report_result, ErrorReportFn, LanceDbCommand, MetricType};
 use crate::serialization::{bytes_to_batch, bytes_to_schema};
 use crate::table_handler::TableHandle;
 use std::ffi::c_char;
@@ -316,6 +316,39 @@ pub extern "C" fn create_full_text_index(
     );
 }
 
+/// Create an index
+#[no_mangle]
+pub extern "C" fn create_index(
+    connection_handle: i64,
+    table_handle: i64,
+    column_name: *const c_char,
+    metric: u32,
+    num_partitions: u32,
+    num_sub_vectors: u32,
+    replace: bool,
+    reply_tx: ErrorReportFn,
+) {
+    let column_name = unsafe {
+        std::ffi::CStr::from_ptr(column_name)
+            .to_string_lossy()
+            .to_string()
+    };
+    let metric: MetricType = metric.into();
+    command_from_ffi!(
+        LanceDbCommand::CreateIndex {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+            column_name,
+            metric: metric.into(),
+            num_partitions,
+            num_sub_vectors,
+            replace,
+        },
+        "CreateIndex",
+        reply_tx
+    );
+}
+
 /// Count the number of rows in a table
 #[no_mangle]
 pub extern "C" fn count_rows(
@@ -514,7 +547,6 @@ pub extern "C" fn merge_insert_with_record_batch(
     batch_len: usize,
     reply_tx: ErrorReportFn,
 ) {
-    println!("RUNNING: merge_insert_with_record_batch");
     let columns: Option<Vec<String>> = if columns.is_null() {
         None
     } else {
@@ -529,7 +561,6 @@ pub extern "C" fn merge_insert_with_record_batch(
         }
         Some(column_list)
     };
-    println!("COLUMNS DONE");
 
     let where_clause = if where_clause.is_null() {
         None
@@ -540,7 +571,6 @@ pub extern "C" fn merge_insert_with_record_batch(
                 .to_string()
         })
     };
-    println!("WHERE DONE");
 
     let when_not_matched_by_source_delete = if when_not_matched_by_source_delete.is_null() {
         None
@@ -551,14 +581,10 @@ pub extern "C" fn merge_insert_with_record_batch(
                 .to_string()
         })
     };
-    println!("WHEN DONE");
 
     let data = unsafe { std::slice::from_raw_parts(batch, batch_len) };
-    println!("DATA DONE");
     let batch = bytes_to_batch(data);
-    println!("BATCH DONE");
     if let Err(e) = batch {
-        println!("Calling report_result {:?}", e);
         report_result(
             Err(format!("Could not parse record batch: {:?}", e)),
             reply_tx,
@@ -567,7 +593,6 @@ pub extern "C" fn merge_insert_with_record_batch(
         return;
     }
     let batch = batch.unwrap();
-    println!("merge_insert_with_record_batch submitting");
     command_from_ffi!(
         LanceDbCommand::MergeInsert {
             connection_handle: ConnectionHandle(connection_handle),

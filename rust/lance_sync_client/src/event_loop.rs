@@ -11,6 +11,7 @@ mod lifecycle;
 mod table;
 mod queries;
 mod merge_insert;
+mod metric;
 
 use crate::connection_handler::{ConnectionActor, ConnectionCommand};
 use crate::table_handler::{TableActor, TableCommand};
@@ -24,6 +25,7 @@ pub(crate) use command::CompletionSender;
 pub(crate) use connection::get_connection;
 pub(crate) use errors::{report_result, ErrorReportFn};
 pub(crate) use lifecycle::setup;
+pub(crate) use metric::MetricType;
 
 /// This static variable holds the sender for the LanceDB command.
 pub(crate) static COMMAND_SENDER: OnceLock<Sender<LanceDbCommandSet>> = OnceLock::new();
@@ -259,6 +261,20 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     replace,
                     reply_tx,
                     completion_sender,
+                ));
+            }
+            LanceDbCommand::CreateIndex { connection_handle, table_handle, column_name, metric, num_partitions, num_sub_vectors, replace } => {
+                tokio::spawn(table::do_create_index(
+                    connection_handle,
+                    tables.clone(),
+                    table_handle,
+                    reply_tx,
+                    completion_sender,
+                    column_name,
+                    metric,
+                    num_partitions,
+                    num_sub_vectors,
+                    replace,
                 ));
             }
             LanceDbCommand::CreateFullTextIndex { connection_handle, table_handle, columns, with_position, replace, tokenizer_name } => {

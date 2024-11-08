@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
+using LanceDbInterface;
 
 namespace LanceDbClient;
 
@@ -91,6 +92,9 @@ static partial class Ffi
     internal static extern void create_full_text_index(long connectionHandle, long tableHandle, 
         string[] columns, ulong columnsLength, bool withPosition, bool replace, string tokenizerName, 
         ResultCallback onResult);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void create_index(long connectionHandle, long tableHandle, string columnName, uint metric, uint numPartitions, uint numSubVectors, bool replace, ResultCallback onResult);
     
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]

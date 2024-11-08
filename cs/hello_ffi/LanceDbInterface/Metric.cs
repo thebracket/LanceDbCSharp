@@ -2,8 +2,8 @@
 {
     public enum Metric
     {
-        L2,
-        Cosine,
-        Dot
+        L2 = 1,
+        Cosine = 2,
+        Dot = 3,
     }
 }

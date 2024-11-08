@@ -103,10 +103,28 @@ public partial class Table : ITable, IDisposable
         if (exception != null) throw exception;
     }
     
+    /// <summary>
+    /// Creates a IvfPqIndex on the specified column.
+    /// </summary>
+    /// <param name="columnName">The name of the column to index</param>
+    /// <param name="metric">The distance metric</param>
+    /// <param name="numPartitions">Number of partitions</param>
+    /// <param name="numSubVectors">Number of sub vectors</param>
+    /// <param name="replace">Should the index be replaced if it already exists?</param>
+    /// <exception cref="Exception">If the table is not open, or an error occurs executing the request.</exception>
     public void CreateIndex(string columnName, Metric metric = Metric.L2, int numPartitions = 256, int numSubVectors = 96,
         bool replace = true)
     {
-        throw new NotImplementedException();
+        if (!IsOpen) throw new Exception("Table is not open.");
+        Exception? exception = null;
+        Ffi.create_index(_connectionHandle, _tableHandle, columnName, (uint)metric, (uint)numPartitions, (uint)numSubVectors, replace, (code, message) =>
+        {
+            if (code < 0 && message != null)
+            {
+                exception = new Exception("Failed to create the index: " + message);
+            }
+        });
+        if (exception != null) throw exception;
     }
     
     /// <summary>

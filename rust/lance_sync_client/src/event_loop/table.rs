@@ -5,8 +5,9 @@ use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorRe
 use crate::table_handler::{TableCommand, TableHandle};
 use arrow_array::{RecordBatch, RecordBatchIterator};
 use arrow_schema::ArrowError;
+use lancedb::DistanceType;
 use lancedb::index::scalar::{BTreeIndexBuilder, BitmapIndexBuilder, FtsIndexBuilder, LabelListIndexBuilder};
-use lancedb::index::{Index, IndexBuilder};
+use lancedb::index::Index;
 use lancedb::table::OptimizeAction;
 use tokio::sync::mpsc::Sender;
 
@@ -145,6 +146,45 @@ pub(crate) async fn do_crate_scalar_index(
         }
     }
     completion_sender.send(()).unwrap();
+}
+
+pub(crate) async fn do_create_index(
+    connection_handle: ConnectionHandle,
+    tables: Sender<TableCommand>,
+    table_handle: TableHandle,
+    reply_tx: ErrorReportFn,
+    completion_sender: CompletionSender,
+    column_name: String,
+    metric: DistanceType,
+    num_partitions: u32,
+    num_sub_vectors: u32,
+    replace: bool,
+) {
+    let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
+        let err = format!("Table not found: {table_handle:?}");
+        report_result(Err(err), reply_tx, Some(completion_sender));
+        return;
+    };
+
+    let mut idx_builder = lancedb::index::vector::IvfPqIndexBuilder::default();
+    idx_builder = idx_builder.distance_type(metric);
+    idx_builder = idx_builder.num_partitions(num_partitions);
+    idx_builder = idx_builder.num_sub_vectors(num_sub_vectors);
+    let build_command = table
+        .create_index(&[column_name], Index::IvfPq(idx_builder))
+        .replace(replace);
+
+    match build_command.replace(replace).execute().await {
+        Ok(_) => {
+            report_result(Ok(0), reply_tx, Some(completion_sender));
+            return;
+        }
+        Err(e) => {
+            let err = format!("Error creating index: {:?}", e);
+            report_result(Err(err), reply_tx, Some(completion_sender));
+            return;
+        }
+    }
 }
 
 pub(crate) async fn do_add_fts_index(

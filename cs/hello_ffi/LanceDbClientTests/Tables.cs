@@ -1,5 +1,6 @@
 using Apache.Arrow;
 using LanceDbClient;
+using LanceDbInterface;
 
 namespace LanceDbClientTests;
 
@@ -299,6 +300,33 @@ public partial class Tests
                 array.Add(recordBatch);
                 table.Add(array);
                 table.CreateFtsIndex(["id"], ["id"]);
+                var stats = table.Optimize();
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public void CreateDefaultVectorIndex()
+    {
+        var uri = new Uri("file:///tmp/test_table_try_vec_index");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 256, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                table.CreateIndex("vector", Metric.L2, 8, 8);
                 var stats = table.Optimize();
             }
         }

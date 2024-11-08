@@ -4,6 +4,7 @@ use arrow_array::RecordBatch;
 use arrow_schema::{ArrowError, SchemaRef};
 use lancedb::table::AddDataMode;
 use std::ffi::c_char;
+use lancedb::DistanceType;
 
 /// Used to synchronize timings - make sure that the function
 /// does not return until all async processing is complete.
@@ -110,17 +111,15 @@ pub(crate) enum LanceDbCommand {
         tokenizer_name: String,
     },
 
-    // TODO Items
-
-    // CreateIndex {
-    //     connection_handle: ConnectionHandle,
-    //     table_handle: TableHandle,
-    //     column_names: Vec<String>,
-    //     index_type: IndexType,
-    //     num_partitions: u32,
-    //     num_sub_vectors: u32,
-    //     replace: bool,
-    // },
+    CreateIndex {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+        column_name: String,
+        metric: DistanceType,
+        num_partitions: u32,
+        num_sub_vectors: u32,
+        replace: bool,
+    },
     //
     // Update {
     //     connection_handle: ConnectionHandle,
