@@ -19,24 +19,42 @@ public partial class MergeInsertBuilder : ILanceMergeInsertBuilder
         _columns = columns.ToList();
     }
     
+    /// <summary>
+    /// Sets "when matched, update all" in the query engine.
+    /// </summary>
+    /// <param name="where">Optional search criteria</param>
+    /// <returns>The MergeInsert builder to continue building.</returns>
     public ILanceMergeInsertBuilder WhenMatchedUpdateAll(string? where = null)
     {
         _where = where;
         return this;
     }
 
+    /// <summary>
+    /// Sets "when not matched, insert all" in the query engine.
+    /// </summary>
+    /// <returns>The MergeInsert builder to continue building.</returns>
     public ILanceMergeInsertBuilder WhenNotMatchedInsertAll()
     {
         _whenNotMatchedInsertAll = true;
         return this;
     }
 
+    /// <summary>
+    /// Sets "when not matched by source, delete" in the query engine.
+    /// </summary>
+    /// <param name="condition">The row criteria to match.</param>
+    /// <returns>The MergeInsert builder to continue building.</returns>
     public ILanceMergeInsertBuilder WhenNotMatchedBySourceDelete(string? condition = null)
     {
         _whenNotMatchedBySourceDelete = condition;
         return this;
     }
 
+    /// <summary>
+    /// Transforms Apache Arrow Table data into a RecordBatch and executes the merge insert.
+    /// </summary>
+    /// <param name="data">Data in Apache Arrow table format.</param>
     public void Execute(Apache.Arrow.Table data)
     {
         // Extract the schema from the table
@@ -59,6 +77,11 @@ public partial class MergeInsertBuilder : ILanceMergeInsertBuilder
         Execute(recordBatches);
     }
     
+    /// <summary>
+    /// Executes the query with a RecordBatch.
+    /// </summary>
+    /// <param name="data">The data in RecordBatch format.</param>
+    /// <exception cref="Exception">If the query fails</exception>
     public unsafe void Execute(IEnumerable<RecordBatch> data)
     {
         Exception? exception = null;

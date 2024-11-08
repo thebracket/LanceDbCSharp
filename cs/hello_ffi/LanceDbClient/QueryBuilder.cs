@@ -27,30 +27,57 @@ public partial class QueryBuilder : ILanceQueryBuilder
         _fullTextSearch = null;
     }
     
+    /// <summary>
+    /// Sets a limit to how many records can be returned.
+    /// </summary>
+    /// <param name="limit">The limit (or 0 for none)</param>
+    /// <returns>The query builder to continue building.</returns>
     public ILanceQueryBuilder Limit(int limit)
     {
         _limit = (ulong)limit;
         return this;
     }
 
+    /// <summary>
+    /// Select the list of columns to include in the query
+    /// </summary>
+    /// <param name="selectColumns">Column list</param>
+    /// <returns>The query builder to continue building.</returns>
     public ILanceQueryBuilder SelectColumns(IEnumerable<string> selectColumns)
     {
         _selectColumns = selectColumns.ToList();
         return this;
     }
 
+    /// <summary>
+    /// Adds a "where" clause to the query.
+    /// </summary>
+    /// <param name="whereClause">The query, in SQL-like syntax.</param>
+    /// <param name="prefilter">Not implemented yet.</param>
+    /// <returns>The query builder to continue building.</returns>
     public ILanceQueryBuilder WhereClause(string whereClause, bool prefilter = false)
     {
         _whereClause = whereClause;
         return this;
     }
 
+    /// <summary>
+    /// Include the unique RowId in the query results.
+    /// </summary>
+    /// <param name="withRowId">True to include the RowId, false to not include it.</param>
+    /// <returns>The query builder to continue building.</returns>
     public ILanceQueryBuilder WithRowId(bool withRowId)
     {
         _withRowId = withRowId;
         return this;
     }
 
+    /// <summary>
+    /// Submit the query and retrieve the query plan from the LanceDb engine.
+    /// </summary>
+    /// <param name="verbose">Verbose provides more information</param>
+    /// <returns>A string containing the query execution plan.</returns>
+    /// <exception cref="Exception">If the call fails.</exception>
     public string ExplainPlan(bool verbose = false)
     {
         Exception? exception = null;
@@ -93,6 +120,11 @@ public partial class QueryBuilder : ILanceQueryBuilder
         throw new NotImplementedException();
     }
 
+    /// <summary>
+    /// Sets the full text search query.
+    /// </summary>
+    /// <param name="text">The text for which you wish to search</param>
+    /// <returns>The query builder to continue building.</returns>
     public ILanceQueryBuilder Text(string text)
     {
         _fullTextSearch = text;
@@ -105,6 +137,10 @@ public partial class QueryBuilder : ILanceQueryBuilder
         throw new NotImplementedException();
     }
 
+    /// <summary>
+    /// Perform the query and return the results as an Arrow Table.
+    /// </summary>
+    /// <returns>An Apache.Arrow.Table object containing the results.</returns>
     public Apache.Arrow.Table ToArrow()
     {
         var batches = ToBatches(0);
@@ -114,6 +150,10 @@ public partial class QueryBuilder : ILanceQueryBuilder
         return table;
     }
     
+    /// <summary>
+    /// Perform the query and return the results as a list of dictionaries.
+    /// </summary>
+    /// <returns>The query results</returns>
     public IEnumerable<IDictionary<string, object>> ToList()
     {
         // Referencing query.py line 1326, this function is implemented in Python as calling ToArrow and
@@ -139,6 +179,12 @@ public partial class QueryBuilder : ILanceQueryBuilder
         return result;
     }
     
+    /// <summary>
+    /// Perform the query and return the results as a list of RecordBatch objects.
+    /// </summary>
+    /// <param name="batchSize">Not implemented yet.</param>
+    /// <returns>The queyr result</returns>
+    /// <exception cref="Exception">If the query fails</exception>
     public unsafe IEnumerable<RecordBatch> ToBatches(int batchSize)
     {
         // TODO: We're ignoring batch size completely right now

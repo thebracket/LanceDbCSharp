@@ -147,6 +147,12 @@ public partial class Connection : IConnection
         if (exception != null) throw exception;
     }
 
+    /// <summary>
+    /// Renames a table in the database.
+    /// </summary>
+    /// <param name="oldName">The previous table name</param>
+    /// <param name="newName">The new table name</param>
+    /// <exception cref="Exception">If the connection is not open or the operation fails.</exception>
     public void RenameTable(string oldName, string newName)
     {
         if (!IsOpen) throw new Exception("Connection is not open");

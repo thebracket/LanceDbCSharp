@@ -82,6 +82,13 @@ public partial class Table : ITable, IDisposable
         return (int)count;
     }
     
+    /// <summary>
+    /// Creates a scalar index on the specified column.
+    /// </summary>
+    /// <param name="columnName">The column to index</param>
+    /// <param name="indexType">The type of index to create</param>
+    /// <param name="replace">Should the index be replaced?</param>
+    /// <exception cref="Exception">If index creation fails.</exception>
     public void CreateScalarIndex(string columnName, LanceDbInterface.IndexType indexType = LanceDbInterface.IndexType.BTree, bool replace = true)
     {
         if (!IsOpen) throw new Exception("Table is not open.");
@@ -102,6 +109,17 @@ public partial class Table : ITable, IDisposable
         throw new NotImplementedException();
     }
     
+    /// <summary>
+    /// Create a Full Text Search index on the specified columns.
+    /// </summary>
+    /// <param name="columnNames">The column names.</param>
+    /// <param name="orderingColumnNames">Not implemented yet.</param>
+    /// <param name="replace">Should the index be replaced?</param>
+    /// <param name="withPosition">Specify a position in the index</param>
+    /// <param name="writerHeapSize">Not implemented yet</param>
+    /// <param name="tokenizerName">Defaults to "simple", you can also use "whitespace" and "raw"</param>
+    /// <param name="useTantivy">Not implemented yet</param>
+    /// <exception cref="Exception">If index creation fails</exception>
     public void CreateFtsIndex(IEnumerable<string> columnNames, IEnumerable<string> orderingColumnNames, bool replace = false,
         bool withPosition = true, int writerHeapSize = 1073741824, string tokenizerName = "default",
         bool useTantivy = true)
@@ -118,6 +136,11 @@ public partial class Table : ITable, IDisposable
         if (exception != null) throw exception;
     }
     
+    /// <summary>
+    /// Creates a MergeInsert builder, allowing you to build a MergeInsert task.
+    /// </summary>
+    /// <param name="on">Columns to include in the merge insert</param>
+    /// <returns>A MergeInsert builder.</returns>
     public ILanceMergeInsertBuilder MergeInsert(IEnumerable<string> on)
     {
         return new MergeInsertBuilder(_connectionHandle, _tableHandle, on);
@@ -133,6 +156,11 @@ public partial class Table : ITable, IDisposable
         throw new NotImplementedException();
     }
     
+    /// <summary>
+    /// Deletes rows from the table.
+    /// </summary>
+    /// <param name="whereClause">SQL-like query to specify which rows should be deleted.</param>
+    /// <exception cref="Exception">If deletion fails</exception>
     public void Delete(string whereClause)
     {
         if (!IsOpen) throw new Exception("Table is not open.");
@@ -166,6 +194,13 @@ public partial class Table : ITable, IDisposable
         IsOpen = false;
     }
     
+    /// <summary>
+    /// Calls the table optimizer, compacting and pruning the table.
+    /// </summary>
+    /// <param name="cleanupOlderThan">Not Implemented Yet</param>
+    /// <param name="deleteUnverified">Not Implemented Yet</param>
+    /// <returns></returns>
+    /// <exception cref="Exception">If optimization fails</exception>
     public OptimizeStats Optimize(TimeSpan? cleanupOlderThan = null, bool deleteUnverified = false)
     {
         if (!IsOpen) throw new Exception("Table is not open.");
@@ -247,6 +282,15 @@ public partial class Table : ITable, IDisposable
         throw new NotImplementedException();
     }
     
+    /// <summary>
+    /// Adds rows to the table in RecordBatch format.
+    /// </summary>
+    /// <param name="data">The record batch to add.</param>
+    /// <param name="mode">Append or overrwrite</param>
+    /// <param name="badVectorHandling">Not implemented yet.</param>
+    /// <param name="fillValue">Not Implemented yet.</param>
+    /// <exception cref="ArgumentNullException">Data must be provided</exception>
+    /// <exception cref="Exception">If the add fails.</exception>
     public unsafe void Add(IEnumerable<RecordBatch> data, WriteMode mode = WriteMode.Append,
         BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0)
     {
@@ -271,6 +315,13 @@ public partial class Table : ITable, IDisposable
         }
     }
     
+    /// <summary>
+    /// Adds data to the table in Arrow Table format.
+    /// </summary>
+    /// <param name="data">The dat to add</param>
+    /// <param name="mode">Write mode - append or overwrite</param>
+    /// <param name="badVectorHandling">Not implemented yet</param>
+    /// <param name="fillValue">Not implemented yet</param>
     public void Add(Apache.Arrow.Table data, WriteMode mode = WriteMode.Append, BadVectorHandling badVectorHandling = BadVectorHandling.Error,
         float fillValue = 0)
     {

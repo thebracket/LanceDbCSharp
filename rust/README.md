@@ -36,3 +36,7 @@ cargo build --release --package lance_sync_client
 In the `rust/target/debug` directory (or `rust/targe/release` if you compiled with optimizations), you'll find the `liblance_sync_client.so` shared library. You
 need to put this somewhere the C# project can find: either in the same directory as your target,
 or in a directory that's in your `LD_LIBRARY_PATH`.
+
+### Status of the Synchronous API
+
+* `Connection`: all methods implemented.
