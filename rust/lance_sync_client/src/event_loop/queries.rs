@@ -10,7 +10,6 @@ use tokio::sync::mpsc::Sender;
 use crate::connection_handler::ConnectionHandle;
 use crate::event_loop::connection::get_table;
 use crate::event_loop::{report_result, CompletionSender, ErrorReportFn};
-use crate::query;
 use crate::serialization::batch_to_bytes;
 use crate::table_handler::{TableCommand, TableHandle};
 
@@ -20,7 +19,6 @@ pub enum VectorDataType {
     F16(Vec<f16>), // Note that f16 is from the `half` crate.
     F32(Vec<f32>),
     F64(Vec<f64>),
-    ArrowArray(Arc<dyn Array>),
 }
 
 impl VectorDataType {
@@ -232,7 +230,6 @@ pub(crate) async fn do_vector_query(
         VectorDataType::F16(vector) => query_builder.nearest_to(vector),
         VectorDataType::F32(vector) => query_builder.nearest_to(vector),
         VectorDataType::F64(vector) => query_builder.nearest_to(vector),
-        VectorDataType::ArrowArray(array) => query_builder.nearest_to(array),
     };
     if let Err(e) = vec_result {
         let err = format!("Error querying table: {:?}", e);

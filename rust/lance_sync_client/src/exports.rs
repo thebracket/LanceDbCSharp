@@ -7,7 +7,6 @@ use crate::event_loop::{report_result, ErrorReportFn, LanceDbCommand, MetricType
 use crate::serialization::{bytes_to_batch, bytes_to_schema};
 use crate::table_handler::TableHandle;
 use std::ffi::c_char;
-use lancedb::DistanceType;
 
 /// Connect to a LanceDB database. This function will return a handle
 /// to the connection, which can be used in other functions.
