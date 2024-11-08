@@ -154,19 +154,20 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                 ));
             }
             LanceDbCommand::CloseTable {
-                connection_handle: _,
+                connection_handle,
                 table_handle,
             } => {
                 tables
                     .send(TableCommand::ReleaseTable {
-                        handle: table_handle,
+                        connection_handle,
+                        table_handle,
                     })
                     .await
                     .unwrap();
                 report_result(Ok(0), reply_tx, Some(completion_sender));
             }
             LanceDbCommand::AddRecordBatch {
-                connection_handle: _,
+                connection_handle,
                 table_handle,
                 write_mode,
                 bad_vector_handling,
@@ -174,6 +175,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                 batch,
             } => {
                 tokio::spawn(table::do_add_record_batch(
+                    connection_handle,
                     tables.clone(),
                     table_handle,
                     write_mode,
@@ -187,6 +189,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
             LanceDbCommand::MergeInsert { connection_handle, table_handle, columns, when_not_matched_insert_all, where_clause, when_not_matched_by_source_delete, batch, } => {
                 tokio::spawn(
                     merge_insert::do_merge_insert_with_record_batch(
+                        connection_handle,
                         table_handle,
                         tables.clone(),
                         columns.unwrap_or_default(),
@@ -216,6 +219,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
             }
             LanceDbCommand::DeleteRows { connection_handle, table_handle, where_clause } => {
                 tokio::spawn(table::do_delete_rows(
+                    connection_handle,
                     tables.clone(),
                     table_handle,
                     where_clause.unwrap_or("".to_string()),
@@ -225,6 +229,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
             }
             LanceDbCommand::Query { connection_handle, table_handle, batch_callback, limit, where_clause, with_row_id, explain_callback, selected_columns, full_text_search } => {
                 tokio::spawn(queries::do_query(
+                    connection_handle,
                     tables.clone(),
                     table_handle,
                     reply_tx,
@@ -239,13 +244,14 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                 ));
             }
             LanceDbCommand::CreateScalarIndex {
-                connection_handle: _,
+                connection_handle,
                 table_handle,
                 column_name,
                 index_type,
                 replace,
             } => {
                 tokio::spawn(table::do_crate_scalar_index(
+                    connection_handle,
                     tables.clone(),
                     table_handle,
                     column_name,
@@ -257,6 +263,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
             }
             LanceDbCommand::CreateFullTextIndex { connection_handle, table_handle, columns, with_position, replace, tokenizer_name } => {
                 tokio::spawn(table::do_add_fts_index(
+                    connection_handle,
                     tables.clone(),
                     table_handle,
                     reply_tx,
@@ -269,6 +276,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
             }
             LanceDbCommand::OptimizeTable { connection_handle, table_handle, compaction_callback, prune_callback } => {
                 tokio::spawn(table::do_optimize_table(
+                    connection_handle,
                     tables.clone(),
                     table_handle,
                     reply_tx,

@@ -3,12 +3,14 @@ use futures::TryStreamExt;
 use lancedb::index::scalar::FullTextSearchQuery;
 use lancedb::query::{ExecutableQuery, QueryBase, Select};
 use tokio::sync::mpsc::Sender;
+use crate::connection_handler::ConnectionHandle;
 use crate::event_loop::connection::get_table;
 use crate::event_loop::{report_result, CompletionSender, ErrorReportFn};
 use crate::serialization::batch_to_bytes;
 use crate::table_handler::{TableCommand, TableHandle};
 
 pub(crate) async fn do_query(
+    connection_handle: ConnectionHandle,
     tables: Sender<TableCommand>,
     table_handle: TableHandle,
     reply_tx: ErrorReportFn,
@@ -21,7 +23,7 @@ pub(crate) async fn do_query(
     selected_columns: Option<Vec<String>>,
     full_text_search: Option<String>,
 ) {
-    let Some(table) = get_table(tables.clone(), table_handle).await else {
+    let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
         report_result(Err(err), reply_tx, Some(completion_sender));
         return;

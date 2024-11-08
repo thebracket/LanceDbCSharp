@@ -20,7 +20,8 @@ pub enum TableCommand {
         completion_sender: CompletionSender,
     },
     GetTable {
-        handle: TableHandle,
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
         reply_sender: tokio::sync::oneshot::Sender<Option<Table>>,
     },
     GetTableByName {
@@ -39,7 +40,8 @@ pub enum TableCommand {
         ignore_missing: bool,
     },
     ReleaseTable {
-        handle: TableHandle,
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
     },
     Quit,
 }
@@ -51,7 +53,9 @@ impl TableActor {
         let (tx, mut rx) = tokio::sync::mpsc::channel(128);
         tokio::spawn(async move {
             let mut next_id = 1_i64;
-            let mut tables = HashMap::new();
+            // The connection is hashed with the table, to avoid reusing table objects between
+            // sessions/connections.
+            let mut tables = HashMap::<(ConnectionHandle, TableHandle), Table>::new();
 
             while let Some(command) = rx.recv().await {
                 match command {
@@ -78,7 +82,7 @@ impl TableActor {
                             Ok(t) => {
                                 let new_id = next_id;
                                 next_id += 1;
-                                tables.insert(TableHandle(new_id), t);
+                                tables.insert((connection_handle, TableHandle(new_id)), t);
                                 report_result(Ok(new_id), reply_sender, Some(completion_sender));
                             }
                             Err(e) => {
@@ -91,10 +95,11 @@ impl TableActor {
                         }
                     }
                     TableCommand::GetTable {
-                        handle,
+                        connection_handle,
+                        table_handle,
                         reply_sender,
                     } => {
-                        if let Some(table) = tables.get(&handle) {
+                        if let Some(table) = tables.get(&(connection_handle, table_handle)) {
                             let _ = reply_sender.send(Some(table.clone()));
                         } else {
                             let _ = reply_sender.send(None);
@@ -124,7 +129,7 @@ impl TableActor {
 
                                 let new_id = next_id;
                                 next_id += 1;
-                                tables.insert(TableHandle(new_id), t);
+                                tables.insert((connection_handle, TableHandle(new_id)), t);
 
                                 let _ = reply_sender.send(Ok(TableHandle(new_id)));
                             }
@@ -167,8 +172,8 @@ impl TableActor {
                             }
                         }
                     }
-                    TableCommand::ReleaseTable { handle } => {
-                        tables.remove(&handle);
+                    TableCommand::ReleaseTable { connection_handle, table_handle} => {
+                        tables.remove(&(connection_handle, table_handle));
                     }
                     TableCommand::Quit => {
                         break;

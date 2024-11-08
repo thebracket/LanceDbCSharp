@@ -20,7 +20,7 @@ pub(crate) async fn do_count_rows(
     completion_sender: CompletionSender,
 ) {
     if let Some(_cnn) = get_connection(connections.clone(), connection_handle).await {
-        if let Some(table) = get_table(tables.clone(), table_handle).await {
+        if let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await {
             match table.count_rows(filter).await {
                 Ok(count) => {
                     report_result(Ok(count as i64), reply_tx, Some(completion_sender));
@@ -40,6 +40,7 @@ pub(crate) async fn do_count_rows(
 }
 
 pub(crate) async fn do_add_record_batch(
+    connection_handle: ConnectionHandle,
     tables: Sender<TableCommand>,
     table_handle: TableHandle,
     write_mode: WriteMode,
@@ -49,7 +50,7 @@ pub(crate) async fn do_add_record_batch(
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
 ) {
-    let Some(table) = get_table(tables.clone(), table_handle).await else {
+    let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
         report_result(Err(err), reply_tx, Some(completion_sender));
         return;
@@ -81,13 +82,14 @@ pub(crate) async fn do_add_record_batch(
 }
 
 pub(crate) async fn do_delete_rows(
+    connection_handle: ConnectionHandle,
     tables: Sender<TableCommand>,
     table_handle: TableHandle,
     where_clause: String,
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
 ) {
-    let Some(table) = get_table(tables.clone(), table_handle).await else {
+    let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
         report_result(Err(err), reply_tx, Some(completion_sender));
         return;
@@ -105,6 +107,7 @@ pub(crate) async fn do_delete_rows(
 }
 
 pub(crate) async fn do_crate_scalar_index(
+    connection_handle: ConnectionHandle,
     tables: Sender<TableCommand>,
     table_handle: TableHandle,
     column_name: String,
@@ -113,7 +116,7 @@ pub(crate) async fn do_crate_scalar_index(
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
 ) {
-    if let Some(table) = get_table(tables.clone(), table_handle).await {
+    if let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await {
         let build_command = match index_type {
             IndexType::BTree => {
                 let builder = BTreeIndexBuilder::default();
@@ -145,6 +148,7 @@ pub(crate) async fn do_crate_scalar_index(
 }
 
 pub(crate) async fn do_add_fts_index(
+    connection_handle: ConnectionHandle,
     tables: Sender<TableCommand>,
     table_handle: TableHandle,
     reply_tx: ErrorReportFn,
@@ -155,7 +159,7 @@ pub(crate) async fn do_add_fts_index(
     tokenizer_name: String,
 ) {
     //TODO: Where are the other options? OrderingColumns, tantivvy, etc.?
-    let Some(table) = get_table(tables.clone(), table_handle).await else {
+    let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
         report_result(Err(err), reply_tx, Some(completion_sender));
         return;
@@ -189,6 +193,7 @@ pub(crate) async fn do_add_fts_index(
 }
 
 pub(crate) async fn do_optimize_table(
+    connection_handle: ConnectionHandle,
     tables: Sender<TableCommand>,
     table_handle: TableHandle,
     reply_tx: ErrorReportFn,
@@ -196,7 +201,7 @@ pub(crate) async fn do_optimize_table(
     compaction_callback: extern "C" fn(u64, u64, u64, u64),
     prune_callback: extern "C" fn(u64, u64),
 ) {
-    if let Some(table) = get_table(tables.clone(), table_handle).await {
+    if let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await {
         match table.optimize(OptimizeAction::All).await {
             Ok(stats) => {
                 if let Some(stats) = stats.compaction {

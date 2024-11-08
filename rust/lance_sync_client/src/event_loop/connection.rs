@@ -21,11 +21,12 @@ pub(crate) async fn get_connection(
     rx.await.unwrap()
 }
 
-pub(crate) async fn get_table(tables: Sender<TableCommand>, handle: TableHandle) -> Option<Table> {
+pub(crate) async fn get_table(tables: Sender<TableCommand>, connection_handle: ConnectionHandle, table_handle: TableHandle) -> Option<Table> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let _ = tables
         .send(TableCommand::GetTable {
-            handle,
+            connection_handle,
+            table_handle,
             reply_sender: tx,
         })
         .await;

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use tokio::sync::mpsc::Sender;
 
 /// Strong type to wrap an i64 as a connection handle.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub(crate) struct ConnectionHandle(pub(crate) i64); // Unique identifier for the connection
 
 pub(crate) enum ConnectionCommand {

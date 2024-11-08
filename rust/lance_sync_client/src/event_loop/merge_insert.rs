@@ -4,11 +4,13 @@ use anyhow::Result;
 use arrow_array::{RecordBatch, RecordBatchIterator};
 use arrow_schema::ArrowError;
 use tokio::sync::mpsc::Sender;
+use crate::connection_handler::ConnectionHandle;
 use crate::event_loop::{report_result, CompletionSender, ErrorReportFn};
 use crate::event_loop::connection::get_table;
 use crate::table_handler::{TableCommand, TableHandle};
 
 pub(crate) async fn do_merge_insert_with_record_batch(
+    connection_handle: ConnectionHandle,
     table_handle: TableHandle,
     table_actor: Sender<TableCommand>,
     columns: Vec<String>,
@@ -19,7 +21,7 @@ pub(crate) async fn do_merge_insert_with_record_batch(
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
 ) -> Result<()> {
-    let Some(table) = get_table(table_actor.clone(), table_handle).await else {
+    let Some(table) = get_table(table_actor.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
         report_result(Err(err), reply_tx, Some(completion_sender));
         return Ok(());
