@@ -207,6 +207,7 @@ public partial class Table : ITable, IDisposable
     
     public void UpdateSql(IDictionary<string, string> updates, string? whereClause = null)
     {
+        // TODO: This isn't implemented in the NodeJS API, or directly in the Rust API.
         throw new NotImplementedException();
     }
     

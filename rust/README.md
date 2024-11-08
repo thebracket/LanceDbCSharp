@@ -40,3 +40,6 @@ or in a directory that's in your `LD_LIBRARY_PATH`.
 ### Status of the Synchronous API
 
 * `Connection`: all methods implemented.
+* `Table`: Implemented except for:
+  * `UpdateSql` - there is no Rust equivalent in the API, more research/porting required.
+  * `Search` other than the no-parameter version.
