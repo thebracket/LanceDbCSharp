@@ -167,7 +167,7 @@ public partial class Tests
                 var array = new List<RecordBatch>();
                 array.Add(recordBatch);
                 table.Add(array);
-                Assert.That(table.CountRows("id = 0"), Is.EqualTo(1));
+                Assert.That(table.CountRows("id = '0'"), Is.EqualTo(1));
             }
         }
         finally
@@ -194,9 +194,9 @@ public partial class Tests
                 var array = new List<RecordBatch>();
                 array.Add(recordBatch);
                 table.Add(array);
-                Assert.That(table.CountRows("id = 0"), Is.EqualTo(1));
-                table.Delete("id = 0");
-                Assert.That(table.CountRows("id = 0"), Is.EqualTo(0));
+                Assert.That(table.CountRows("id = '0'"), Is.EqualTo(1));
+                table.Delete("id = '0'");
+                Assert.That(table.CountRows("id = '0'"), Is.EqualTo(0));
             }
         }
         finally
@@ -225,7 +225,7 @@ public partial class Tests
                 table.Add(array);
                 Assert.That(table.CountRows(), Is.GreaterThan(0));
                 table.Delete("0 = 0");
-                Assert.That(table.CountRows("id = 0"), Is.EqualTo(0));
+                Assert.That(table.CountRows("id = '0'"), Is.EqualTo(0));
             }
         }
         finally
@@ -300,6 +300,7 @@ public partial class Tests
                 array.Add(recordBatch);
                 table.Add(array);
                 table.CreateFtsIndex(["id"], ["id"]);
+                var stats = table.Optimize();
             }
         }
         finally

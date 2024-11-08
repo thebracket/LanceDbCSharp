@@ -153,7 +153,7 @@ public partial class Tests
                 array.Add(recordBatch);
                 table.Add(array);
 
-                var q = table.Search().WhereClause("id = 1");
+                var q = table.Search().WhereClause("id = '1'");
                 Assert.That(q, Is.Not.Null);
                 var batches = q.ToBatches(0);
                 Assert.That(batches, Is.Not.Empty);
@@ -283,7 +283,7 @@ public partial class Tests
                 array.Add(recordBatch);
                 table.Add(array);
 
-                var explanation = table.Search().WhereClause("id = 1").Limit(1).ExplainPlan();
+                var explanation = table.Search().WhereClause("id = '1'").Limit(1).ExplainPlan();
                 TestContext.Out.WriteLine(explanation);
                 Assert.That(explanation, Is.Not.Null);
                 Assert.That(explanation, Is.Not.EqualTo("No explanation returned"));

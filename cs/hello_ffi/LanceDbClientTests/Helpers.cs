@@ -10,7 +10,7 @@ internal static class Helpers
     internal static Schema GetSchema()
     {
         // Define the "id" field (Int32, not nullable)
-        var idField = new Field("id", Int32Type.Default, nullable: false);
+        var idField = new Field("id", StringType.Default, nullable: false);
 
         // Define the "item" field for the FixedSizeList (Float32, nullable)
         var itemField = new Field("item", FloatType.Default, nullable: true);
@@ -35,10 +35,10 @@ internal static class Helpers
     internal static RecordBatch CreateSampleRecordBatch(Schema schema, int total, int dim)
     {
         // Step 1: Create Int32Array for the "id" field
-        var idBuilder = new Int32Array.Builder();
+        var idBuilder = new StringArray.Builder();
         for (int i = 0; i < total; i++)
         {
-            idBuilder.Append(i);
+            idBuilder.Append(i.ToString());
         }
         var idArray = idBuilder.Build();
 
