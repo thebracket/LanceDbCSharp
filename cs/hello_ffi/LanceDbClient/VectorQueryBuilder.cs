@@ -8,6 +8,9 @@ namespace LanceDbClient;
 public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
 {
     private VectorDataImpl _vectorData;
+    private Metric _metric;
+    private int _nProbes;
+    private int _refineFactor;
     
     internal VectorQueryBuilder(long connectionId, long tableId, VectorDataImpl vectorData,
         ulong limit, string? whereClause, bool withRowId, List<string> selectColumns) 
@@ -18,21 +21,27 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
         _whereClause = whereClause;
         _withRowId = withRowId;
         _selectColumns = selectColumns;
+        _metric = LanceDbInterface.Metric.L2;
+        _nProbes = 1;
+        _refineFactor = 1;
     }
     
     public ILanceVectorQueryBuilder Metric(Metric metric = LanceDbInterface.Metric.L2)
     {
-        throw new NotImplementedException();
+        _metric = metric;
+        return this;
     }
 
     public ILanceVectorQueryBuilder NProbes(int nProbes)
     {
-        throw new NotImplementedException();
+        _nProbes = nProbes;
+        return this;
     }
 
     public ILanceVectorQueryBuilder RefineFactor(int refineFactor)
     {
-        throw new NotImplementedException();
+        _refineFactor = refineFactor;
+        return this;
     }
     
     /// <summary>
@@ -73,7 +82,10 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
                 (uint)_vectorData.DataType,
                 b,
                 (ulong)_vectorData.Data.Length,
-                (ulong)_vectorData.Length
+                (ulong)_vectorData.Length,
+                (uint)_metric,
+                (ulong)_nProbes,
+                (uint)_refineFactor
             );
         }
 
@@ -117,7 +129,8 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
                         exception = new Exception("Failed to compact files: " + message);
                     }
                 }, _limit, _whereClause, _withRowId, selectColumns, (ulong)_selectColumns.Count,
-                (uint)_vectorData.DataType, b, (ulong)_vectorData.Data.Length, _vectorData.Length);
+                (uint)_vectorData.DataType, b, (ulong)_vectorData.Data.Length, _vectorData.Length,
+                (uint)_metric, (ulong)_nProbes, (uint)_refineFactor);
         }
 
         if (exception != null) throw exception;

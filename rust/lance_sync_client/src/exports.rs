@@ -7,6 +7,7 @@ use crate::event_loop::{report_result, ErrorReportFn, LanceDbCommand, MetricType
 use crate::serialization::{bytes_to_batch, bytes_to_schema};
 use crate::table_handler::TableHandle;
 use std::ffi::c_char;
+use lancedb::DistanceType;
 
 /// Connect to a LanceDB database. This function will return a handle
 /// to the connection, which can be used in other functions.
@@ -481,7 +482,11 @@ pub extern "C" fn vector_query(
     vector_blob: *const u8,
     vector_blob_len: u64,
     vector_num_elements: u64,
+    metric: u32,
+    n_probes: u64,
+    refine_factor: u32,
 ) {
+    let metric: MetricType = metric.into();
     let where_clause = if where_clause.is_null() {
         None
     } else {
@@ -521,6 +526,9 @@ pub extern "C" fn vector_query(
             explain_callback: None,
             selected_columns,
             vector_data,
+            metric: metric.into(),
+            n_probes: n_probes as usize,
+            refine_factor,
         },
         "Query",
         reply_tx
@@ -612,7 +620,11 @@ pub extern "C" fn explain_vector_query(
     vector_blob: *const u8,
     vector_blob_len: u64,
     vector_num_elements: u64,
+    metric: u32,
+    n_probes: u64,
+    refine_factor: u32,
 ) {
+    let metric: MetricType = metric.into();
     let where_clause = if where_clause.is_null() {
         None
     } else {
@@ -652,6 +664,9 @@ pub extern "C" fn explain_vector_query(
             explain_callback: Some((verbose, explain_callback)),
             selected_columns,
             vector_data,
+            metric: metric.into(),
+            n_probes: n_probes as usize,
+            refine_factor,
         },
         "Query",
         reply_tx

@@ -85,7 +85,7 @@ static partial class Ffi
     internal static extern unsafe void vector_query(long connectionHandle, long tableHandle, BlobCallback onRecBatch, 
         ResultCallback onResult, ulong limit, string? whereClause, bool withRowId,
         string[] columns, ulong columnsLength, uint vectorType, byte* vectorBlob,
-        ulong vectorBlogLength, ulong numElements);
+        ulong vectorBlogLength, ulong numElements, uint metric, ulong nProbes, uint refineFactor);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern unsafe void explain_vector_query(long connectionHandle, long tableHandle, 
@@ -93,7 +93,8 @@ static partial class Ffi
         bool verbose, StringCallback stringCallback,
         string[] columns, ulong columnsLength,
         uint vectorType, byte* vectorBlob,
-        ulong vectorBlogLength, ulong numElements);
+        ulong vectorBlogLength, ulong numElements,
+        uint metric, ulong nProbes, uint refineFactor);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void explain_query(long connectionHandle, long tableHandle, ulong limit, 

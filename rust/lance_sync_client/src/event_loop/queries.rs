@@ -3,12 +3,14 @@ use std::sync::Arc;
 use arrow_array::Array;
 use futures::TryStreamExt;
 use half::f16;
+use lancedb::DistanceType;
 use lancedb::index::scalar::FullTextSearchQuery;
 use lancedb::query::{ExecutableQuery, QueryBase, Select};
 use tokio::sync::mpsc::Sender;
 use crate::connection_handler::ConnectionHandle;
 use crate::event_loop::connection::get_table;
 use crate::event_loop::{report_result, CompletionSender, ErrorReportFn};
+use crate::query;
 use crate::serialization::batch_to_bytes;
 use crate::table_handler::{TableCommand, TableHandle};
 
@@ -181,6 +183,9 @@ pub(crate) async fn do_vector_query(
     explain_callback: Option<(bool, extern "C" fn (*const c_char))>,
     selected_columns: Option<Vec<String>>,
     vector_data: VectorDataType,
+    metric: DistanceType,
+    n_probes: usize,
+    refine_factor: u32,
 ) {
     let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
@@ -225,6 +230,18 @@ pub(crate) async fn do_vector_query(
         return;
     }
     let mut query_builder = vec_result.unwrap();
+
+    // Distance metric
+    query_builder = query_builder.distance_type(metric);
+
+    // Probe count
+    if n_probes > 0 {
+        query_builder = query_builder.nprobes(n_probes);
+    }
+
+    if refine_factor > 0 {
+        query_builder = query_builder.refine_factor(refine_factor);
+    }
 
     // Explain handling
     if let Some((verbose, explain_callback)) = explain_callback {

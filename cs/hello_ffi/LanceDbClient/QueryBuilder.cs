@@ -231,7 +231,6 @@ public partial class QueryBuilder : ILanceQueryBuilder
         Half = 1,
         Float = 2,
         Double = 3,
-        Array = 4
     }
 
     public struct VectorDataImpl
@@ -241,7 +240,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
         public TypeIndex DataType;
     }
     
-    // This is a placeholder for a more generic approach
+    // TODO: Can C# do this at compile time?
     private static unsafe VectorDataImpl CastVectorList<T>(List<T> vector)
     {
         // Calculate the buffer size
@@ -280,16 +279,6 @@ public partial class QueryBuilder : ILanceQueryBuilder
                 Data = data,
                 Length = (ulong)vector.Count,
                 DataType = TypeIndex.Double
-            };
-        }
-        if (typeof(T) == typeof(Array))
-        {
-            // Handle the Array case
-            return new VectorDataImpl
-            {
-                Data = data,
-                Length = (ulong)vector.Count,
-                DataType = TypeIndex.Array
             };
         }
         

@@ -246,7 +246,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     full_text_search,
                 ));
             }
-            LanceDbCommand::VectorQuery { connection_handle, table_handle, batch_callback, limit, where_clause, with_row_id, explain_callback, selected_columns, vector_data } => {
+            LanceDbCommand::VectorQuery { connection_handle, table_handle, batch_callback, limit, where_clause, with_row_id, explain_callback, selected_columns, vector_data, metric, n_probes, refine_factor } => {
                 tokio::spawn(queries::do_vector_query(
                     connection_handle,
                     tables.clone(),
@@ -260,6 +260,9 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     explain_callback,
                     selected_columns,
                     vector_data,
+                    metric,
+                    n_probes,
+                    refine_factor,
                 ));
             }
             LanceDbCommand::CreateScalarIndex {
