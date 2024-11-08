@@ -284,7 +284,6 @@ public partial class Tests
     [Test]
     public void CreateDefaultFullTextSearchIndex()
     {
-        // TODO: Need a text column to index on
         var uri = new Uri("file:///tmp/test_table_try_fts_index");
         try
         {
