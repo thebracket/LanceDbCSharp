@@ -45,5 +45,6 @@ or in a directory that's in your `LD_LIBRARY_PATH`.
   * `Search` other than the no-parameter version.
   * `Add` with dictionary inputs.
 * `QueryBuilder` - implemented other than:
-  * The vector variants.
+  * The vector variants other than List<f16/f32/f64>.
   * The re-ranker, which appears to only be implemented in Python in LanceDB.
+* `VectorQueryBuilder` - all methods implemented.
