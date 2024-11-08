@@ -1,13 +1,13 @@
 //! Provides support for the merge-insert idiom.
 
+use crate::connection_handler::ConnectionHandle;
+use crate::event_loop::connection::get_table;
+use crate::event_loop::{report_result, CompletionSender, ErrorReportFn};
+use crate::table_handler::{TableCommand, TableHandle};
 use anyhow::Result;
 use arrow_array::{RecordBatch, RecordBatchIterator};
 use arrow_schema::ArrowError;
 use tokio::sync::mpsc::Sender;
-use crate::connection_handler::ConnectionHandle;
-use crate::event_loop::{report_result, CompletionSender, ErrorReportFn};
-use crate::event_loop::connection::get_table;
-use crate::table_handler::{TableCommand, TableHandle};
 
 pub(crate) async fn do_merge_insert_with_record_batch(
     connection_handle: ConnectionHandle,

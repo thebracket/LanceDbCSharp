@@ -21,7 +21,11 @@ pub(crate) async fn get_connection(
     rx.await.unwrap()
 }
 
-pub(crate) async fn get_table(tables: Sender<TableCommand>, connection_handle: ConnectionHandle, table_handle: TableHandle) -> Option<Table> {
+pub(crate) async fn get_table(
+    tables: Sender<TableCommand>,
+    connection_handle: ConnectionHandle,
+    table_handle: TableHandle,
+) -> Option<Table> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let _ = tables
         .send(TableCommand::GetTable {
@@ -225,7 +229,11 @@ pub(crate) async fn do_rename_table(
             report_result(Ok(0), reply_sender, Some(completion_sender));
         }
         Err(e) => {
-            report_result(Err(format!("Error renaming table: {:?}", e)), reply_sender, Some(completion_sender));
+            report_result(
+                Err(format!("Error renaming table: {:?}", e)),
+                reply_sender,
+                Some(completion_sender),
+            );
         }
     }
 }

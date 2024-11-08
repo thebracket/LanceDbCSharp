@@ -1,11 +1,11 @@
 use crate::connection_handler::ConnectionHandle;
+use crate::event_loop::VectorDataType;
 use crate::table_handler::TableHandle;
 use arrow_array::RecordBatch;
 use arrow_schema::{ArrowError, SchemaRef};
 use lancedb::table::AddDataMode;
-use std::ffi::c_char;
 use lancedb::DistanceType;
-use crate::event_loop::VectorDataType;
+use std::ffi::c_char;
 
 /// Used to synchronize timings - make sure that the function
 /// does not return until all async processing is complete.
@@ -65,7 +65,6 @@ pub(crate) enum LanceDbCommand {
 
     // TODO: Add Dictionary
     // TODO: Add Table
-
     /// Drop a database from the connection.
     DropDatabase { connection_handle: ConnectionHandle },
 
@@ -157,7 +156,7 @@ pub(crate) enum LanceDbCommand {
         limit: Option<usize>,
         where_clause: Option<String>,
         with_row_id: bool,
-        explain_callback: Option<(bool, extern "C" fn (*const c_char))>,
+        explain_callback: Option<(bool, extern "C" fn(*const c_char))>,
         selected_columns: Option<Vec<String>>,
         full_text_search: Option<String>,
         batch_size: u32,
@@ -170,7 +169,7 @@ pub(crate) enum LanceDbCommand {
         limit: Option<usize>,
         where_clause: Option<String>,
         with_row_id: bool,
-        explain_callback: Option<(bool, extern "C" fn (*const c_char))>,
+        explain_callback: Option<(bool, extern "C" fn(*const c_char))>,
         selected_columns: Option<Vec<String>>,
         vector_data: VectorDataType,
         metric: DistanceType,

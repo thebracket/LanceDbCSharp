@@ -8,10 +8,10 @@ mod connection;
 mod errors;
 pub(crate) mod helpers;
 mod lifecycle;
-mod table;
-mod queries;
 mod merge_insert;
 mod metric;
+mod queries;
+mod table;
 
 use crate::connection_handler::{ConnectionActor, ConnectionCommand};
 use crate::table_handler::{TableActor, TableCommand};
@@ -20,7 +20,10 @@ pub(crate) use command::LanceDbCommand;
 use std::sync::OnceLock;
 use tokio::sync::mpsc::{channel, Sender};
 
-use crate::event_loop::connection::{do_connection_request, do_create_table_with_schema, do_disconnect, do_drop_database, do_drop_table, do_list_tables, do_open_table, do_rename_table};
+use crate::event_loop::connection::{
+    do_connection_request, do_create_table_with_schema, do_disconnect, do_drop_database,
+    do_drop_table, do_list_tables, do_open_table, do_rename_table,
+};
 pub(crate) use command::CompletionSender;
 pub(crate) use connection::get_connection;
 pub(crate) use errors::{report_result, ErrorReportFn};
@@ -146,7 +149,11 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     ignore_missing,
                 ));
             }
-            LanceDbCommand::RenameTable { connection_handle, old_name, new_name } => {
+            LanceDbCommand::RenameTable {
+                connection_handle,
+                old_name,
+                new_name,
+            } => {
                 tokio::spawn(do_rename_table(
                     connection_handle,
                     connections.clone(),
@@ -189,21 +196,27 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     completion_sender,
                 ));
             }
-            LanceDbCommand::MergeInsert { connection_handle, table_handle, columns, when_not_matched_insert_all, where_clause, when_not_matched_by_source_delete, batch, } => {
-                tokio::spawn(
-                    merge_insert::do_merge_insert_with_record_batch(
-                        connection_handle,
-                        table_handle,
-                        tables.clone(),
-                        columns.unwrap_or_default(),
-                        when_not_matched_insert_all,
-                        where_clause,
-                        when_not_matched_by_source_delete,
-                        batch,
-                        reply_tx,
-                        completion_sender,
-                    )
-                );
+            LanceDbCommand::MergeInsert {
+                connection_handle,
+                table_handle,
+                columns,
+                when_not_matched_insert_all,
+                where_clause,
+                when_not_matched_by_source_delete,
+                batch,
+            } => {
+                tokio::spawn(merge_insert::do_merge_insert_with_record_batch(
+                    connection_handle,
+                    table_handle,
+                    tables.clone(),
+                    columns.unwrap_or_default(),
+                    when_not_matched_insert_all,
+                    where_clause,
+                    when_not_matched_by_source_delete,
+                    batch,
+                    reply_tx,
+                    completion_sender,
+                ));
             }
             LanceDbCommand::CountRows {
                 connection_handle,
@@ -220,7 +233,11 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     completion_sender,
                 ));
             }
-            LanceDbCommand::DeleteRows { connection_handle, table_handle, where_clause } => {
+            LanceDbCommand::DeleteRows {
+                connection_handle,
+                table_handle,
+                where_clause,
+            } => {
                 tokio::spawn(table::do_delete_rows(
                     connection_handle,
                     tables.clone(),
@@ -230,7 +247,18 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     completion_sender,
                 ));
             }
-            LanceDbCommand::Query { connection_handle, table_handle, batch_callback, limit, where_clause, with_row_id, explain_callback, selected_columns, full_text_search, batch_size } => {
+            LanceDbCommand::Query {
+                connection_handle,
+                table_handle,
+                batch_callback,
+                limit,
+                where_clause,
+                with_row_id,
+                explain_callback,
+                selected_columns,
+                full_text_search,
+                batch_size,
+            } => {
                 tokio::spawn(queries::do_query(
                     connection_handle,
                     tables.clone(),
@@ -247,7 +275,21 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     batch_size,
                 ));
             }
-            LanceDbCommand::VectorQuery { connection_handle, table_handle, batch_callback, limit, where_clause, with_row_id, explain_callback, selected_columns, vector_data, metric, n_probes, refine_factor, batch_size } => {
+            LanceDbCommand::VectorQuery {
+                connection_handle,
+                table_handle,
+                batch_callback,
+                limit,
+                where_clause,
+                with_row_id,
+                explain_callback,
+                selected_columns,
+                vector_data,
+                metric,
+                n_probes,
+                refine_factor,
+                batch_size,
+            } => {
                 tokio::spawn(queries::do_vector_query(
                     connection_handle,
                     tables.clone(),
@@ -285,7 +327,15 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     completion_sender,
                 ));
             }
-            LanceDbCommand::CreateIndex { connection_handle, table_handle, column_name, metric, num_partitions, num_sub_vectors, replace } => {
+            LanceDbCommand::CreateIndex {
+                connection_handle,
+                table_handle,
+                column_name,
+                metric,
+                num_partitions,
+                num_sub_vectors,
+                replace,
+            } => {
                 tokio::spawn(table::do_create_index(
                     connection_handle,
                     tables.clone(),
@@ -299,7 +349,14 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     replace,
                 ));
             }
-            LanceDbCommand::CreateFullTextIndex { connection_handle, table_handle, columns, with_position, replace, tokenizer_name } => {
+            LanceDbCommand::CreateFullTextIndex {
+                connection_handle,
+                table_handle,
+                columns,
+                with_position,
+                replace,
+                tokenizer_name,
+            } => {
                 tokio::spawn(table::do_add_fts_index(
                     connection_handle,
                     tables.clone(),
@@ -312,7 +369,12 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     tokenizer_name,
                 ));
             }
-            LanceDbCommand::OptimizeTable { connection_handle, table_handle, compaction_callback, prune_callback } => {
+            LanceDbCommand::OptimizeTable {
+                connection_handle,
+                table_handle,
+                compaction_callback,
+                prune_callback,
+            } => {
                 tokio::spawn(table::do_optimize_table(
                     connection_handle,
                     tables.clone(),
@@ -323,7 +385,13 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     prune_callback,
                 ));
             }
-            LanceDbCommand::Update { connection_handle, table_handle, updates, where_clause, update_callback } => {
+            LanceDbCommand::Update {
+                connection_handle,
+                table_handle,
+                updates,
+                where_clause,
+                update_callback,
+            } => {
                 tokio::spawn(table::do_update(
                     connection_handle,
                     tables.clone(),

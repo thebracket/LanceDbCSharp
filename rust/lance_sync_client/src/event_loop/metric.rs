@@ -1,7 +1,6 @@
 use lancedb::DistanceType;
 
-pub enum MetricType
-{
+pub enum MetricType {
     L2 = 1,
     Cosine = 2,
     Dot = 3,

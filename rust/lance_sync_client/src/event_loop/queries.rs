@@ -1,17 +1,17 @@
-use std::ffi::c_char;
-use std::sync::Arc;
-use arrow_array::Array;
-use futures::TryStreamExt;
-use half::f16;
-use lancedb::DistanceType;
-use lancedb::index::scalar::FullTextSearchQuery;
-use lancedb::query::{ExecutableQuery, QueryBase, QueryExecutionOptions, Select};
-use tokio::sync::mpsc::Sender;
 use crate::connection_handler::ConnectionHandle;
 use crate::event_loop::connection::get_table;
 use crate::event_loop::{report_result, CompletionSender, ErrorReportFn};
 use crate::serialization::batch_to_bytes;
 use crate::table_handler::{TableCommand, TableHandle};
+use arrow_array::Array;
+use futures::TryStreamExt;
+use half::f16;
+use lancedb::index::scalar::FullTextSearchQuery;
+use lancedb::query::{ExecutableQuery, QueryBase, QueryExecutionOptions, Select};
+use lancedb::DistanceType;
+use std::ffi::c_char;
+use std::sync::Arc;
+use tokio::sync::mpsc::Sender;
 
 // Vector search data type. Holds types that accept implement VectorQuery
 #[derive(Debug)]
@@ -29,7 +29,8 @@ impl VectorDataType {
         vector_num_elements: u64,
     ) -> Self {
         // Cast the blob into a vector of bytes
-        let vector_blob = unsafe { std::slice::from_raw_parts(vector_blob, vector_blob_len as usize) };
+        let vector_blob =
+            unsafe { std::slice::from_raw_parts(vector_blob, vector_blob_len as usize) };
         // Convert the blob into a vector of f32 (in memory)
         // TODO: Research - Can this be done with ZeroCopy for efficiency?
         match vector_type {
@@ -65,7 +66,8 @@ impl VectorDataType {
                     let end = start + 8;
                     let bytes = &vector_blob[start..end];
                     let f64_val = f64::from_ne_bytes([
-                        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+                        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6],
+                        bytes[7],
                     ]);
                     vector.push(f64_val);
                 }
@@ -87,7 +89,7 @@ pub(crate) async fn do_query(
     limit: Option<usize>,
     where_clause: Option<String>,
     with_row_id: bool,
-    explain_callback: Option<(bool, extern "C" fn (*const c_char))>,
+    explain_callback: Option<(bool, extern "C" fn(*const c_char))>,
     selected_columns: Option<Vec<String>>,
     full_text_search: Option<String>,
     batch_size: u32,
@@ -160,7 +162,11 @@ pub(crate) async fn do_query(
                 if let Some(batch_callback) = batch_callback {
                     let schema = record.schema();
                     let Ok(bytes) = batch_to_bytes(&record, &schema) else {
-                        report_result(Err("Unable to convert result to bytes".to_string()), reply_tx, Some(completion_sender));
+                        report_result(
+                            Err("Unable to convert result to bytes".to_string()),
+                            reply_tx,
+                            Some(completion_sender),
+                        );
                         return;
                     };
                     batch_callback(bytes.as_ptr(), bytes.len() as u64);
@@ -187,7 +193,7 @@ pub(crate) async fn do_vector_query(
     limit: Option<usize>,
     where_clause: Option<String>,
     with_row_id: bool,
-    explain_callback: Option<(bool, extern "C" fn (*const c_char))>,
+    explain_callback: Option<(bool, extern "C" fn(*const c_char))>,
     selected_columns: Option<Vec<String>>,
     vector_data: VectorDataType,
     metric: DistanceType,
@@ -283,7 +289,11 @@ pub(crate) async fn do_vector_query(
                 if let Some(batch_callback) = batch_callback {
                     let schema = record.schema();
                     let Ok(bytes) = batch_to_bytes(&record, &schema) else {
-                        report_result(Err("Unable to convert result to bytes".to_string()), reply_tx, Some(completion_sender));
+                        report_result(
+                            Err("Unable to convert result to bytes".to_string()),
+                            reply_tx,
+                            Some(completion_sender),
+                        );
                         return;
                     };
                     batch_callback(bytes.as_ptr(), bytes.len() as u64);

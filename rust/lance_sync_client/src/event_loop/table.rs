@@ -5,10 +5,12 @@ use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorRe
 use crate::table_handler::{TableCommand, TableHandle};
 use arrow_array::{RecordBatch, RecordBatchIterator};
 use arrow_schema::ArrowError;
-use lancedb::DistanceType;
-use lancedb::index::scalar::{BTreeIndexBuilder, BitmapIndexBuilder, FtsIndexBuilder, LabelListIndexBuilder};
+use lancedb::index::scalar::{
+    BTreeIndexBuilder, BitmapIndexBuilder, FtsIndexBuilder, LabelListIndexBuilder,
+};
 use lancedb::index::Index;
 use lancedb::table::OptimizeAction;
+use lancedb::DistanceType;
 use tokio::sync::mpsc::Sender;
 
 pub(crate) async fn do_count_rows(
@@ -104,7 +106,6 @@ pub(crate) async fn do_delete_rows(
             report_result(Err(err), reply_tx, Some(completion_sender));
         }
     }
-
 }
 
 pub(crate) async fn do_crate_scalar_index(

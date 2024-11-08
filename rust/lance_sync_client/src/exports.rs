@@ -166,8 +166,16 @@ pub extern "C" fn rename_table(
     new_name: *const c_char,
     reply_tx: ErrorReportFn,
 ) {
-    let old_name = unsafe { std::ffi::CStr::from_ptr(old_name).to_string_lossy().to_string() };
-    let new_name = unsafe { std::ffi::CStr::from_ptr(new_name).to_string_lossy().to_string() };
+    let old_name = unsafe {
+        std::ffi::CStr::from_ptr(old_name)
+            .to_string_lossy()
+            .to_string()
+    };
+    let new_name = unsafe {
+        std::ffi::CStr::from_ptr(new_name)
+            .to_string_lossy()
+            .to_string()
+    };
     command_from_ffi!(
         LanceDbCommand::RenameTable {
             connection_handle: ConnectionHandle(connection_handle),
@@ -454,7 +462,11 @@ pub extern "C" fn query(
             connection_handle: ConnectionHandle(connection_handle),
             table_handle: TableHandle(table_handle),
             batch_callback,
-            limit: if limit == 0 { None } else { Some(limit as usize) },
+            limit: if limit == 0 {
+                None
+            } else {
+                Some(limit as usize)
+            },
             where_clause,
             with_row_id,
             explain_callback: None,
@@ -515,14 +527,23 @@ pub extern "C" fn vector_query(
         Some(columns)
     };
 
-    let vector_data = VectorDataType::from_blob(vector_type, vector_blob, vector_blob_len, vector_num_elements);
+    let vector_data = VectorDataType::from_blob(
+        vector_type,
+        vector_blob,
+        vector_blob_len,
+        vector_num_elements,
+    );
 
     command_from_ffi!(
         LanceDbCommand::VectorQuery {
             connection_handle: ConnectionHandle(connection_handle),
             table_handle: TableHandle(table_handle),
             batch_callback,
-            limit: if limit == 0 { None } else { Some(limit as usize) },
+            limit: if limit == 0 {
+                None
+            } else {
+                Some(limit as usize)
+            },
             where_clause,
             with_row_id,
             explain_callback: None,
@@ -594,7 +615,11 @@ pub extern "C" fn explain_query(
             connection_handle: ConnectionHandle(connection_handle),
             table_handle: TableHandle(table_handle),
             batch_callback: None,
-            limit: if limit == 0 { None } else { Some(limit as usize) },
+            limit: if limit == 0 {
+                None
+            } else {
+                Some(limit as usize)
+            },
             where_clause,
             with_row_id,
             explain_callback: Some((verbose, explain_callback)),
@@ -655,14 +680,23 @@ pub extern "C" fn explain_vector_query(
         Some(columns)
     };
 
-    let vector_data = VectorDataType::from_blob(vector_type, vector_blob, vector_blob_len, vector_num_elements);
+    let vector_data = VectorDataType::from_blob(
+        vector_type,
+        vector_blob,
+        vector_blob_len,
+        vector_num_elements,
+    );
 
     command_from_ffi!(
         LanceDbCommand::VectorQuery {
             connection_handle: ConnectionHandle(connection_handle),
             table_handle: TableHandle(table_handle),
             batch_callback: None,
-            limit: if limit == 0 { None } else { Some(limit as usize) },
+            limit: if limit == 0 {
+                None
+            } else {
+                Some(limit as usize)
+            },
             where_clause,
             with_row_id,
             explain_callback: Some((verbose, explain_callback)),
@@ -773,11 +807,7 @@ pub extern "C" fn update_rows(
         };
         let parts: Vec<&str> = update.split('=').collect();
         if parts.len() != 2 {
-            report_result(
-                Err("Invalid update statement".to_string()),
-                reply_tx,
-                None,
-            );
+            report_result(Err("Invalid update statement".to_string()), reply_tx, None);
             return;
         }
         update_list.push((parts[0].to_string(), parts[1].to_string()));

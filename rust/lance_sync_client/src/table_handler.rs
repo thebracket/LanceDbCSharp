@@ -172,7 +172,10 @@ impl TableActor {
                             }
                         }
                     }
-                    TableCommand::ReleaseTable { connection_handle, table_handle} => {
+                    TableCommand::ReleaseTable {
+                        connection_handle,
+                        table_handle,
+                    } => {
                         tables.remove(&(connection_handle, table_handle));
                     }
                     TableCommand::Quit => {
