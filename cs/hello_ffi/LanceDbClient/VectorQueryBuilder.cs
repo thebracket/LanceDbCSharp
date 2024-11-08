@@ -7,7 +7,7 @@ namespace LanceDbClient;
 
 public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
 {
-    private VectorDataImpl _vectorData;
+    private readonly VectorDataImpl _vectorData;
     private Metric _metric;
     private int _nProbes;
     private int _refineFactor;
