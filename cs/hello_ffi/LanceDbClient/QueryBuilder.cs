@@ -230,6 +230,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
         Half = 1,
         Float = 2,
         Double = 3,
+        ArrowArray = 4,
     }
 
     public struct VectorDataImpl

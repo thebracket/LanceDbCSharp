@@ -1,7 +1,7 @@
 use crate::connection_handler::ConnectionHandle;
 use crate::event_loop::connection::get_table;
 use crate::event_loop::{report_result, CompletionSender, ErrorReportFn};
-use crate::serialization::batch_to_bytes;
+use crate::serialization::{batch_to_bytes, bytes_to_batch};
 use crate::table_handler::{TableCommand, TableHandle};
 use arrow_array::Array;
 use futures::TryStreamExt;
@@ -19,6 +19,7 @@ pub enum VectorDataType {
     F16(Vec<f16>), // Note that f16 is from the `half` crate.
     F32(Vec<f32>),
     F64(Vec<f64>),
+    ArrowArray(Arc<dyn Array>),
 }
 
 impl VectorDataType {
@@ -72,6 +73,23 @@ impl VectorDataType {
                     vector.push(f64_val);
                 }
                 Self::F64(vector)
+            }
+            4 => {
+                // Arrow Array. This one works differently, because the whole blog
+                // is one big serialized Arrow Array, in a record batch.
+                // FIXME: This needs a lot of checking.
+                let batch = bytes_to_batch(vector_blob);
+                if let Ok(batch) = batch {
+                    for entry in batch {
+                        if let Ok(entry) = entry {
+                            for idx in 0 .. entry.num_columns() {
+                                let column = entry.column(idx);
+                                return Self::ArrowArray(column.clone());
+                            }
+                        }
+                    }
+                }
+                unimplemented!()
             }
             // TODO: Support Arrow Arrays. Will require deserialization.
             _ => panic!("Invalid vector type: {}", vector_type),
@@ -236,6 +254,7 @@ pub(crate) async fn do_vector_query(
         VectorDataType::F16(vector) => query_builder.nearest_to(vector),
         VectorDataType::F32(vector) => query_builder.nearest_to(vector),
         VectorDataType::F64(vector) => query_builder.nearest_to(vector),
+        VectorDataType::ArrowArray(array) => query_builder.nearest_to(array),
     };
     if let Err(e) = vec_result {
         let err = format!("Error querying table: {:?}", e);

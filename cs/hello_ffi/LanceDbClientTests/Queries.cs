@@ -1,5 +1,7 @@
 using Apache.Arrow;
+using Apache.Arrow.Types;
 using LanceDbClient;
+using Array = Apache.Arrow.Array;
 
 namespace LanceDbClientTests;
 
@@ -74,6 +76,48 @@ public partial class Tests
                 });
                 var length = batches.Sum(batch => batch.Length);
                 Assert.That(length, Is.EqualTo(8));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
+    
+    [Test]
+    public void MinimalArrowArrayQuery()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_arrow_array_query");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+
+                // Build an Arrow Array of 128 floats equal to 1.0
+                var builder = new FloatArray.Builder();
+
+                // Append 128 values of 1.0f to the builder
+                for (int i = 0; i < 128; i++)
+                {
+                    builder.Append(1.0f);
+                }
+
+                // Build the FloatArray from the builder
+                var arrowVector = builder.Build();
+                var result = table.Search(arrowVector, "vector").ToBatches(0);
+                Assert.That(result, Is.Not.Null);
+                Assert.That(result, Is.Not.Empty);
             }
         }
         finally

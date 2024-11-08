@@ -359,7 +359,15 @@ public partial class Table : ITable, IDisposable
 
     public ILanceQueryBuilder Search(Array vector, string vectorColumnName, QueryType queryType = QueryType.Auto)
     {
-        throw new NotImplementedException();
+        var bytes = Ffi.SerializeArrowArray(vector);
+        var vectorData = new QueryBuilder.VectorDataImpl
+        {
+            Data = bytes,
+            Length = 0,
+            DataType = QueryBuilder.TypeIndex.ArrowArray
+        };
+        return new VectorQueryBuilder(_connectionHandle, _tableHandle, vectorData, 
+            0, null, false, [vectorColumnName]);
     }
 
     public ILanceQueryBuilder Search(ChunkedArray vectors, string vectorColumnName, QueryType queryType = QueryType.Auto)

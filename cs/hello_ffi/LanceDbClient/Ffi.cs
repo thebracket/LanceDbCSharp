@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
 using LanceDbInterface;
+using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;
 
@@ -143,6 +144,26 @@ static partial class Ffi
         }
 
         return ms.ToArray();
+    }
+    
+    internal static byte[] SerializeArrowArray(Array array)
+    {
+        // Define the schema for the array, using its data type and a field name
+        var field = new Field("data", array.Data.DataType, nullable: true);
+        var schema = new Schema.Builder().Field(field).Build();
+
+        // Wrap the array in a RecordBatch
+        var recordBatch = new RecordBatch(schema, new List<IArrowArray> { array }, array.Length);
+
+        // Serialize the RecordBatch to bytes
+        using var memoryStream = new MemoryStream();
+        using (var writer = new ArrowFileWriter(memoryStream, recordBatch.Schema))
+        {
+            writer.WriteRecordBatch(recordBatch);
+            writer.WriteEnd();
+        }
+    
+        return memoryStream.ToArray();
     }
     
     internal static Schema DeserializeSchema(byte[] schemaBytes)
