@@ -607,3 +607,56 @@ pub extern "C" fn merge_insert_with_record_batch(
         reply_tx
     );
 }
+
+/// Update rows in a table
+#[no_mangle]
+pub extern "C" fn update_rows(
+    connection_handle: i64,
+    table_handle: i64,
+    updates: *const *const c_char,
+    updates_len: u64,
+    where_clause: *const c_char,
+    reply_tx: ErrorReportFn,
+    callback: Option<extern "C" fn(u64)>,
+) {
+    let mut update_list: Vec<(String, String)> = Vec::new();
+    for i in 0..updates_len {
+        let update = unsafe {
+            std::ffi::CStr::from_ptr(*updates.offset(i as isize))
+                .to_string_lossy()
+                .to_string()
+        };
+        let parts: Vec<&str> = update.split('=').collect();
+        if parts.len() != 2 {
+            report_result(
+                Err("Invalid update statement".to_string()),
+                reply_tx,
+                None,
+            );
+            return;
+        }
+        update_list.push((parts[0].to_string(), parts[1].to_string()));
+    }
+
+    let where_clause = if where_clause.is_null() {
+        None
+    } else {
+        Some(unsafe {
+            std::ffi::CStr::from_ptr(where_clause)
+                .to_string_lossy()
+                .to_string()
+        })
+    };
+
+    command_from_ffi!(
+        LanceDbCommand::Update {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+            updates: update_list,
+            where_clause,
+            update_callback: callback,
+        },
+        "Update",
+        reply_tx
+    );
+}

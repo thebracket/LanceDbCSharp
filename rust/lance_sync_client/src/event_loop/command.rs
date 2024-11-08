@@ -120,13 +120,14 @@ pub(crate) enum LanceDbCommand {
         num_sub_vectors: u32,
         replace: bool,
     },
-    //
-    // Update {
-    //     connection_handle: ConnectionHandle,
-    //     table_handle: TableHandle,
-    //     updates: Vec<(String, String)>,
-    //     where_clause: Option<String>,
-    // },
+
+    Update {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+        updates: Vec<(String, String)>,
+        where_clause: Option<String>,
+        update_callback: Option<extern "C" fn(u64)>,
+    },
     //
     // UpdateSQL {
     //     connection_handle: ConnectionHandle,

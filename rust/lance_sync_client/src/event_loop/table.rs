@@ -267,3 +267,43 @@ pub(crate) async fn do_optimize_table(
     }
     completion_sender.send(()).unwrap();
 }
+
+pub(crate) async fn do_update(
+    connection_handle: ConnectionHandle,
+    tables: Sender<TableCommand>,
+    table_handle: TableHandle,
+    reply_tx: ErrorReportFn,
+    completion_sender: CompletionSender,
+    where_clause: Option<String>,
+    updates: Vec<(String, String)>,
+    update_callback: Option<extern "C" fn(u64)>,
+) {
+    let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
+        let err = format!("Table not found: {table_handle:?}");
+        report_result(Err(err), reply_tx, Some(completion_sender));
+        return;
+    };
+
+    for (column, data) in updates {
+        let mut update_builder = table.update();
+        if let Some(where_clause) = &where_clause {
+            update_builder = update_builder.only_if(where_clause);
+        }
+        update_builder = update_builder.column(column, data);
+        match update_builder.execute().await {
+            Ok(num_rows) => {
+                if let Some(callback) = update_callback {
+                    callback(num_rows);
+                }
+            }
+            Err(e) => {
+                let err = format!("Error updating table: {:?}", e);
+                report_result(Err(err), reply_tx, Some(completion_sender));
+                return;
+            }
+        }
+    }
+
+    // Indicate that it is done
+    completion_sender.send(()).unwrap();
+}

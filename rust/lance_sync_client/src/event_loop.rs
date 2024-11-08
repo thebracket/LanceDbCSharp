@@ -301,6 +301,18 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     prune_callback,
                 ));
             }
+            LanceDbCommand::Update { connection_handle, table_handle, updates, where_clause, update_callback } => {
+                tokio::spawn(table::do_update(
+                    connection_handle,
+                    tables.clone(),
+                    table_handle,
+                    reply_tx,
+                    completion_sender,
+                    where_clause,
+                    updates,
+                    update_callback,
+                ));
+            }
             LanceDbCommand::Quit { reply_sender } => {
                 tables.send(TableCommand::Quit).await.unwrap();
                 connections.send(ConnectionCommand::Quit).await.unwrap();

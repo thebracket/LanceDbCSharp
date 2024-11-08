@@ -164,9 +164,45 @@ public partial class Table : ITable, IDisposable
         return new MergeInsertBuilder(_connectionHandle, _tableHandle, on);
     }
     
+    /// <summary>
+    /// Update rows in the table.
+    /// </summary>
+    /// <param name="updates">A dictionary of (column => value) updates. Currently, value MUST be a string - the Rust API expects it.</param>
+    /// <param name="whereClause">Optional where clause for update</param>
+    /// <exception cref="Exception">If the table is closed, or the command fails.</exception>
     public void Update(IDictionary<string, object> updates, string? whereClause = null)
     {
-        throw new NotImplementedException();
+        if (!IsOpen) throw new Exception("Table is not open.");
+        Exception? exception = null;
+
+        var updateList = new List<string>();
+        foreach (var (key, value) in updates)
+        {
+            updateList.Add(key + "=" + value.ToString());
+        }
+
+        var rowsUpdated = 0;
+        
+        Ffi.update_rows(
+            _connectionHandle,
+            _tableHandle,
+            updateList.ToArray(),
+            (ulong)updateList.Count,
+            whereClause,
+            (code, message) =>
+            {
+                if (code < 0 && message != null)
+                {
+                    exception = new Exception("Failed to update rows: " + message);
+                }
+            },
+            (rows =>
+            {
+                rowsUpdated += (int)rows;
+            })
+        );
+        // TODO: Would it make sense for the signature to return the number of rows updated?
+        if (exception != null) throw exception;
     }
     
     public void UpdateSql(IDictionary<string, string> updates, string? whereClause = null)

@@ -28,6 +28,9 @@ static partial class Ffi
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void PruneCallback(ulong removed, ulong added);
 
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate void UpdateCalback(ulong updatedRows);
+
     /* FFI functions */
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void connect(string uri, ResultCallback onResult);
@@ -95,6 +98,9 @@ static partial class Ffi
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void create_index(long connectionHandle, long tableHandle, string columnName, uint metric, uint numPartitions, uint numSubVectors, bool replace, ResultCallback onResult);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void update_rows(long connectionHandle, long tableHandle, string[] updates, ulong updatesLength, string? where, ResultCallback onResult, UpdateCalback updateCalback);
     
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
