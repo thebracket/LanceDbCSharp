@@ -254,8 +254,9 @@ public partial class Tests
                 table.Add(array);
                 Assert.That(table.CountRows(), Is.GreaterThan(0));
                 var updates = new Dictionary<string, object> { { "id", "'test'" } };
-                table.Update(updates, "id = '0'");
+                var updatedCount = table.Update(updates, "id = '0'");
                 Assert.That(table.CountRows("id = 'test'"), Is.EqualTo(1));
+                Assert.That(updatedCount, Is.EqualTo(1));
             }
         }
         finally

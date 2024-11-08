@@ -29,7 +29,7 @@ namespace LanceDbInterface
         void Add(IEnumerable<Dictionary<string, object>> data, WriteMode mode = WriteMode.Append, BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0.0F);
         Task AddAsync(IEnumerable<Dictionary<string, object>> data, WriteMode mode = WriteMode.Append, BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0.0F, CancellationToken token = default);
 
-        void Update(IDictionary<string, Object> updates, string? whereClause = null);
+        ulong Update(IDictionary<string, Object> updates, string? whereClause = null);
         Task UpdateAsync(IDictionary<string, Object> updates, string? whereClause = null, CancellationToken token = default);
 
         void UpdateSql(IDictionary<string, string> updates, string? whereClause = null);

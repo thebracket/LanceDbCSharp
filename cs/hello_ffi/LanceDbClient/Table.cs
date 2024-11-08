@@ -170,7 +170,7 @@ public partial class Table : ITable, IDisposable
     /// <param name="updates">A dictionary of (column => value) updates. Currently, value MUST be a string - the Rust API expects it.</param>
     /// <param name="whereClause">Optional where clause for update</param>
     /// <exception cref="Exception">If the table is closed, or the command fails.</exception>
-    public void Update(IDictionary<string, object> updates, string? whereClause = null)
+    public ulong Update(IDictionary<string, object> updates, string? whereClause = null)
     {
         if (!IsOpen) throw new Exception("Table is not open.");
         Exception? exception = null;
@@ -181,7 +181,7 @@ public partial class Table : ITable, IDisposable
             updateList.Add(key + "=" + value.ToString());
         }
 
-        var rowsUpdated = 0;
+        var rowsUpdated = 0ul;
         
         Ffi.update_rows(
             _connectionHandle,
@@ -198,11 +198,12 @@ public partial class Table : ITable, IDisposable
             },
             (rows =>
             {
-                rowsUpdated += (int)rows;
+                rowsUpdated += rows;
             })
         );
-        // TODO: Would it make sense for the signature to return the number of rows updated?
         if (exception != null) throw exception;
+
+        return rowsUpdated;
     }
     
     public void UpdateSql(IDictionary<string, string> updates, string? whereClause = null)
