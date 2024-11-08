@@ -212,6 +212,20 @@ pub(crate) async fn do_vector_query(
         query_builder = query_builder.select(Select::Columns(selected_columns));
     }
 
+    // Vector handling
+    let vec_result = match vector_data {
+        VectorDataType::F16(vector) => query_builder.nearest_to(vector),
+        VectorDataType::F32(vector) => query_builder.nearest_to(vector),
+        VectorDataType::F64(vector) => query_builder.nearest_to(vector),
+        VectorDataType::ArrowArray(array) => query_builder.nearest_to(array),
+    };
+    if let Err(e) = vec_result {
+        let err = format!("Error querying table: {:?}", e);
+        report_result(Err(err), reply_tx, Some(completion_sender));
+        return;
+    }
+    let mut query_builder = vec_result.unwrap();
+
     // Explain handling
     if let Some((verbose, explain_callback)) = explain_callback {
         match query_builder.explain_plan(verbose).await {
@@ -229,20 +243,6 @@ pub(crate) async fn do_vector_query(
             }
         }
     }
-
-    // Vector handling
-    let vec_result = match vector_data {
-        VectorDataType::F16(vector) => query_builder.nearest_to(vector),
-        VectorDataType::F32(vector) => query_builder.nearest_to(vector),
-        VectorDataType::F64(vector) => query_builder.nearest_to(vector),
-        VectorDataType::ArrowArray(array) => query_builder.nearest_to(array),
-    };
-    if let Err(e) = vec_result {
-        let err = format!("Error querying table: {:?}", e);
-        report_result(Err(err), reply_tx, Some(completion_sender));
-        return;
-    }
-    let mut query_builder = vec_result.unwrap();
 
     match query_builder.execute().await {
         Ok(mut query) => {
