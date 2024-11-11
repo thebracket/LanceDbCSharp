@@ -176,7 +176,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
             {
                 var column = table.Column(j);
                 var data = new List<object>();
-                for (var k=0; k<column.Data.Length; k++)
+                for (var k=0; k<column.Data.ArrayCount; k++)
                 {
                     data.Add(column.Data.Array(k));
                 }
