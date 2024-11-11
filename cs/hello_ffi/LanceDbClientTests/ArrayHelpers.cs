@@ -160,4 +160,20 @@ public partial class Tests
             Assert.IsInstanceOf<List<ulong>>(result);
             CollectionAssert.AreEqual(new List<ulong> { 0, 9223372036854775808, 18446744073709551615 }, (List<ulong>)result);
         }
+        
+       
+        [Test]
+        public void ArrowArrayDataToConcrete_BinaryArray_ReturnsExpectedListOfByteArrays()
+        {
+            // Arrange
+            var binaryArray = new BinaryArray.Builder().Append([ 1, 2, 3 ]).Append([ 4, 5, 6 ]).Build();
+            
+            // Act
+            var result = ArrayHelpers.ArrowArrayDataToConcrete(binaryArray);
+            
+            // Assert
+            Assert.IsInstanceOf<List<byte[]>>(result);
+            var expected = new List<byte[]> { new byte[] { 1, 2, 3 }, new byte[] { 4, 5, 6 } };
+            CollectionAssert.AreEqual(expected, (List<byte[]>)result);
+        }
 }
