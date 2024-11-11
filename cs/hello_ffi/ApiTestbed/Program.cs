@@ -20,7 +20,6 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     // Now we'll drop table1
     cnn.DropTable("table1");
     System.Console.WriteLine("Table 1 Dropped");
-    ListTables(cnn);
     
     // Now we'll open table2
     var table2Opened = cnn.OpenTable("table2");

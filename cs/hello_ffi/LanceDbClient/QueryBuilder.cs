@@ -169,18 +169,24 @@ public partial class QueryBuilder : ILanceQueryBuilder
         // TODO: I'm not 100% sure about this?
         var table = ToArrow();
         var result = new List<IDictionary<string, object>>();
+        
         for (var i = 0; i < table.RowCount; i++)
         {
             var row = new Dictionary<string, object>();
             for (var j = 0; j < table.ColumnCount; j++)
             {
                 var column = table.Column(j);
-                var data = new List<object>();
+                if (column.Data.ArrayCount > 0)
+                {
+                    row[column.Name] = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.Array(0));
+                }
+                
+                /*var data = new List<object>();
                 for (var k=0; k<column.Data.ArrayCount; k++)
                 {
                     data.Add(column.Data.Array(k));
                 }
-                row[column.Name] = data;
+                row[column.Name] = data;*/
             }
             result.Add(row);
         }
