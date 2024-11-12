@@ -407,7 +407,14 @@ public partial class Tests
                 table.Add(array);
                 table.CreateFtsIndex(["id"], ["id"]);
                 var search = table.Search().Text("'1'").ToList();
-                TestContext.Out.WriteLine(search);
+                foreach (var row in search)
+                {
+                    // Print out each key and value
+                    foreach (var keyValuePair in row)
+                    {
+                        TestContext.Out.WriteLine(keyValuePair.Key + ": " + keyValuePair.Value);
+                    }
+                }
                 Assert.That(search, Is.Not.Null);
             }
         }
