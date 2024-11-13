@@ -121,6 +121,18 @@ public static class ArrayHelpers
         return new FixedSizeListArray(fixedSizeListArrayData);
     }
     
+    private static void AddToArrayOrWrapInList(List<IArrowArray> arrayRows, IArrowType t, IArrowArray array)
+    {
+        if (t.TypeId == ArrowTypeId.FixedSizeList)
+        {
+            arrayRows.Add(ToFixedListArray(t, array.Data));
+        }
+        else
+        {
+            arrayRows.Add(array);
+        }
+    }
+    
     public static List<RecordBatch> ConcreteToArrowTable(IEnumerable<Dictionary<string, object>> data, Schema schema)
     {
         var result = new List<RecordBatch>();
@@ -157,7 +169,7 @@ public static class ArrayHelpers
                     {
                         stringArrayBuilder.Append(value);
                     }
-                    arrayRows.Add(stringArrayBuilder.Build());
+                    AddToArrayOrWrapInList(arrayRows, type, stringArrayBuilder.Build());
                 } else if (item.Value is List<float>)
                 {
                     var floatArrayBuilder = new FloatArray.Builder();
@@ -165,17 +177,7 @@ public static class ArrayHelpers
                     {
                         floatArrayBuilder.Append(value);
                     }
-                    
-                    if (type.TypeId == ArrowTypeId.FixedSizeList)
-                    {
-                        arrayRows.Add(ToFixedListArray(type, floatArrayBuilder.Build().Data));
-                    }
-                    else
-                    {
-                        arrayRows.Add(floatArrayBuilder.Build());
-                    }
-                    
-                    arrayRows.Add(floatArrayBuilder.Build());
+                    AddToArrayOrWrapInList(arrayRows, type, floatArrayBuilder.Build());
                 }
                 else if (item.Value is List<int>)
                 {
@@ -184,14 +186,7 @@ public static class ArrayHelpers
                     {
                         intArrayBuilder.Append(value);
                     }
-                    if (type.TypeId == ArrowTypeId.FixedSizeList)
-                    {
-                        arrayRows.Add(ToFixedListArray(type, intArrayBuilder.Build().Data));
-                    }
-                    else
-                    {
-                        arrayRows.Add(intArrayBuilder.Build());
-                    }
+                    AddToArrayOrWrapInList(arrayRows, type, intArrayBuilder.Build());
                 }
                 else
                 {
