@@ -77,6 +77,39 @@ public partial class Tests
     }
     
     [Test]
+    public void AddRowsObjectDictionary()
+    {
+        var uri = new Uri("file:///tmp/test_table_add_rows_obj");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                
+                var data = new List<Dictionary<string, object>>();
+                var rowDict = new Dictionary<string, object>();
+                rowDict.Add("id", new List<string>() { "0" });
+                var rowList = new List<float>();
+                for (int i = 0; i < 128; i++)
+                {
+                    rowList.Add(1.0f);
+                }
+                rowDict.Add("vector", rowList);
+                data.Add(rowDict);
+                table.Add(data);
+                
+                Assert.That(table.CountRows(), Is.GreaterThan(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
     public void AddRowsBadDim()
     {
         var uri = new Uri("file:///tmp/test_table_add_rows");

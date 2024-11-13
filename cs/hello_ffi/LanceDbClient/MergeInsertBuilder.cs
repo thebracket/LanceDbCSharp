@@ -11,12 +11,14 @@ public partial class MergeInsertBuilder : ILanceMergeInsertBuilder
     private string? _where = null;
     private bool _whenNotMatchedInsertAll = false;
     private string? _whenNotMatchedBySourceDelete = null;
-    
-    internal MergeInsertBuilder(long connectionId, long tableId, IEnumerable<string> columns)
+    private readonly Schema _schema;
+
+    internal MergeInsertBuilder(long connectionId, long tableId, IEnumerable<string> columns, Schema schema)
     {
         _connectionId = connectionId;
         _tableId = tableId;
         _columns = columns.ToList();
+        _schema = schema;
     }
     
     /// <summary>
@@ -115,9 +117,15 @@ public partial class MergeInsertBuilder : ILanceMergeInsertBuilder
         }
     }
     
+    /// <summary>
+    /// Execute a merge-insert with a list of dictionaries. Data will be converted
+    /// to a RecordBatch and submitted.
+    /// </summary>
+    /// <param name="data">Each entry should be a dictionary. Each dictionary item represents a field.</param>
     public void Execute(IEnumerable<Dictionary<string, object>> data)
     {
-        throw new NotImplementedException();
+        var batches = ArrayHelpers.ConcreteToArrowTable(data, _schema);
+        Execute(batches);
     }
 
 }

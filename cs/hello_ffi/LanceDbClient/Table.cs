@@ -161,7 +161,7 @@ public partial class Table : ITable, IDisposable
     /// <returns>A MergeInsert builder.</returns>
     public ILanceMergeInsertBuilder MergeInsert(IEnumerable<string> on)
     {
-        return new MergeInsertBuilder(_connectionHandle, _tableHandle, on);
+        return new MergeInsertBuilder(_connectionHandle, _tableHandle, on, Schema);
     }
     
     /// <summary>
@@ -394,10 +394,20 @@ public partial class Table : ITable, IDisposable
     public Schema Schema { get; }
     public string Name { get; }
     
+    /// <summary>
+    /// Adds rows to the table in dictionary format. The dictionary will be converted to a RecordBatch
+    /// before submission.
+    /// </summary>
+    /// <param name="data">List of dictionaries. Each entry represents a row, and dictionary items should match columns</param>
+    /// <param name="mode">Append or overwrite mode.</param>
+    /// <param name="badVectorHandling">Not implemented yet.</param>
+    /// <param name="fillValue">Not implemented yet.</param>
     public void Add(IEnumerable<Dictionary<string, object>> data, WriteMode mode = WriteMode.Append,
         BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0)
     {
-        throw new NotImplementedException();
+        // Convert the dictionary into a record batch
+        var batch = ArrayHelpers.ConcreteToArrowTable(data, Schema);
+        Add(batch, mode, badVectorHandling, fillValue);
     }
     
     /// <summary>

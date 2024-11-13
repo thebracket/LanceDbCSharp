@@ -1,4 +1,8 @@
+using System.Collections;
+using System.Reflection;
+using System.Text;
 using Apache.Arrow;
+using Apache.Arrow.Types;
 using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;
@@ -78,5 +82,150 @@ public static class ArrayHelpers
         }
 
         return val;
+    }
+
+    private static bool DoesTypeMatchSchema(object o, ArrowTypeId s)
+    {
+        if (o == null) return false;
+        // TODO: Check for completeness
+        if (o is List<int> && s == ArrowTypeId.Int32) return true;
+        if (o is List<float> && s == ArrowTypeId.Float) return true;
+        if (o is List<double> && s == ArrowTypeId.Double) return true;
+        if (o is List<string> && s == ArrowTypeId.String) return true;
+        if (o is List<bool> && s == ArrowTypeId.Boolean) return true;
+        if (o is List<sbyte> && s == ArrowTypeId.Int8) return true;
+        if (o is List<short> && s == ArrowTypeId.Int16) return true;
+        if (o is List<long> && s == ArrowTypeId.Int64) return true;
+        if (o is List<byte> && s == ArrowTypeId.UInt8) return true;
+        if (o is List<ushort> && s == ArrowTypeId.UInt16) return true;
+        if (o is List<uint> && s == ArrowTypeId.UInt32) return true;
+        if (o is List<ulong> && s == ArrowTypeId.UInt64) return true;
+        if (o is List<int> && s == ArrowTypeId.Date32) return true;
+        if (o is List<long> && s == ArrowTypeId.Date64) return true;
+        if (o is List<long> && s == ArrowTypeId.Timestamp) return true;
+        if (o is List<int> && s == ArrowTypeId.Time32) return true;
+        if (o is List<long> && s == ArrowTypeId.Time64) return true;
+        if (o is List<decimal> && s == ArrowTypeId.Decimal128) return true;
+        if (o is List<decimal> && s == ArrowTypeId.Decimal256) return true;
+        if (o is List<byte[]> && s == ArrowTypeId.Binary) return true;
+        return false;
+    }
+
+    private static FixedSizeListArray ToFixedListArray(IArrowType type, ArrayData? data)
+    {
+        var fixedSizeListType = (FixedSizeListType)type;
+        var fixedSizeListArrayData = new ArrayData(
+            fixedSizeListType,
+            length: 1,
+            nullCount: 0,
+            buffers: new[] { ArrowBuffer.Empty }, // No null bitmap buffer, assuming all are valid
+            children: new[] { data });
+        return new FixedSizeListArray(fixedSizeListArrayData);
+    }
+    
+    private static void AddToArrayOrWrapInList(List<IArrowArray> arrayRows, IArrowType t, IArrowArray array)
+    {
+        if (t.TypeId == ArrowTypeId.FixedSizeList)
+        {
+            arrayRows.Add(ToFixedListArray(t, array.Data));
+        }
+        else
+        {
+            arrayRows.Add(array);
+        }
+    }
+
+    private static object ArrayBuilderFactory(ArrowTypeId t)
+    {
+        if (t == ArrowTypeId.Int32) return new Int32Array.Builder();
+        if (t == ArrowTypeId.Float) return new FloatArray.Builder();
+        if (t == ArrowTypeId.Double) return new DoubleArray.Builder();
+        if (t == ArrowTypeId.String) return new StringArray.Builder();
+        if (t == ArrowTypeId.Boolean) return new BooleanArray.Builder();
+        if (t == ArrowTypeId.Int8) return new Int8Array.Builder();
+        if (t == ArrowTypeId.Int16) return new Int16Array.Builder();
+        if (t == ArrowTypeId.Int64) return new Int64Array.Builder();
+        if (t == ArrowTypeId.UInt8) return new UInt8Array.Builder();
+        if (t == ArrowTypeId.UInt16) return new UInt16Array.Builder();
+        if (t == ArrowTypeId.UInt32) return new UInt32Array.Builder();
+        if (t == ArrowTypeId.UInt64) return new UInt64Array.Builder();
+        if (t == ArrowTypeId.Date32) return new Date32Array.Builder();
+        if (t == ArrowTypeId.Date64) return new Date64Array.Builder();
+        if (t == ArrowTypeId.Timestamp) return new TimestampArray.Builder();
+        if (t == ArrowTypeId.Time32) return new Time32Array.Builder();
+        if (t == ArrowTypeId.Time64) return new Time64Array.Builder();
+        if (t == ArrowTypeId.Binary) return new BinaryArray.Builder();
+        
+        return null;
+    }
+    
+    public static List<RecordBatch> ConcreteToArrowTable(IEnumerable<Dictionary<string, object>> data, Schema schema)
+    {
+        var result = new List<RecordBatch>();
+
+        foreach (var row in data)
+        {
+            List<IArrowArray> arrayRows = new List<IArrowArray>(); 
+            
+            // Foreach item in the row dictionary
+            foreach (var item in row) {
+                // Get the field from the schema
+                var field = schema.GetFieldByName(item.Key);
+                if (field == null) throw new Exception("Field " + item.Key + " not found in schema.");
+                
+                // Get the type from the schema
+                var type = field.DataType;
+                if (type == null) throw new Exception("Type not found in schema.");
+
+                // Check if the type matches the schema
+                // TODO: Not working with fixed sized lists
+                if (type.TypeId == ArrowTypeId.FixedSizeList)
+                {
+                    // Get the inner type
+                    var innerType = ((FixedSizeListType)type).ValueDataType;
+                    if (!DoesTypeMatchSchema(item.Value, innerType.TypeId)) throw new Exception("Type mismatch for " + item.Key + ". Expected " + innerType.TypeId + ", got " + item.Value.GetType() + ".");
+                } else if (!DoesTypeMatchSchema(item.Value, type.TypeId)) throw new Exception("Type mismatch for " + item.Key + ". Expected " + type.TypeId + ", got " + item.Value.GetType() + ".");
+
+                // Get the array builder
+                // TODO: Many more builders required
+                var baseType = item.Value.GetType();
+                var subType = baseType.GetGenericArguments()[0];
+                object? builder = null;
+                if (type.TypeId == ArrowTypeId.FixedSizeList)
+                {
+                    // Get the inner type from the schema
+                    var innerType = ((FixedSizeListType)type).ValueDataType;
+                    builder = ArrayBuilderFactory(innerType.TypeId);
+                }
+                else
+                {
+                    builder = ArrayBuilderFactory(type.TypeId);
+                }
+                if (builder == null) throw new NotImplementedException("Type builder for " + type.TypeId + " not implemented.");
+                
+                MethodInfo? appendMethod = null;
+                appendMethod = builder.GetType().GetMethod("Append", subType == typeof(string) ? 
+                    new[] { typeof(string), typeof(Encoding) } : new[] { subType });
+                if (appendMethod == null) throw new NotImplementedException("Append method for " + subType + " not implemented.");
+                
+                foreach (var value in item.Value as IList)
+                {
+                    if (subType == typeof(string))
+                    {
+                        appendMethod.Invoke(builder, new object[] { value, null });
+                    }
+                    else
+                    {
+                        appendMethod.Invoke(builder, new object[] { value });
+                    }
+                }
+                var array = (IArrowArray)builder.GetType().GetMethod("Build").Invoke(builder, new object[] { null });
+                AddToArrayOrWrapInList(arrayRows, type, array);
+            }
+            var recordBatch = new RecordBatch(schema, arrayRows.ToArray(), length: 1);
+            result.Add(recordBatch);
+        }
+        
+        return result;
     }
 }
