@@ -108,6 +108,18 @@ public static class ArrayHelpers
         if (o is List<byte[]> && s == ArrowTypeId.Binary) return true;
         return false;
     }
+
+    private static FixedSizeListArray ToFixedListArray(IArrowType type, ArrayData? data)
+    {
+        var fixedSizeListType = (FixedSizeListType)type;
+        var fixedSizeListArrayData = new ArrayData(
+            fixedSizeListType,
+            length: 1,
+            nullCount: 0,
+            buffers: new[] { ArrowBuffer.Empty }, // No null bitmap buffer, assuming all are valid
+            children: new[] { data });
+        return new FixedSizeListArray(fixedSizeListArrayData);
+    }
     
     public static List<RecordBatch> ConcreteToArrowTable(IEnumerable<Dictionary<string, object>> data, Schema schema)
     {
@@ -129,7 +141,12 @@ public static class ArrayHelpers
 
                 // Check if the type matches the schema
                 // TODO: Not working with fixed sized lists
-                //if (!DoesTypeMatchSchema(item.Value, type.TypeId)) throw new Exception("Type mismatch for " + item.Key + ". Expected " + type.TypeId + ", got " + item.Value.GetType() + ".");
+                if (type.TypeId == ArrowTypeId.FixedSizeList)
+                {
+                    // Get the inner type
+                    var innerType = ((FixedSizeListType)type).ValueDataType;
+                    if (!DoesTypeMatchSchema(item.Value, innerType.TypeId)) throw new Exception("Type mismatch for " + item.Key + ". Expected " + innerType.TypeId + ", got " + item.Value.GetType() + ".");
+                } else if (!DoesTypeMatchSchema(item.Value, type.TypeId)) throw new Exception("Type mismatch for " + item.Key + ". Expected " + type.TypeId + ", got " + item.Value.GetType() + ".");
 
                 // Get the array builder
                 // TODO: Many more builders required
@@ -151,14 +168,7 @@ public static class ArrayHelpers
                     
                     if (type.TypeId == ArrowTypeId.FixedSizeList)
                     {
-                        var fixedSizeListType = (FixedSizeListType)type;
-                        var fixedSizeListArrayData = new ArrayData(
-                            fixedSizeListType,
-                            length: 1,
-                            nullCount: 0,
-                            buffers: new[] { ArrowBuffer.Empty }, // No null bitmap buffer, assuming all are valid
-                            children: new[] { floatArrayBuilder.Build().Data });
-                        arrayRows.Add(new FixedSizeListArray(fixedSizeListArrayData));
+                        arrayRows.Add(ToFixedListArray(type, floatArrayBuilder.Build().Data));
                     }
                     else
                     {
@@ -166,6 +176,22 @@ public static class ArrayHelpers
                     }
                     
                     arrayRows.Add(floatArrayBuilder.Build());
+                }
+                else if (item.Value is List<int>)
+                {
+                    var intArrayBuilder = new Int32Array.Builder();
+                    foreach (var value in (List<int>)item.Value)
+                    {
+                        intArrayBuilder.Append(value);
+                    }
+                    if (type.TypeId == ArrowTypeId.FixedSizeList)
+                    {
+                        arrayRows.Add(ToFixedListArray(type, intArrayBuilder.Build().Data));
+                    }
+                    else
+                    {
+                        arrayRows.Add(intArrayBuilder.Build());
+                    }
                 }
                 else
                 {
