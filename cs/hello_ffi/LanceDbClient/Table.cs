@@ -397,7 +397,9 @@ public partial class Table : ITable, IDisposable
     public void Add(IEnumerable<Dictionary<string, object>> data, WriteMode mode = WriteMode.Append,
         BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0)
     {
-        throw new NotImplementedException();
+        // Convert the dictionary into a record batch
+        var batch = ArrayHelpers.ConcreteToArrowTable(data, Schema);
+        Add(batch, mode, badVectorHandling, fillValue);
     }
     
     /// <summary>

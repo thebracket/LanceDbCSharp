@@ -1,4 +1,6 @@
+using System.Collections;
 using Apache.Arrow;
+using Apache.Arrow.Types;
 using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;
@@ -78,5 +80,102 @@ public static class ArrayHelpers
         }
 
         return val;
+    }
+
+    private static bool DoesTypeMatchSchema(object o, ArrowTypeId s)
+    {
+        if (o == null) return false;
+        // TODO: Check for completeness
+        if (o is List<int> && s == ArrowTypeId.Int32) return true;
+        if (o is List<float> && s == ArrowTypeId.Float) return true;
+        if (o is List<double> && s == ArrowTypeId.Double) return true;
+        if (o is List<string> && s == ArrowTypeId.String) return true;
+        if (o is List<bool> && s == ArrowTypeId.Boolean) return true;
+        if (o is List<sbyte> && s == ArrowTypeId.Int8) return true;
+        if (o is List<short> && s == ArrowTypeId.Int16) return true;
+        if (o is List<long> && s == ArrowTypeId.Int64) return true;
+        if (o is List<byte> && s == ArrowTypeId.UInt8) return true;
+        if (o is List<ushort> && s == ArrowTypeId.UInt16) return true;
+        if (o is List<uint> && s == ArrowTypeId.UInt32) return true;
+        if (o is List<ulong> && s == ArrowTypeId.UInt64) return true;
+        if (o is List<int> && s == ArrowTypeId.Date32) return true;
+        if (o is List<long> && s == ArrowTypeId.Date64) return true;
+        if (o is List<long> && s == ArrowTypeId.Timestamp) return true;
+        if (o is List<int> && s == ArrowTypeId.Time32) return true;
+        if (o is List<long> && s == ArrowTypeId.Time64) return true;
+        if (o is List<decimal> && s == ArrowTypeId.Decimal128) return true;
+        if (o is List<decimal> && s == ArrowTypeId.Decimal256) return true;
+        if (o is List<byte[]> && s == ArrowTypeId.Binary) return true;
+        return false;
+    }
+    
+    public static List<RecordBatch> ConcreteToArrowTable(IEnumerable<Dictionary<string, object>> data, Schema schema)
+    {
+        var result = new List<RecordBatch>();
+
+        foreach (var row in data)
+        {
+            List<IArrowArray> arrayRows = new List<IArrowArray>(); 
+            
+            // Foreach item in the row dictionary
+            foreach (var item in row) {
+                // Get the field from the schema
+                var field = schema.GetFieldByName(item.Key);
+                if (field == null) throw new Exception("Field " + item.Key + " not found in schema.");
+                
+                // Get the type from the schema
+                var type = field.DataType;
+                if (type == null) throw new Exception("Type not found in schema.");
+
+                // Check if the type matches the schema
+                // TODO: Not working with fixed sized lists
+                //if (!DoesTypeMatchSchema(item.Value, type.TypeId)) throw new Exception("Type mismatch for " + item.Key + ". Expected " + type.TypeId + ", got " + item.Value.GetType() + ".");
+
+                // Get the array builder
+                // TODO: Many more builders required
+                if (item.Value is List<string>)
+                {
+                    var stringArrayBuilder = new StringArray.Builder();
+                    foreach (var value in (List<string>)item.Value)
+                    {
+                        stringArrayBuilder.Append(value);
+                    }
+                    arrayRows.Add(stringArrayBuilder.Build());
+                } else if (item.Value is List<float>)
+                {
+                    var floatArrayBuilder = new FloatArray.Builder();
+                    foreach (var value in (List<float>)item.Value)
+                    {
+                        floatArrayBuilder.Append(value);
+                    }
+                    
+                    if (type.TypeId == ArrowTypeId.FixedSizeList)
+                    {
+                        var fixedSizeListType = (FixedSizeListType)type;
+                        var fixedSizeListArrayData = new ArrayData(
+                            fixedSizeListType,
+                            length: 1,
+                            nullCount: 0,
+                            buffers: new[] { ArrowBuffer.Empty }, // No null bitmap buffer, assuming all are valid
+                            children: new[] { floatArrayBuilder.Build().Data });
+                        arrayRows.Add(new FixedSizeListArray(fixedSizeListArrayData));
+                    }
+                    else
+                    {
+                        arrayRows.Add(floatArrayBuilder.Build());
+                    }
+                    
+                    arrayRows.Add(floatArrayBuilder.Build());
+                }
+                else
+                {
+                    throw new NotImplementedException("Type builder for " + type.TypeId + " not implemented.");
+                }
+            }
+            var recordBatch = new RecordBatch(schema, arrayRows.ToArray(), length: 1);
+            result.Add(recordBatch);
+        }
+        
+        return result;
     }
 }
