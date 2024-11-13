@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Reflection;
+using System.Text;
 using Apache.Arrow;
 using Apache.Arrow.Types;
 using Array = Apache.Arrow.Array;
@@ -132,6 +134,30 @@ public static class ArrayHelpers
             arrayRows.Add(array);
         }
     }
+
+    private static object ArrayBuilderFactory(ArrowTypeId t)
+    {
+        if (t == ArrowTypeId.Int32) return new Int32Array.Builder();
+        if (t == ArrowTypeId.Float) return new FloatArray.Builder();
+        if (t == ArrowTypeId.Double) return new DoubleArray.Builder();
+        if (t == ArrowTypeId.String) return new StringArray.Builder();
+        if (t == ArrowTypeId.Boolean) return new BooleanArray.Builder();
+        if (t == ArrowTypeId.Int8) return new Int8Array.Builder();
+        if (t == ArrowTypeId.Int16) return new Int16Array.Builder();
+        if (t == ArrowTypeId.Int64) return new Int64Array.Builder();
+        if (t == ArrowTypeId.UInt8) return new UInt8Array.Builder();
+        if (t == ArrowTypeId.UInt16) return new UInt16Array.Builder();
+        if (t == ArrowTypeId.UInt32) return new UInt32Array.Builder();
+        if (t == ArrowTypeId.UInt64) return new UInt64Array.Builder();
+        if (t == ArrowTypeId.Date32) return new Date32Array.Builder();
+        if (t == ArrowTypeId.Date64) return new Date64Array.Builder();
+        if (t == ArrowTypeId.Timestamp) return new TimestampArray.Builder();
+        if (t == ArrowTypeId.Time32) return new Time32Array.Builder();
+        if (t == ArrowTypeId.Time64) return new Time64Array.Builder();
+        if (t == ArrowTypeId.Binary) return new BinaryArray.Builder();
+        
+        return null;
+    }
     
     public static List<RecordBatch> ConcreteToArrowTable(IEnumerable<Dictionary<string, object>> data, Schema schema)
     {
@@ -162,36 +188,39 @@ public static class ArrayHelpers
 
                 // Get the array builder
                 // TODO: Many more builders required
-                if (item.Value is List<string>)
+                var baseType = item.Value.GetType();
+                var subType = baseType.GetGenericArguments()[0];
+                object? builder = null;
+                if (type.TypeId == ArrowTypeId.FixedSizeList)
                 {
-                    var stringArrayBuilder = new StringArray.Builder();
-                    foreach (var value in (List<string>)item.Value)
-                    {
-                        stringArrayBuilder.Append(value);
-                    }
-                    AddToArrayOrWrapInList(arrayRows, type, stringArrayBuilder.Build());
-                } else if (item.Value is List<float>)
-                {
-                    var floatArrayBuilder = new FloatArray.Builder();
-                    foreach (var value in (List<float>)item.Value)
-                    {
-                        floatArrayBuilder.Append(value);
-                    }
-                    AddToArrayOrWrapInList(arrayRows, type, floatArrayBuilder.Build());
-                }
-                else if (item.Value is List<int>)
-                {
-                    var intArrayBuilder = new Int32Array.Builder();
-                    foreach (var value in (List<int>)item.Value)
-                    {
-                        intArrayBuilder.Append(value);
-                    }
-                    AddToArrayOrWrapInList(arrayRows, type, intArrayBuilder.Build());
+                    // Get the inner type from the schema
+                    var innerType = ((FixedSizeListType)type).ValueDataType;
+                    builder = ArrayBuilderFactory(innerType.TypeId);
                 }
                 else
                 {
-                    throw new NotImplementedException("Type builder for " + type.TypeId + " not implemented.");
+                    builder = ArrayBuilderFactory(type.TypeId);
                 }
+                if (builder == null) throw new NotImplementedException("Type builder for " + type.TypeId + " not implemented.");
+                
+                MethodInfo? appendMethod = null;
+                appendMethod = builder.GetType().GetMethod("Append", subType == typeof(string) ? 
+                    new[] { typeof(string), typeof(Encoding) } : new[] { subType });
+                if (appendMethod == null) throw new NotImplementedException("Append method for " + subType + " not implemented.");
+                
+                foreach (var value in item.Value as IList)
+                {
+                    if (subType == typeof(string))
+                    {
+                        appendMethod.Invoke(builder, new object[] { value, null });
+                    }
+                    else
+                    {
+                        appendMethod.Invoke(builder, new object[] { value });
+                    }
+                }
+                var array = (IArrowArray)builder.GetType().GetMethod("Build").Invoke(builder, new object[] { null });
+                AddToArrayOrWrapInList(arrayRows, type, array);
             }
             var recordBatch = new RecordBatch(schema, arrayRows.ToArray(), length: 1);
             result.Add(recordBatch);
