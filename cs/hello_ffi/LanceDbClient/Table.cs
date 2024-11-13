@@ -161,7 +161,7 @@ public partial class Table : ITable, IDisposable
     /// <returns>A MergeInsert builder.</returns>
     public ILanceMergeInsertBuilder MergeInsert(IEnumerable<string> on)
     {
-        return new MergeInsertBuilder(_connectionHandle, _tableHandle, on);
+        return new MergeInsertBuilder(_connectionHandle, _tableHandle, on, Schema);
     }
     
     /// <summary>
