@@ -1,5 +1,6 @@
 ﻿// Setup the LanceDB client (creates a command processor)
 
+using System.Collections;
 using Apache.Arrow;
 using Apache.Arrow.Types;
 using System.Collections.Generic;
@@ -51,11 +52,37 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     {
         foreach (string key in row.Keys)
         {
-            Console.WriteLine($"{key}: {row[key]}");
+            Console.Write($"{key}:");
+            foreach (var item in (IList)row[key])
+            {
+                Console.Write(item + " "); // Prints each integer in the list
+            }
+            Console.WriteLine();    
         }
         Console.WriteLine();
     }
     
+    var resultTable = queryBuilder.Vector(vector).Limit(3).WithRowId(true).ToArrow();
+    for (int i = 0; i < resultTable.ColumnCount; i++)
+    {
+        var column = resultTable.Column(i);
+        Console.WriteLine($"Column {i}: {column.Name} {column.Type.Name}");
+        for (int j = 0; j < column.Data.ArrayCount; j++)
+        {
+            Console.WriteLine($"size: {column.Data.ArrayCount}");
+            // it seems it usually has only 1 element in this ChunkedArray
+            var array = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.ArrowArray(j));
+            // Cast the object to List<int> or List<type>
+            IList typedList = (IList)array;
+
+            // You can now access the elements as a list of integers
+            foreach (var item in typedList)
+            {
+                Console.Write(item + " "); // Prints each integer in the list
+            }
+            Console.WriteLine();
+        }
+    }
 
     // Now we'll drop table1
     cnn.DropTable("table1");
