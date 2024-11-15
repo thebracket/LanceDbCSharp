@@ -30,12 +30,12 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     
     string[] columns = new[] { "id" };    
     ILanceMergeInsertBuilder builder = table1.MergeInsert(columns);
-    numEntries = 4;
+    numEntries = 1000;
     builder.WhenMatchedUpdateAll().WhenNotMatchedInsertAll().Execute(GetBatches(numEntries));
     System.Console.WriteLine($"Table 1 row count (expect {numEntries}): {table1.CountRows()}" );
     
-    //table1.CreateIndex("vector", Metric.Cosine, 256, 16);
-    //table1.CreateScalarIndex("id");
+    table1.CreateIndex("vector", Metric.Cosine, 256, 16);
+    table1.CreateScalarIndex("id");
 
     var queryBuilder = table1.Search();
     Console.WriteLine(queryBuilder.Limit(3).ExplainPlan());
@@ -46,7 +46,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     {
         vector.Add(0.3f);
     }   
-    var result = queryBuilder.Vector(vector).Limit(3).WithRowId(true).ToList();
+    var result = ((VectorQueryBuilder)queryBuilder.Vector(vector)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(3).WithRowId(true).ToList();
     
     foreach (var row in result)
     {
@@ -84,6 +84,14 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
         }
     }
 
+    System.Console.WriteLine($"Rows before delete: {table1.CountRows()}");
+    table1.Delete("id < 100");
+    System.Console.WriteLine($"Rows after delete: {table1.CountRows()}");
+    
+    var optimizeResult = table1.Optimize();
+    System.Console.WriteLine("Optimize Result: " + optimizeResult.Compaction + optimizeResult.Prune);
+    System.Console.WriteLine($"Rows after optimize(): {table1.CountRows()}");
+
     // Now we'll drop table1
     cnn.DropTable("table1");
     System.Console.WriteLine("Table 1 Dropped");
@@ -99,8 +107,10 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     ListTables(cnn);
     
     // Now we'll drop the database
-    cnn.DropDatabase();
-    System.Console.WriteLine("Database Dropped");
+    //System.Console.WriteLine("Database Dropped");
+    cnn.Close();
+    var open = cnn.IsOpen ? "open" : "closed";
+    System.Console.WriteLine($"connection is: {open}");
 }
 System.Console.WriteLine("Complete");
 
