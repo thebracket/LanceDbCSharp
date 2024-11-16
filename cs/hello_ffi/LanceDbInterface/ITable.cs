@@ -5,8 +5,8 @@ namespace LanceDbInterface
 {
     public interface ITable :IDisposable
     {
-        void CreateScalarIndex(string columnName, IndexType indexType = IndexType.BTree, bool replace = true);
-        Task CreateScalarIndexAsync(string columnName, IndexType indexType = IndexType.BTree, bool replace = true, CancellationToken token = default);
+        void CreateScalarIndex(string columnName, ScalarIndexType indexType = ScalarIndexType.BTree, bool replace = true);
+        Task CreateScalarIndexAsync(string columnName, ScalarIndexType indexType = ScalarIndexType.BTree, bool replace = true, CancellationToken token = default);
 
         void CreateIndex(string columnName, Metric metric = Metric.L2, int numPartitions = 256, int numSubVectors = 96, bool replace = true);
         Task CreateIndexAsync(string columnName, Metric metric = Metric.L2, int numPartitions = 256, int numSubVectors = 96, bool replace = true, CancellationToken token = default);
@@ -55,5 +55,11 @@ namespace LanceDbInterface
         bool IsOpen { get;  }
         Schema Schema { get; }
         string Name { get; }
+
+        IEnumerable<IndexConfig> ListIndices();
+        Task<IEnumerable<IndexConfig>> ListIndicesAsync(CancellationToken token = default);
+        
+        IndexStatistics GetIndexStatistics(string columnName);
+        Task<IndexStatistics> GetIndexStatisticsAsync(string columnName, CancellationToken token = default);
     }
 }

@@ -2,8 +2,12 @@
 {
     public enum IndexType
     {
-        BTree,
-        Bitmap,
-        LabelList
+        BTree = (int)ScalarIndexType.BTree,
+        Bitmap = (int)ScalarIndexType.Bitmap,
+        LabelList = (int)ScalarIndexType.LabelList,
+        Fts = 3,
+        HnswPq = 4,
+        HnswSq = 5,
+        IvfPq = 6
     }
 }
