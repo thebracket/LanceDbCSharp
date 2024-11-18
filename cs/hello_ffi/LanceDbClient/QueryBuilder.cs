@@ -204,13 +204,6 @@ public partial class QueryBuilder : ILanceQueryBuilder
                 {
                     row[column.Name] = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.Array(0));
                 }
-                
-                /*var data = new List<object>();
-                for (var k=0; k<column.Data.ArrayCount; k++)
-                {
-                    data.Add(column.Data.Array(k));
-                }
-                row[column.Name] = data;*/
             }
             result.Add(row);
         }
