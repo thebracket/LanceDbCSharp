@@ -364,7 +364,7 @@ public partial class Table : ITable, IDisposable
         var vectorData = new QueryBuilder.VectorDataImpl
         {
             Data = bytes,
-            Length = 0,
+            Length = (ulong)vector.Length,
             DataType = QueryBuilder.TypeIndex.ArrowArray
         };
         switch (queryType)
@@ -386,17 +386,23 @@ public partial class Table : ITable, IDisposable
 
     public ILanceQueryBuilder Search<T>(List<T> vector, string vectorColumnName, QueryType queryType = QueryType.Auto)
     {
-        throw new NotImplementedException();
+        return new VectorQueryBuilder(_connectionHandle, _tableHandle,
+                0, null, false, [vectorColumnName])
+            .Vector(vector);
     }
 
     public ILanceQueryBuilder Search<T>(Vector<T> vector, string vectorColumnName, QueryType queryType = QueryType.Auto) where T : struct, IEquatable<T>, IFormattable
     {
-        throw new NotImplementedException();
+        return new VectorQueryBuilder(_connectionHandle, _tableHandle,
+                0, null, false, [vectorColumnName])
+            .Vector(vector);
     }
 
     public ILanceQueryBuilder Search<T>(Matrix<T> vector, string vectorColumnName, QueryType queryType = QueryType.Auto) where T : struct, IEquatable<T>, IFormattable
     {
-        throw new NotImplementedException();
+        return new VectorQueryBuilder(_connectionHandle, _tableHandle,
+                0, null, false, [vectorColumnName])
+            .Vector(vector);
     }
 
     public bool IsOpen { get; private set; }

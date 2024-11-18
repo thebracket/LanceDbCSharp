@@ -118,14 +118,30 @@ public partial class QueryBuilder : ILanceQueryBuilder
         return new VectorQueryBuilder(_connectionId, _tableId, vectorData, _limit, _whereClause, _withRowId, _selectColumns);
     }
 
+    /// <summary>
+    /// Constructs a new vector query builder.
+    /// </summary>
+    /// <param name="vector">A vector of either f16 (half), f32, f64</param>
+    /// <typeparam name="T">Half, f16 or f32</typeparam>
+    /// <returns>A VectorQueryBuilder</returns>
     public ILanceQueryBuilder Vector<T>(Vector<T> vector) where T : struct, IEquatable<T>, IFormattable
     {
-        throw new NotImplementedException();
+        var vectorData = CastVectorList(vector.ToList());
+        return new VectorQueryBuilder(_connectionId, _tableId, vectorData, _limit, _whereClause, _withRowId, _selectColumns);
     }
 
+    /// <summary>
+    /// Constructs a new vector query builder.
+    /// </summary>
+    /// <param name="vector">A matrix of either f16 (half), f32, f64</param>
+    /// <typeparam name="T">Half, f16 or f32</typeparam>
+    /// <returns>A VectorQueryBuilder</returns>
     public ILanceQueryBuilder Vector<T>(Matrix<T> vector) where T : struct, IEquatable<T>, IFormattable
     {
-        throw new NotImplementedException();
+        // Is column-major the correct choice?
+        var asArray = vector.ToColumnMajorArray();
+        var vectorData = CastVectorList(asArray.ToList());
+        return new VectorQueryBuilder(_connectionId, _tableId, vectorData, _limit, _whereClause, _withRowId, _selectColumns);
     }
 
     /// <summary>
@@ -247,7 +263,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     }
     
     // TODO: Can C# do this at compile time?
-    private static unsafe VectorDataImpl CastVectorList<T>(List<T> vector)
+    static internal VectorDataImpl CastVectorList<T>(List<T> vector)
     {
         // Calculate the buffer size
         var bufferSize = vector.Count * Unsafe.SizeOf<T>();
