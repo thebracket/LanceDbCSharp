@@ -1,5 +1,5 @@
 use crate::connection_handler::{ConnectionCommand, ConnectionHandle};
-use crate::event_loop::command::{BadVectorHandling, IndexType, WriteMode};
+use crate::event_loop::command::{BadVectorHandling, ScalarIndexType, WriteMode};
 use crate::event_loop::connection::get_table;
 use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorReportFn};
 use crate::table_handler::{TableCommand, TableHandle};
@@ -113,22 +113,22 @@ pub(crate) async fn do_crate_scalar_index(
     tables: Sender<TableCommand>,
     table_handle: TableHandle,
     column_name: String,
-    index_type: IndexType,
+    index_type: ScalarIndexType,
     replace: bool,
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
 ) {
     if let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await {
         let build_command = match index_type {
-            IndexType::BTree => {
+            ScalarIndexType::BTree => {
                 let builder = BTreeIndexBuilder::default();
                 table.create_index(&[column_name], Index::BTree(builder))
             }
-            IndexType::Bitmap => {
+            ScalarIndexType::Bitmap => {
                 let builder = BitmapIndexBuilder::default();
                 table.create_index(&[column_name], Index::Bitmap(builder))
             }
-            IndexType::LabelList => {
+            ScalarIndexType::LabelList => {
                 let builder = LabelListIndexBuilder::default();
                 table.create_index(&[column_name], Index::LabelList(builder))
             }

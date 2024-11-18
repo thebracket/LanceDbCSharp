@@ -7,6 +7,7 @@ use crate::event_loop::{report_result, ErrorReportFn, LanceDbCommand, MetricType
 use crate::serialization::{bytes_to_batch, bytes_to_schema};
 use crate::table_handler::TableHandle;
 use std::ffi::c_char;
+use crate::event_loop::command::{ScalarIndexType, WriteMode};
 
 /// Connect to a LanceDB database. This function will return a handle
 /// to the connection, which can be used in other functions.
@@ -209,11 +210,15 @@ pub extern "C" fn add_record_batch(
         );
         return;
     }
+    let Some(write_mode) = WriteMode::from_repr(write_mode) else {
+        report_result(Err("Invalid write mode.".to_string()), reply_tx, None);
+        return;
+    };
     command_from_ffi!(
         LanceDbCommand::AddRecordBatch {
             connection_handle: ConnectionHandle(connection_handle),
             table_handle: TableHandle(table_handle),
-            write_mode: write_mode.into(),
+            write_mode,
             batch: batch.unwrap(),
             bad_vector_handling: bad_vector_handling.into(),
             fill_value,
@@ -266,12 +271,16 @@ pub extern "C" fn create_scalar_index(
             .to_string_lossy()
             .to_string()
     };
+    let Some(index_type) = ScalarIndexType::from_repr(index_type) else {
+        report_result(Err("Invalid index type.".to_string()), reply_tx, None);
+        return;
+    };
     command_from_ffi!(
         LanceDbCommand::CreateScalarIndex {
             connection_handle: ConnectionHandle(connection_handle),
             table_handle: TableHandle(table_handle),
             column_name,
-            index_type: index_type.into(),
+            index_type,
             replace,
         },
         "CreateScalarIndex",

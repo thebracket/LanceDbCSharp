@@ -2,12 +2,12 @@
 {
     public enum IndexType
     {
-        BTree = 1,
-        Bitmap = 2,
-        LabelList = 3,
-        Fts = 4,
-        HnswPq = 5,
-        HnswSq = 6,
-        IvfPq = 7
+        BTree = 0,
+        Bitmap = 1,
+        LabelList = 2,
+        Fts = 3,
+        HnswPq = 4,
+        HnswSq = 5,
+        IvfPq = 6
     }
 }

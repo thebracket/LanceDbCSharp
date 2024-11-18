@@ -6,6 +6,7 @@ use arrow_schema::{ArrowError, SchemaRef};
 use lancedb::table::AddDataMode;
 use lancedb::DistanceType;
 use std::ffi::c_char;
+use strum::FromRepr;
 
 /// Used to synchronize timings - make sure that the function
 /// does not return until all async processing is complete.
@@ -98,7 +99,7 @@ pub(crate) enum LanceDbCommand {
         connection_handle: ConnectionHandle,
         table_handle: TableHandle,
         column_name: String,
-        index_type: IndexType,
+        index_type: ScalarIndexType,
         replace: bool,
     },
 
@@ -185,40 +186,32 @@ pub(crate) enum LanceDbCommand {
 }
 
 /// Index types that can be created.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, FromRepr)]
 #[repr(u32)]
 pub(crate) enum IndexType {
-    BTree = 1,
-    Bitmap = 2,
-    LabelList = 3,
+    BTree = 0,
+    Bitmap = 1,
+    LabelList = 2,
+    Fts = 3,
+    HnswPq = 4,
+    HnswSq = 5,
+    IvfPq = 6,
 }
 
-impl From<u32> for IndexType {
-    fn from(value: u32) -> Self {
-        match value {
-            1 => Self::BTree,
-            2 => Self::Bitmap,
-            3 => Self::LabelList,
-            _ => panic!("Invalid index type: {}", value),
-        }
-    }
+/// Scalar Index types that can be created.
+#[derive(Debug, Clone, Copy, FromRepr)]
+#[repr(u32)]
+pub(crate) enum ScalarIndexType {
+    BTree = 0,
+    Bitmap = 1,
+    LabelList = 2,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, FromRepr)]
 #[repr(u32)]
 pub(crate) enum WriteMode {
     Append = 1,
     Overwrite = 2,
-}
-
-impl From<u32> for WriteMode {
-    fn from(value: u32) -> Self {
-        match value {
-            1 => Self::Append,
-            2 => Self::Overwrite,
-            _ => panic!("Invalid write mode: {}", value),
-        }
-    }
 }
 
 impl From<WriteMode> for AddDataMode {

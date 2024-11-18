@@ -89,7 +89,7 @@ public partial class Table : ITable, IDisposable
     /// <param name="indexType">The type of index to create</param>
     /// <param name="replace">Should the index be replaced?</param>
     /// <exception cref="Exception">If index creation fails.</exception>
-    public void CreateScalarIndex(string columnName, LanceDbInterface.IndexType indexType = LanceDbInterface.IndexType.BTree, bool replace = true)
+    public void CreateScalarIndex(string columnName, LanceDbInterface.ScalarIndexType indexType = LanceDbInterface.ScalarIndexType.BTree, bool replace = true)
     {
         if (!IsOpen) throw new Exception("Table is not open.");
         Exception? exception = null;
@@ -393,7 +393,16 @@ public partial class Table : ITable, IDisposable
     public bool IsOpen { get; private set; }
     public Schema Schema { get; }
     public string Name { get; }
-    
+    public IEnumerable<IndexConfig> ListIndices()
+    {
+        throw new NotImplementedException();
+    }
+
+    public IndexStatistics GetIndexStatistics(string columnName)
+    {
+        throw new NotImplementedException();
+    }
+
     /// <summary>
     /// Adds rows to the table in dictionary format. The dictionary will be converted to a RecordBatch
     /// before submission.
