@@ -376,6 +376,39 @@ public partial class Tests
     }
     
     [Test]
+    public void ListIndices()
+    {
+        var uri = new Uri("file:///tmp/test_table_try_index_list");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                table.CreateScalarIndex("id");
+                table.Optimize();
+                var indices = table.ListIndices();
+                Assert.That(indices.Count, Is.GreaterThan(0));
+                Assert.That(indices.First().Name, Is.EqualTo("id_idx"));
+                Assert.That(indices.First().IndexType, Is.EqualTo(IndexType.BTree));
+                Assert.That(indices.First().Columns.Count(), Is.EqualTo(1));
+                Assert.That(indices.First().Columns.First(), Is.EqualTo("id"));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
     public void CreateDefaultFullTextSearchIndex()
     {
         var uri = new Uri("file:///tmp/test_table_try_fts_index");

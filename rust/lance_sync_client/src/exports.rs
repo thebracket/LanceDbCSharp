@@ -844,3 +844,22 @@ pub extern "C" fn update_rows(
         reply_tx
     );
 }
+
+/// List indices in a table
+#[no_mangle]
+pub extern "C" fn list_indices(
+    connection_handle: i64,
+    table_handle: i64,
+    string_callback: Option<extern "C" fn(*const c_char, u32, *const *const c_char, column_count: u64)>,
+    reply_tx: ErrorReportFn,
+) {
+    command_from_ffi!(
+        LanceDbCommand::ListIndices {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+            string_callback,
+        },
+        "ListIndices",
+        reply_tx
+    );
+}

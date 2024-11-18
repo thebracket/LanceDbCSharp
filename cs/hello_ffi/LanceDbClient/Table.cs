@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Apache.Arrow;
 using LanceDbInterface;
 using MathNet.Numerics.LinearAlgebra;
@@ -393,9 +394,34 @@ public partial class Table : ITable, IDisposable
     public bool IsOpen { get; private set; }
     public Schema Schema { get; }
     public string Name { get; }
+    
+    /// <summary>
+    /// Lists the indices on the table.
+    /// </summary>
+    /// <returns>A list of indices</returns>
+    /// <exception cref="Exception">If the indices could not be collected.</exception>
     public IEnumerable<IndexConfig> ListIndices()
     {
-        throw new NotImplementedException();
+        if (!IsOpen) throw new Exception("Table is not open.");
+        var indices = new List<IndexConfig>();
+        Exception? exception = null;
+        Ffi.list_indices(_connectionHandle, _tableHandle, (name, type, columns, columnCount) =>
+        {
+            indices.Add(new IndexConfig
+            {
+                Name = name,
+                IndexType = (IndexType)type,
+                Columns = columns
+            });
+        }, (code, message) =>
+        {
+            if (code < 0 && message != null)
+            {
+                exception = new Exception("Failed to list indices: " + message);
+            }
+        });
+        if (exception != null) throw exception;
+        return indices;
     }
 
     public IndexStatistics GetIndexStatistics(string columnName)

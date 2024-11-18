@@ -1,5 +1,6 @@
+use std::ffi::{c_char, CString};
 use crate::connection_handler::{ConnectionCommand, ConnectionHandle};
-use crate::event_loop::command::{BadVectorHandling, ScalarIndexType, WriteMode};
+use crate::event_loop::command::{BadVectorHandling, IndexType, ScalarIndexType, WriteMode};
 use crate::event_loop::connection::get_table;
 use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorReportFn};
 use crate::table_handler::{TableCommand, TableHandle};
@@ -8,7 +9,7 @@ use arrow_schema::ArrowError;
 use lancedb::index::scalar::{
     BTreeIndexBuilder, BitmapIndexBuilder, FtsIndexBuilder, LabelListIndexBuilder,
 };
-use lancedb::index::Index;
+use lancedb::index::{Index, IndexConfig};
 use lancedb::table::OptimizeAction;
 use lancedb::DistanceType;
 use tokio::sync::mpsc::Sender;
@@ -304,6 +305,48 @@ pub(crate) async fn do_update(
             }
         }
     }
+
+    // Indicate that it is done
+    completion_sender.send(()).unwrap();
+}
+
+pub(crate) async fn do_list_table_indices(
+    connection_handle: ConnectionHandle,
+    tables: Sender<TableCommand>,
+    table_handle: TableHandle,
+    reply_tx: ErrorReportFn,
+    completion_sender: CompletionSender,
+    index_callback: Option<extern "C" fn(*const c_char, u32, *const *const c_char, column_count: u64)>,
+) {
+    let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
+        let err = format!("Table not found: {table_handle:?}");
+        report_result(Err(err), reply_tx, Some(completion_sender));
+        return;
+    };
+
+    let Ok(indices) = table.list_indices().await else {
+        report_result(
+            Err("Error listing table indices".to_string()),
+            reply_tx,
+            Some(completion_sender),
+        );
+        return;
+    };
+
+    for index in indices {
+        let index_type_ffi: IndexType = index.index_type.into();
+        let index_index:u32 = index_type_ffi as u32;
+        let index_name = CString::new(index.name).unwrap().into_raw();
+        let index_columns = index.
+            columns.
+            iter().
+            map(|c| CString::new(c.as_str()).unwrap().into_raw() as *const c_char).
+            collect::<Vec<*const c_char>>();
+        if let Some(index_callback) = index_callback {
+            index_callback(index_name, index_index, index_columns.as_ptr(), index.columns.len() as u64);
+        }
+    }
+
 
     // Indicate that it is done
     completion_sender.send(()).unwrap();

@@ -403,6 +403,16 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     update_callback,
                 ));
             }
+            LanceDbCommand::ListIndices { connection_handle, table_handle, string_callback } => {
+                tokio::spawn(table::do_list_table_indices(
+                    connection_handle,
+                    tables.clone(),
+                    table_handle,
+                    reply_tx,
+                    completion_sender,
+                    string_callback,
+                ));
+            }
             LanceDbCommand::Quit { reply_sender } => {
                 tables.send(TableCommand::Quit).await.unwrap();
                 connections.send(ConnectionCommand::Quit).await.unwrap();

@@ -32,6 +32,9 @@ static partial class Ffi
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void UpdateCalback(ulong updatedRows);
 
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate void TableIndexEntryCallback(string name, uint indexType, string[] columns, ulong columnsLength);
+
     /* FFI functions */
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void connect(string uri, ResultCallback onResult);
@@ -122,6 +125,9 @@ static partial class Ffi
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
     internal static partial void drop_database(long connectionHandle, ResultCallback onResult);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void list_indices(long connectionHandle, long tableHandle, TableIndexEntryCallback callback, ResultCallback onResult);
     
     internal static byte[] SerializeSchemaOnly(Schema schema)
     {
