@@ -16,6 +16,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     protected bool _withRowId;
     protected List<string> _selectColumns;
     private string? _fullTextSearch;
+    protected IReranker? _reranker;
 
     internal QueryBuilder(long connectionId, long tableId)
     {
@@ -26,6 +27,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
         _withRowId = false;
         _selectColumns = [];
         _fullTextSearch = null;
+        _reranker = null;
     }
     
     /// <summary>
@@ -115,7 +117,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     public ILanceQueryBuilder Vector<T>(List<T> vector)
     {
         var vectorData = CastVectorList(vector);
-        return new VectorQueryBuilder(_connectionId, _tableId, vectorData, _limit, _whereClause, _withRowId, _selectColumns);
+        return new VectorQueryBuilder(_connectionId, _tableId, vectorData, _limit, _whereClause, _withRowId, _selectColumns, _reranker);
     }
 
     /// <summary>
@@ -127,7 +129,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     public ILanceQueryBuilder Vector<T>(Vector<T> vector) where T : struct, IEquatable<T>, IFormattable
     {
         var vectorData = CastVectorList(vector.ToList());
-        return new VectorQueryBuilder(_connectionId, _tableId, vectorData, _limit, _whereClause, _withRowId, _selectColumns);
+        return new VectorQueryBuilder(_connectionId, _tableId, vectorData, _limit, _whereClause, _withRowId, _selectColumns, _reranker);
     }
 
     /// <summary>
@@ -141,7 +143,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
         // Is column-major the correct choice?
         var asArray = vector.ToColumnMajorArray();
         var vectorData = CastVectorList(asArray.ToList());
-        return new VectorQueryBuilder(_connectionId, _tableId, vectorData, _limit, _whereClause, _withRowId, _selectColumns);
+        return new VectorQueryBuilder(_connectionId, _tableId, vectorData, _limit, _whereClause, _withRowId, _selectColumns, _reranker);
     }
 
     /// <summary>
@@ -155,10 +157,16 @@ public partial class QueryBuilder : ILanceQueryBuilder
         return this;
     }
 
+    /// <summary>
+    /// Attaches a re-ranker to the query builder
+    /// </summary>
+    /// <param name="reranker">The re-ranker to attach</param>
+    /// <returns>The updated query builder</returns>
     public virtual ILanceQueryBuilder Rerank(IReranker reranker)
     {
         // Rerankers appear to be Full Text Search specific, so we're not implementing this (yet)
-        throw new NotImplementedException();
+        _reranker = reranker;
+        return this;
     }
 
     /// <summary>

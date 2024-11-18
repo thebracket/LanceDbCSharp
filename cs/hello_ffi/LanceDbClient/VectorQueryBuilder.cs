@@ -13,7 +13,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder, ILance
     private int _refineFactor;
     
     internal VectorQueryBuilder(long connectionId, long tableId, VectorDataImpl vectorData,
-        ulong limit, string? whereClause, bool withRowId, List<string> selectColumns) 
+        ulong limit, string? whereClause, bool withRowId, List<string> selectColumns, IReranker? reranker) 
         : base(connectionId, tableId)
     {
         _vectorData = vectorData;
@@ -24,6 +24,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder, ILance
         _metric = LanceDbInterface.Metric.L2;
         _nProbes = 1;
         _refineFactor = 1;
+        _reranker = reranker;
     }
     
     internal VectorQueryBuilder(long connectionId, long tableId,
@@ -37,6 +38,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder, ILance
         _metric = LanceDbInterface.Metric.L2;
         _nProbes = 1;
         _refineFactor = 1;
+        _reranker = null;
     }
     
     public ILanceVectorQueryBuilder Metric(Metric metric = LanceDbInterface.Metric.L2)

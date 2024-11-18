@@ -374,7 +374,7 @@ public partial class Table : ITable, IDisposable
             case QueryType.Hybrid:
             case QueryType.Auto:
                 return new VectorQueryBuilder(_connectionHandle, _tableHandle, vectorData, 
-                    0, null, false, [vectorColumnName]);
+                    0, null, false, [vectorColumnName], null);
             default: throw new NotImplementedException();
         }
     }
