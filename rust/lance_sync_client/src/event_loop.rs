@@ -413,6 +413,17 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     string_callback,
                 ));
             }
+            LanceDbCommand::GetIndexStats { connection_handle, table_handle, index_name, callback } => {
+                tokio::spawn(table::do_get_index_stats(
+                    connection_handle,
+                    tables.clone(),
+                    table_handle,
+                    index_name,
+                    reply_tx,
+                    completion_sender,
+                    callback,
+                ));
+            }
             LanceDbCommand::Quit { reply_sender } => {
                 tables.send(TableCommand::Quit).await.unwrap();
                 connections.send(ConnectionCommand::Quit).await.unwrap();

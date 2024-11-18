@@ -186,6 +186,14 @@ pub(crate) enum LanceDbCommand {
         string_callback: Option<extern "C" fn(*const c_char, u32, *const *const c_char, column_count: u64)>,
     },
 
+    /// Get Index Statistics
+    GetIndexStats {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+        index_name: String,
+        callback: Option<extern "C" fn(u32, u32, u64, u64, u64)>,
+    },
+
     /// Gracefully shut down the event-loop.
     Quit {
         reply_sender: tokio::sync::oneshot::Sender<()>,

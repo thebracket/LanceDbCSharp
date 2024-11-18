@@ -350,7 +350,10 @@ pub extern "C" fn create_index(
             .to_string_lossy()
             .to_string()
     };
-    let metric: MetricType = metric.into();
+    let Some(metric) = MetricType::from_repr(metric) else {
+        report_result(Err("Invalid metric.".to_string()), reply_tx, None);
+        return;
+    };
     command_from_ffi!(
         LanceDbCommand::CreateIndex {
             connection_handle: ConnectionHandle(connection_handle),
@@ -509,7 +512,10 @@ pub extern "C" fn vector_query(
     refine_factor: u32,
     batch_size: u32,
 ) {
-    let metric: MetricType = metric.into();
+    let Some(metric) = MetricType::from_repr(metric) else {
+        report_result(Err("Invalid metric.".to_string()), reply_tx, None);
+        return;
+    };
     let where_clause = if where_clause.is_null() {
         None
     } else {
@@ -662,7 +668,10 @@ pub extern "C" fn explain_vector_query(
     n_probes: u64,
     refine_factor: u32,
 ) {
-    let metric: MetricType = metric.into();
+    let Some(metric) = MetricType::from_repr(metric) else {
+        report_result(Err("Invalid metric.".to_string()), reply_tx, None);
+        return;
+    };
     let where_clause = if where_clause.is_null() {
         None
     } else {
@@ -860,6 +869,32 @@ pub extern "C" fn list_indices(
             string_callback,
         },
         "ListIndices",
+        reply_tx
+    );
+}
+
+/// Get index statistics
+#[no_mangle]
+pub extern "C" fn get_index_statistics(
+    connection_handle: i64,
+    table_handle: i64,
+    index_name: *const c_char,
+    callback: Option<extern "C" fn(u32, u32, u64, u64, u64)>,
+    reply_tx: ErrorReportFn,
+) {
+    let index_name = unsafe {
+        std::ffi::CStr::from_ptr(index_name)
+            .to_string_lossy()
+            .to_string()
+    };
+    command_from_ffi!(
+        LanceDbCommand::GetIndexStats {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+            index_name,
+            callback,
+        },
+        "GetIndexStatistics",
         reply_tx
     );
 }

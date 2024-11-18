@@ -35,6 +35,9 @@ static partial class Ffi
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void TableIndexEntryCallback(string name, uint indexType, string[] columns, ulong columnsLength);
 
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate void IndexStatisticsCallback(uint indexType, uint metricType, ulong numIndexedRows, ulong numIndices, ulong numIndexRows);
+
     /* FFI functions */
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void connect(string uri, ResultCallback onResult);
@@ -128,6 +131,9 @@ static partial class Ffi
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void list_indices(long connectionHandle, long tableHandle, TableIndexEntryCallback callback, ResultCallback onResult);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void get_index_statistics(long connectionHandle, long tableHandle, string indexName, IndexStatisticsCallback callback, ResultCallback onResult);
     
     internal static byte[] SerializeSchemaOnly(Schema schema)
     {

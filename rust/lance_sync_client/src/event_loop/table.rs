@@ -2,7 +2,7 @@ use std::ffi::{c_char, CString};
 use crate::connection_handler::{ConnectionCommand, ConnectionHandle};
 use crate::event_loop::command::{BadVectorHandling, IndexType, ScalarIndexType, WriteMode};
 use crate::event_loop::connection::get_table;
-use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorReportFn};
+use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorReportFn, MetricType};
 use crate::table_handler::{TableCommand, TableHandle};
 use arrow_array::{RecordBatch, RecordBatchIterator};
 use arrow_schema::ArrowError;
@@ -347,6 +347,57 @@ pub(crate) async fn do_list_table_indices(
         }
     }
 
+
+    // Indicate that it is done
+    completion_sender.send(()).unwrap();
+}
+
+pub(crate) async fn do_get_index_stats(
+    connection_handle: ConnectionHandle,
+    tables: Sender<TableCommand>,
+    table_handle: TableHandle,
+    index_name: String,
+    reply_tx: ErrorReportFn,
+    completion_sender: CompletionSender,
+    // fn(index_type_u32, metric_type_u32, num_indexed_rows: u64, num_indices: u64, num_index_rows: u64)
+    callback: Option<extern "C" fn(u32, u32, u64, u64, u64)>,
+) {
+    let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
+        let err = format!("Table not found: {table_handle:?}");
+        report_result(Err(err), reply_tx, Some(completion_sender));
+        return;
+    };
+
+    let Ok(stats) = table.index_stats(&index_name).await else {
+        report_result(
+            Err("Error getting index stats".to_string()),
+            reply_tx,
+            Some(completion_sender),
+        );
+        return;
+    };
+    if let Some(stats) = stats {
+        // Send the stats
+        let index_type_ffi: IndexType = stats.index_type.into();
+        let index_index:u32 = index_type_ffi as u32;
+        let metric_type_ffi: MetricType = if let Some(metric) = stats.distance_type {
+            metric.into()
+        } else {
+            MetricType::None
+        };
+        let metric_index:u32 = metric_type_ffi as u32;
+        let num_indexed_rows = stats.num_indexed_rows as u64;
+        let num_indices = stats.num_indices.unwrap_or(0) as u64;
+        let num_unindex_rows = stats.num_unindexed_rows as u64;
+        if let Some(callback) = callback {
+            callback(index_index, metric_index, num_indexed_rows, num_indices, num_unindex_rows);
+        }
+    } else {
+        // Send a no-stats result
+        if let Some(callback) = callback {
+            callback(0, 0, 0, 0, 0);
+        }
+    }
 
     // Indicate that it is done
     completion_sender.send(()).unwrap();

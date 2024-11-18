@@ -59,7 +59,7 @@ namespace LanceDbInterface
         IEnumerable<IndexConfig> ListIndices();
         Task<IEnumerable<IndexConfig>> ListIndicesAsync(CancellationToken token = default);
         
-        IndexStatistics GetIndexStatistics(string columnName);
+        IndexStatistics GetIndexStatistics(string indexName);
         Task<IndexStatistics> GetIndexStatisticsAsync(string columnName, CancellationToken token = default);
     }
 }

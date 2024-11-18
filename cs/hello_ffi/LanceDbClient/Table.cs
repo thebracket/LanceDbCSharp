@@ -424,9 +424,33 @@ public partial class Table : ITable, IDisposable
         return indices;
     }
 
-    public IndexStatistics GetIndexStatistics(string columnName)
+    /// <summary>
+    /// Get the statistics for a specific index.
+    /// </summary>
+    /// <param name="indexName"></param>
+    /// <returns></returns>
+    /// <exception cref="Exception"></exception>
+    public IndexStatistics GetIndexStatistics(string indexName)
     {
-        throw new NotImplementedException();
+        if (!IsOpen) throw new Exception("Table is not open.");
+        IndexStatistics stats = new IndexStatistics();
+        Exception? exception = null;
+        Ffi.get_index_statistics(_connectionHandle, _tableHandle, indexName, (indexType, distanceType,numIndexedRows, numIndices, numUnIndexedRows ) =>
+        {
+            stats.NumIndexedRows = (int)numIndexedRows;
+            stats.NumUnIndexedRows = (int)numUnIndexedRows;
+            stats.IndexType = (IndexType)indexType;
+            stats.DistanceType = (Metric)distanceType;
+            stats.NumIndices = (int)numIndices;
+        }, (code, message) =>
+        {
+            if (code < 0 && message != null)
+            {
+                exception = new Exception("Failed to get index statistics: " + message);
+            }
+        });
+        if (exception != null) throw exception;
+        return stats;
     }
 
     /// <summary>
