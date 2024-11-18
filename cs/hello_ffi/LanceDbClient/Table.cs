@@ -367,8 +367,16 @@ public partial class Table : ITable, IDisposable
             Length = 0,
             DataType = QueryBuilder.TypeIndex.ArrowArray
         };
-        return new VectorQueryBuilder(_connectionHandle, _tableHandle, vectorData, 
-            0, null, false, [vectorColumnName]);
+        switch (queryType)
+        {
+            case QueryType.Vector:
+            case QueryType.Fts:
+            case QueryType.Hybrid:
+            case QueryType.Auto:
+                return new VectorQueryBuilder(_connectionHandle, _tableHandle, vectorData, 
+                    0, null, false, [vectorColumnName]);
+            default: throw new NotImplementedException();
+        }
     }
 
     public ILanceQueryBuilder Search(ChunkedArray vectors, string vectorColumnName, QueryType queryType = QueryType.Auto)

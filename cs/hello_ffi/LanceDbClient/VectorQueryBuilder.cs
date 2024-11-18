@@ -5,7 +5,7 @@ using LanceDbInterface;
 
 namespace LanceDbClient;
 
-public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
+public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder, ILanceHybridQueryBuilder
 {
     private readonly VectorDataImpl _vectorData;
     private Metric _metric;
@@ -17,25 +17,6 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
         : base(connectionId, tableId)
     {
         _vectorData = vectorData;
-        _limit = limit;
-        _whereClause = whereClause;
-        _withRowId = withRowId;
-        _selectColumns = selectColumns;
-        _metric = LanceDbInterface.Metric.L2;
-        _nProbes = 1;
-        _refineFactor = 1;
-    }
-    
-    internal VectorQueryBuilder(long connectionId, long tableId, 
-        ulong limit, string? whereClause, bool withRowId, List<string> selectColumns, byte[] arrowArray) 
-        : base(connectionId, tableId)
-    {
-        _vectorData = new VectorDataImpl
-        {
-            Data = arrowArray,
-            DataType = TypeIndex.ArrowArray,
-            Length = 0
-        };
         _limit = limit;
         _whereClause = whereClause;
         _withRowId = withRowId;
