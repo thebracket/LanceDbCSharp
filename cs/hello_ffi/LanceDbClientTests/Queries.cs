@@ -1,6 +1,8 @@
 using Apache.Arrow;
 using Apache.Arrow.Types;
 using LanceDbClient;
+using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra.Single;
 using Array = Apache.Arrow.Array;
 
 namespace LanceDbClientTests;
@@ -116,6 +118,120 @@ public partial class Tests
                 // Build the FloatArray from the builder
                 var arrowVector = builder.Build();
                 var result = table.Search(arrowVector, "vector").ToBatches(0);
+                Assert.That(result, Is.Not.Null);
+                Assert.That(result, Is.Not.Empty);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
+    
+    [Test]
+    public void MinimalListQuery()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_list_query");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+
+                // Build a list of 128 floats equal to 1.0
+                var target = new List<float>();
+                for (int i = 0; i < 128; i++)
+                {
+                    target.Add(1.0f);
+                }
+                var result = table.Search(target, "vector").ToBatches(0);
+                Assert.That(result, Is.Not.Null);
+                Assert.That(result, Is.Not.Empty);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
+    
+    [Test]
+    public void MinimalVectorQuery()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_vector_query");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+
+                // Build a C# Vector of 128 values, all equal to 1.0f
+                var target = new List<float>();
+                for (int i = 0; i < 128; i++)
+                {
+                    target.Add(1.0f);
+                }
+                Vector<float> vector = new DenseVector(target.ToArray());
+                var result = table.Search(vector, "vector").ToBatches(0);
+                Assert.That(result, Is.Not.Null);
+                Assert.That(result, Is.Not.Empty);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
+    
+    [Test]
+    public void MinimalMatrixQuery()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_matrix_query");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+
+                // Build a C# Vector of 128 values, all equal to 1.0f
+                var target = new List<float>();
+                for (int i = 0; i < 128; i++)
+                {
+                    target.Add(1.0f);
+                }
+                // Convert to a mathnet Matrix type
+                Matrix<float> matrix = new DenseMatrix(1, 128, target.ToArray());
+                var result = table.Search(matrix, "vector").ToBatches(0);
                 Assert.That(result, Is.Not.Null);
                 Assert.That(result, Is.Not.Empty);
             }
