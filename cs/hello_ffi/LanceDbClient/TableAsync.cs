@@ -5,14 +5,14 @@ using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;
 
-public partial class Table : ITable, IDisposable
+public sealed partial class Table
 {
     public Task<int> CountRowsAsync(string? filter = null, CancellationToken token = default)
     {
         throw new NotImplementedException();
     }
 
-    public Task CreateScalarIndexAsync(string columnName, LanceDbInterface.IndexType indexType = LanceDbInterface.IndexType.BTree, bool replace = true,
+    public Task CreateScalarIndexAsync(string columnName, LanceDbInterface.ScalarIndexType indexType = LanceDbInterface.ScalarIndexType.BTree, bool replace = true,
         CancellationToken token = default)
     {
         throw new NotImplementedException();
@@ -57,6 +57,16 @@ public partial class Table : ITable, IDisposable
     }
 
     public Task<OptimizeStats> OptimizeAsync(TimeSpan? cleanupOlderThan = null, bool deleteUnverified = false, CancellationToken token = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<IEnumerable<IndexConfig>> ListIndicesAsync(CancellationToken token = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<IndexStatistics> GetIndexStatisticsAsync(string columnName, CancellationToken token = default)
     {
         throw new NotImplementedException();
     }

@@ -16,3 +16,4 @@ arrow-ipc = { workspace = true }
 futures = { workspace = true }
 once_cell = { workspace = true }
 half = { workspace = true }
+strum = "0.26.3"

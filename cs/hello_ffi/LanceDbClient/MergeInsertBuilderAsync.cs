@@ -3,7 +3,7 @@ using LanceDbInterface;
 
 namespace LanceDbClient;
 
-public partial class MergeInsertBuilder : ILanceMergeInsertBuilder
+public partial class MergeInsertBuilder
 {
     public Task ExecuteAsync(Apache.Arrow.Table data, CancellationToken token = default)
     {

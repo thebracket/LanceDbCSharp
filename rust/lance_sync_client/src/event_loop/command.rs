@@ -6,6 +6,7 @@ use arrow_schema::{ArrowError, SchemaRef};
 use lancedb::table::AddDataMode;
 use lancedb::DistanceType;
 use std::ffi::c_char;
+use strum::FromRepr;
 
 /// Used to synchronize timings - make sure that the function
 /// does not return until all async processing is complete.
@@ -98,7 +99,7 @@ pub(crate) enum LanceDbCommand {
         connection_handle: ConnectionHandle,
         table_handle: TableHandle,
         column_name: String,
-        index_type: IndexType,
+        index_type: ScalarIndexType,
         replace: bool,
     },
 
@@ -178,6 +179,21 @@ pub(crate) enum LanceDbCommand {
         batch_size: u32,
     },
 
+    /// List indices for a table.
+    ListIndices {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+        string_callback: Option<extern "C" fn(*const c_char, u32, *const *const c_char, column_count: u64)>,
+    },
+
+    /// Get Index Statistics
+    GetIndexStats {
+        connection_handle: ConnectionHandle,
+        table_handle: TableHandle,
+        index_name: String,
+        callback: Option<extern "C" fn(u32, u32, u64, u64, u64)>,
+    },
+
     /// Gracefully shut down the event-loop.
     Quit {
         reply_sender: tokio::sync::oneshot::Sender<()>,
@@ -185,40 +201,46 @@ pub(crate) enum LanceDbCommand {
 }
 
 /// Index types that can be created.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, FromRepr)]
 #[repr(u32)]
 pub(crate) enum IndexType {
-    BTree = 1,
-    Bitmap = 2,
-    LabelList = 3,
+    BTree = 0,
+    Bitmap = 1,
+    LabelList = 2,
+    Fts = 3,
+    HnswPq = 4,
+    HnswSq = 5,
+    IvfPq = 6,
 }
 
-impl From<u32> for IndexType {
-    fn from(value: u32) -> Self {
+/// Scalar Index types that can be created.
+#[derive(Debug, Clone, Copy, FromRepr)]
+#[repr(u32)]
+pub(crate) enum ScalarIndexType {
+    BTree = 0,
+    Bitmap = 1,
+    LabelList = 2,
+}
+
+impl From<lancedb::index::IndexType> for IndexType {
+    fn from(value: lancedb::index::IndexType) -> Self {
         match value {
-            1 => Self::BTree,
-            2 => Self::Bitmap,
-            3 => Self::LabelList,
-            _ => panic!("Invalid index type: {}", value),
+            lancedb::index::IndexType::BTree => Self::BTree,
+            lancedb::index::IndexType::Bitmap => Self::Bitmap,
+            lancedb::index::IndexType::LabelList => Self::LabelList,
+            lancedb::index::IndexType::FTS => Self::Fts,
+            lancedb::index::IndexType::IvfPq => Self::IvfPq,
+            lancedb::index::IndexType::IvfHnswPq => Self::HnswPq,
+            lancedb::index::IndexType::IvfHnswSq => Self::HnswSq,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, FromRepr)]
 #[repr(u32)]
 pub(crate) enum WriteMode {
     Append = 1,
     Overwrite = 2,
-}
-
-impl From<u32> for WriteMode {
-    fn from(value: u32) -> Self {
-        match value {
-            1 => Self::Append,
-            2 => Self::Overwrite,
-            _ => panic!("Invalid write mode: {}", value),
-        }
-    }
 }
 
 impl From<WriteMode> for AddDataMode {

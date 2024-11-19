@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Apache.Arrow;
 using Apache.Arrow.Types;
@@ -9,7 +10,7 @@ namespace LanceDbClient;
 
 public static class ArrayHelpers
 {
-    private static object getValue<T>(Array array)
+    private static object GetValue<T>(Array array)
         where T: struct, IEquatable<T>
     {
         var length = array.Length;
@@ -31,30 +32,30 @@ public static class ArrayHelpers
     
     public static object ArrowArrayDataToConcrete(object array, int depth=0)
     {
-        object val = null;
+        object val;
         switch (array)
         {
-            case Int32Array intArray: val = getValue<int>(intArray); break;
-            case FloatArray floatArray: val = getValue<float>(floatArray); break;
-            case DoubleArray doubleArray: val = getValue<double>(doubleArray); break;
+            case Int32Array intArray: val = GetValue<int>(intArray); break;
+            case FloatArray floatArray: val = GetValue<float>(floatArray); break;
+            case DoubleArray doubleArray: val = GetValue<double>(doubleArray); break;
             case StringArray stringArray:
                 val = stringArray.GetString(0); // Returns as string
                 break;
-            case BooleanArray boolArray: val = getValue<bool>(boolArray); break;
-            case Int8Array int8Array: val = getValue<sbyte>(int8Array); break;
-            case Int16Array int16Array: val = getValue<short>(int16Array); break;
-            case Int64Array int64Array: val = getValue<long>(int64Array); break;
-            case UInt8Array uint8Array: val = getValue<byte>(uint8Array); break;
-            case UInt16Array uint16Array: val = getValue<ushort>(uint16Array); break;
-            case UInt32Array uint32Array: val = getValue<uint>(uint32Array); break;
-            case UInt64Array uint64Array: val = getValue<ulong>(uint64Array); break;
-            case Date32Array date32Array: val = getValue<int>(date32Array); break;
-            case Date64Array date64Array: val = getValue<long>(date64Array); break;
-            case TimestampArray timestampArray: val = getValue<long>(timestampArray); break;
-            case Time32Array time32Array: val = getValue<int>(time32Array); break;
-            case Time64Array time64Array: val = getValue<long>(time64Array); break;
-            case Decimal128Array decimal128Array: val = getValue<decimal>(decimal128Array); break;
-            case Decimal256Array decimal256Array: val = getValue<decimal>(decimal256Array); break;
+            case BooleanArray boolArray: val = GetValue<bool>(boolArray); break;
+            case Int8Array int8Array: val = GetValue<sbyte>(int8Array); break;
+            case Int16Array int16Array: val = GetValue<short>(int16Array); break;
+            case Int64Array int64Array: val = GetValue<long>(int64Array); break;
+            case UInt8Array uint8Array: val = GetValue<byte>(uint8Array); break;
+            case UInt16Array uint16Array: val = GetValue<ushort>(uint16Array); break;
+            case UInt32Array uint32Array: val = GetValue<uint>(uint32Array); break;
+            case UInt64Array uint64Array: val = GetValue<ulong>(uint64Array); break;
+            case Date32Array date32Array: val = GetValue<int>(date32Array); break;
+            case Date64Array date64Array: val = GetValue<long>(date64Array); break;
+            case TimestampArray timestampArray: val = GetValue<long>(timestampArray); break;
+            case Time32Array time32Array: val = GetValue<int>(time32Array); break;
+            case Time64Array time64Array: val = GetValue<long>(time64Array); break;
+            case Decimal128Array decimal128Array: val = GetValue<decimal>(decimal128Array); break;
+            case Decimal256Array decimal256Array: val = GetValue<decimal>(decimal256Array); break;
             case ListArray listArray:
                 if (depth > 1) throw new NotSupportedException("List depth > 1 is not supported.");
                 val = ArrowArrayDataToConcrete(listArray.Values, depth + 1); // Returns as Apache.Arrow.Array
@@ -84,7 +85,7 @@ public static class ArrayHelpers
         return val;
     }
 
-    private static bool DoesTypeMatchSchema(object o, ArrowTypeId s)
+    private static bool DoesTypeMatchSchema(object? o, ArrowTypeId s)
     {
         if (o == null) return false;
         // TODO: Check for completeness
@@ -118,8 +119,8 @@ public static class ArrayHelpers
             fixedSizeListType,
             length: 1,
             nullCount: 0,
-            buffers: new[] { ArrowBuffer.Empty }, // No null bitmap buffer, assuming all are valid
-            children: new[] { data });
+            buffers: [ArrowBuffer.Empty], // No null bitmap buffer, assuming all are valid
+            children: [data]);
         return new FixedSizeListArray(fixedSizeListArrayData);
     }
     
@@ -135,7 +136,7 @@ public static class ArrayHelpers
         }
     }
 
-    private static object ArrayBuilderFactory(ArrowTypeId t)
+    private static object? ArrayBuilderFactory(ArrowTypeId t)
     {
         if (t == ArrowTypeId.Int32) return new Int32Array.Builder();
         if (t == ArrowTypeId.Float) return new FloatArray.Builder();
@@ -190,7 +191,7 @@ public static class ArrayHelpers
                 // TODO: Many more builders required
                 var baseType = item.Value.GetType();
                 var subType = baseType.GetGenericArguments()[0];
-                object? builder = null;
+                object? builder;
                 if (type.TypeId == ArrowTypeId.FixedSizeList)
                 {
                     // Get the inner type from the schema
@@ -203,23 +204,27 @@ public static class ArrayHelpers
                 }
                 if (builder == null) throw new NotImplementedException("Type builder for " + type.TypeId + " not implemented.");
                 
-                MethodInfo? appendMethod = null;
-                appendMethod = builder.GetType().GetMethod("Append", subType == typeof(string) ? 
-                    new[] { typeof(string), typeof(Encoding) } : new[] { subType });
+                MethodInfo? appendMethod = builder.GetType().GetMethod("Append", subType == typeof(string) ? [typeof(string), typeof(Encoding)]
+                    : [subType]);
                 if (appendMethod == null) throw new NotImplementedException("Append method for " + subType + " not implemented.");
-                
-                foreach (var value in item.Value as IList)
+
+                var list = item.Value as IList;
+                if (list != null)
                 {
-                    if (subType == typeof(string))
+                    foreach (var value in list)
                     {
-                        appendMethod.Invoke(builder, new object[] { value, null });
-                    }
-                    else
-                    {
-                        appendMethod.Invoke(builder, new object[] { value });
+                        if (subType == typeof(string))
+                        {
+                            appendMethod.Invoke(builder, [value, null]);
+                        }
+                        else
+                        {
+                            appendMethod.Invoke(builder, [value]);
+                        }
                     }
                 }
-                var array = (IArrowArray)builder.GetType().GetMethod("Build").Invoke(builder, new object[] { null });
+
+                var array = (IArrowArray)builder.GetType().GetMethod("Build")!.Invoke(builder, [null])!;
                 AddToArrayOrWrapInList(arrayRows, type, array);
             }
             var recordBatch = new RecordBatch(schema, arrayRows.ToArray(), length: 1);
@@ -227,5 +232,135 @@ public static class ArrayHelpers
         }
         
         return result;
+    }
+    
+    public enum TypeIndex
+    {
+        Half = 1,
+        Float = 2,
+        Double = 3,
+        ArrowArray = 4,
+    }
+
+    public class VectorDataImpl
+    {
+        public byte[] Data;
+        public ulong Length;
+        public TypeIndex DataType;
+    }
+    
+    // TODO: Can C# do this at compile time?
+    internal static VectorDataImpl CastVectorList<T>(List<T> vector)
+    {
+        // Calculate the buffer size
+        var bufferSize = vector.Count * Unsafe.SizeOf<T>();
+        // Adjust size to ensure 32-bit alignment
+        if (bufferSize % 4 != 0)
+        {
+            bufferSize += 4 - (bufferSize % 4);
+        }
+        // Allocate byte array
+        var data = new byte[bufferSize];
+        Buffer.BlockCopy(vector.ToArray(), 0, data, 0, data.Length);
+
+        if (typeof(T) == typeof(Half))
+        {
+            return new VectorDataImpl
+            {
+                Data = data,
+                Length = (ulong)vector.Count,
+                DataType = TypeIndex.Half
+            };
+        }
+        if (typeof(T) == typeof(float))
+        {
+            return new VectorDataImpl
+            {
+                Data = data,
+                Length = (ulong)vector.Count,
+                DataType = TypeIndex.Float
+            };
+        }
+        if (typeof(T) == typeof(double))
+        {
+            return new VectorDataImpl
+            {
+                Data = data,
+                Length = (ulong)vector.Count,
+                DataType = TypeIndex.Double
+            };
+        }
+        
+        throw new Exception("Unsupported type: " + typeof(T) + ". Supported types are Half, float, double, and Apache.Arrow.Array.");
+    }
+
+    internal static IList<RecordBatch> ArrowTableToRecordBatch(Apache.Arrow.Table data)
+    {
+        // Extract the schema from the table
+        Schema schema = data.Schema;
+
+        // Create a RecordBatch from the table
+        var arrays = new List<IArrowArray>();
+        for (int i = 0; i < data.ColumnCount; i++)
+        {
+            var chunkedArray = data.Column(i).Data;
+            var count = chunkedArray.ArrayCount; 
+            for (int n = 0; n < count; n++)
+            {
+                var array = chunkedArray.ArrowArray(n);
+                arrays.Add(array);
+            }
+        }
+        var recordBatch = new RecordBatch(schema, arrays, (int)data.RowCount);
+        var recordBatches = new List<RecordBatch> { recordBatch };
+        return recordBatches;
+    }
+    
+    internal static List<IArrowArray> ArrowTableToArrays(Apache.Arrow.Table table)
+    {
+        var arrays = new List<IArrowArray>();
+
+        for (var i=0; i<table.ColumnCount; i++)
+        {
+            var column = table.Column(i);
+            for (var j=0; j<column.Data.ArrayCount; j++)
+            {
+                arrays.Add(column.Data.Array(j));
+            }
+        }
+
+        return arrays;
+    }
+    
+    internal static Apache.Arrow.Table ConcatTables(IList<Apache.Arrow.Table> tables)
+    {
+        if (tables == null || tables.Count == 0)
+        {
+            throw new ArgumentException("Concat requires input of at least one table.");
+        }
+        else if (tables.Count == 1)
+        {
+            return tables[0];
+        }
+
+        var schema = tables[0].Schema;
+        for (int i = 1; i < tables.Count; i++)
+        {
+            if (!tables[i].Schema.Equals(schema))
+            {
+                throw new ArgumentException("Cannot concatenate tables with different schemas.");
+            }
+        }
+
+        List<RecordBatch> combinedRecordBatches = new List<RecordBatch>();
+
+        foreach (var table in tables)
+        {
+            combinedRecordBatches.AddRange(ArrowTableToRecordBatch(table));
+        }
+
+        var concatenatedTable = Apache.Arrow.Table.TableFromRecordBatches(schema, combinedRecordBatches);
+
+        return concatenatedTable;
     }
 }

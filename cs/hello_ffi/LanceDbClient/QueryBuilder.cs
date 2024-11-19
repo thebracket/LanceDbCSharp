@@ -1,31 +1,31 @@
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Apache.Arrow;
 using LanceDbInterface;
 using MathNet.Numerics.LinearAlgebra;
-using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;
 
 public partial class QueryBuilder : ILanceQueryBuilder
 {
-    protected readonly long _connectionId;
-    protected readonly long _tableId;
-    protected ulong _limit;
-    protected string? _whereClause;
-    protected bool _withRowId;
-    protected List<string> _selectColumns;
-    private string? _fullTextSearch;
+    protected internal readonly long ConnectionId;
+    protected internal readonly long TableId;
+    protected internal ulong LimitCount;
+    protected internal string? WhereSql;
+    protected internal bool WithRowIdent;
+    protected internal List<string> SelectColumnsList;
+    protected internal string? FullTextSearch;
+    protected internal IReranker? Reranker;
 
     internal QueryBuilder(long connectionId, long tableId)
     {
-        _connectionId = connectionId;
-        _tableId = tableId;
-        _limit = 0;
-        _whereClause = null;
-        _withRowId = false;
-        _selectColumns = [];
-        _fullTextSearch = null;
+        ConnectionId = connectionId;
+        TableId = tableId;
+        LimitCount = 0;
+        WhereSql = null;
+        WithRowIdent = false;
+        SelectColumnsList = [];
+        FullTextSearch = null;
+        Reranker = null;
     }
     
     /// <summary>
@@ -35,7 +35,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <returns>The query builder to continue building.</returns>
     public ILanceQueryBuilder Limit(int limit)
     {
-        _limit = (ulong)limit;
+        LimitCount = (ulong)limit;
         return this;
     }
 
@@ -46,7 +46,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <returns>The query builder to continue building.</returns>
     public ILanceQueryBuilder SelectColumns(IEnumerable<string> selectColumns)
     {
-        _selectColumns = selectColumns.ToList();
+        SelectColumnsList = selectColumns.ToList();
         return this;
     }
 
@@ -58,7 +58,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <returns>The query builder to continue building.</returns>
     public ILanceQueryBuilder WhereClause(string whereClause, bool prefilter = false)
     {
-        _whereClause = whereClause;
+        WhereSql = whereClause;
         return this;
     }
 
@@ -69,7 +69,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <returns>The query builder to continue building.</returns>
     public ILanceQueryBuilder WithRowId(bool withRowId)
     {
-        _withRowId = withRowId;
+        WithRowIdent = withRowId;
         return this;
     }
 
@@ -84,11 +84,11 @@ public partial class QueryBuilder : ILanceQueryBuilder
         Exception? exception = null;
         string? result = null;
         string[]? selectColumns = null;
-        if (_selectColumns.Count > 0)
+        if (SelectColumnsList.Count > 0)
         {
-            selectColumns = _selectColumns.ToArray();
+            selectColumns = SelectColumnsList.ToArray();
         }
-        Ffi.explain_query(_connectionId, _tableId, _limit, _whereClause, _withRowId, verbose, (message) =>
+        Ffi.explain_query(ConnectionId, TableId, LimitCount, WhereSql, WithRowIdent, verbose, (message) =>
             {
                 result = message;
             },
@@ -99,8 +99,8 @@ public partial class QueryBuilder : ILanceQueryBuilder
                     exception = new Exception("Failed to explain plan: " + message);
                 }
             },
-            selectColumns, (ulong)_selectColumns.Count,
-            _fullTextSearch
+            selectColumns!, (ulong)SelectColumnsList.Count,
+            FullTextSearch
         );
         if (exception != null) throw exception;
         return result ??= "No explanation returned";
@@ -114,18 +114,37 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <returns>A VectorQueryBuilder</returns>
     public ILanceQueryBuilder Vector<T>(List<T> vector)
     {
-        var vectorData = CastVectorList(vector);
-        return new VectorQueryBuilder(_connectionId, _tableId, vectorData, _limit, _whereClause, _withRowId, _selectColumns);
+        var vectorData = ArrayHelpers.CastVectorList(vector);
+        return new VectorQueryBuilder(this)
+            .WithVectorData(vectorData);
     }
 
+    /// <summary>
+    /// Constructs a new vector query builder.
+    /// </summary>
+    /// <param name="vector">A vector of either f16 (half), f32, f64</param>
+    /// <typeparam name="T">Half, f16 or f32</typeparam>
+    /// <returns>A VectorQueryBuilder</returns>
     public ILanceQueryBuilder Vector<T>(Vector<T> vector) where T : struct, IEquatable<T>, IFormattable
     {
-        throw new NotImplementedException();
+        var vectorData = ArrayHelpers.CastVectorList(vector.ToList());
+        return new VectorQueryBuilder(this)
+            .WithVectorData(vectorData);
     }
 
+    /// <summary>
+    /// Constructs a new vector query builder.
+    /// </summary>
+    /// <param name="vector">A matrix of either f16 (half), f32, f64</param>
+    /// <typeparam name="T">Half, f16 or f32</typeparam>
+    /// <returns>A VectorQueryBuilder</returns>
     public ILanceQueryBuilder Vector<T>(Matrix<T> vector) where T : struct, IEquatable<T>, IFormattable
     {
-        throw new NotImplementedException();
+        // Is column-major the correct choice?
+        var asArray = vector.ToColumnMajorArray();
+        var vectorData = ArrayHelpers.CastVectorList(asArray.ToList());
+        return new VectorQueryBuilder(this)
+            .WithVectorData(vectorData);
     }
 
     /// <summary>
@@ -135,13 +154,17 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <returns>The query builder to continue building.</returns>
     public ILanceQueryBuilder Text(string text)
     {
-        _fullTextSearch = text;
+        FullTextSearch = text;
         return this;
     }
 
+    /// <summary>
+    /// Attaches a re-ranker to the query builder
+    /// </summary>
+    /// <param name="reranker">The re-ranker to attach</param>
+    /// <returns>The updated query builder</returns>
     public virtual ILanceQueryBuilder Rerank(IReranker reranker)
     {
-        // Rerankers appear to be Full Text Search specific, so we're not implementing this (yet)
         throw new NotImplementedException();
     }
 
@@ -151,10 +174,9 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <returns>An Apache.Arrow.Table object containing the results.</returns>
     public Apache.Arrow.Table ToArrow()
     {
-        var batches = ToBatches(0);
-        var batchesList = batches.ToList();
+        var batches = ToBatches(0).ToList();
         var schema = batches.First().Schema;
-        Apache.Arrow.Table table = Apache.Arrow.Table.TableFromRecordBatches(schema, batchesList);
+        var table = Apache.Arrow.Table.TableFromRecordBatches(schema, batches);
         return table;
     }
     
@@ -180,13 +202,6 @@ public partial class QueryBuilder : ILanceQueryBuilder
                 {
                     row[column.Name] = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.Array(0));
                 }
-                
-                /*var data = new List<object>();
-                for (var k=0; k<column.Data.ArrayCount; k++)
-                {
-                    data.Add(column.Data.Array(k));
-                }
-                row[column.Name] = data;*/
             }
             result.Add(row);
         }
@@ -205,12 +220,12 @@ public partial class QueryBuilder : ILanceQueryBuilder
         Exception? exception = null;
         
         string[]? selectColumns = null;
-        if (_selectColumns.Count > 0)
+        if (SelectColumnsList.Count > 0)
         {
-            selectColumns = _selectColumns.ToArray();
+            selectColumns = SelectColumnsList.ToArray();
         }
         
-        Ffi.query(_connectionId, _tableId, (bytes, len) =>
+        Ffi.query(ConnectionId, TableId, (bytes, len) =>
         {
             // Marshall schema/length into a managed object
             var schemaBytes = new byte[len];
@@ -224,70 +239,10 @@ public partial class QueryBuilder : ILanceQueryBuilder
             {
                 exception = new Exception("Failed to compact files: " + message);
             }
-        }, _limit, _whereClause, _withRowId, selectColumns, (ulong)_selectColumns.Count,
-            _fullTextSearch, (uint)batchSize);
+        }, LimitCount, WhereSql, WithRowIdent, selectColumns!, (ulong)SelectColumnsList.Count,
+            FullTextSearch, (uint)batchSize);
         
         if (exception != null) throw exception;
         return result;
-    }
-    
-    public enum TypeIndex
-    {
-        Half = 1,
-        Float = 2,
-        Double = 3,
-        ArrowArray = 4,
-    }
-
-    public struct VectorDataImpl
-    {
-        public byte[] Data;
-        public ulong Length;
-        public TypeIndex DataType;
-    }
-    
-    // TODO: Can C# do this at compile time?
-    private static unsafe VectorDataImpl CastVectorList<T>(List<T> vector)
-    {
-        // Calculate the buffer size
-        var bufferSize = vector.Count * Unsafe.SizeOf<T>();
-        // Adjust size to ensure 32-bit alignment
-        if (bufferSize % 4 != 0)
-        {
-            bufferSize += 4 - (bufferSize % 4);
-        }
-        // Allocate byte array
-        var data = new byte[bufferSize];
-        Buffer.BlockCopy(vector.ToArray(), 0, data, 0, data.Length);
-
-        if (typeof(T) == typeof(Half))
-        {
-            return new VectorDataImpl
-            {
-                Data = data,
-                Length = (ulong)vector.Count,
-                DataType = TypeIndex.Half
-            };
-        }
-        if (typeof(T) == typeof(float))
-        {
-            return new VectorDataImpl
-            {
-                Data = data,
-                Length = (ulong)vector.Count,
-                DataType = TypeIndex.Float
-            };
-        }
-        if (typeof(T) == typeof(double))
-        {
-            return new VectorDataImpl
-            {
-                Data = data,
-                Length = (ulong)vector.Count,
-                DataType = TypeIndex.Double
-            };
-        }
-        
-        throw new Exception("Unsupported type: " + typeof(T) + ". Supported types are Half, float, double, and Apache.Arrow.Array.");
     }
 }

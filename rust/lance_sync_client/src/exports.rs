@@ -7,6 +7,7 @@ use crate::event_loop::{report_result, ErrorReportFn, LanceDbCommand, MetricType
 use crate::serialization::{bytes_to_batch, bytes_to_schema};
 use crate::table_handler::TableHandle;
 use std::ffi::c_char;
+use crate::event_loop::command::{ScalarIndexType, WriteMode};
 
 /// Connect to a LanceDB database. This function will return a handle
 /// to the connection, which can be used in other functions.
@@ -209,11 +210,15 @@ pub extern "C" fn add_record_batch(
         );
         return;
     }
+    let Some(write_mode) = WriteMode::from_repr(write_mode) else {
+        report_result(Err("Invalid write mode.".to_string()), reply_tx, None);
+        return;
+    };
     command_from_ffi!(
         LanceDbCommand::AddRecordBatch {
             connection_handle: ConnectionHandle(connection_handle),
             table_handle: TableHandle(table_handle),
-            write_mode: write_mode.into(),
+            write_mode,
             batch: batch.unwrap(),
             bad_vector_handling: bad_vector_handling.into(),
             fill_value,
@@ -266,12 +271,16 @@ pub extern "C" fn create_scalar_index(
             .to_string_lossy()
             .to_string()
     };
+    let Some(index_type) = ScalarIndexType::from_repr(index_type) else {
+        report_result(Err("Invalid index type.".to_string()), reply_tx, None);
+        return;
+    };
     command_from_ffi!(
         LanceDbCommand::CreateScalarIndex {
             connection_handle: ConnectionHandle(connection_handle),
             table_handle: TableHandle(table_handle),
             column_name,
-            index_type: index_type.into(),
+            index_type,
             replace,
         },
         "CreateScalarIndex",
@@ -341,7 +350,10 @@ pub extern "C" fn create_index(
             .to_string_lossy()
             .to_string()
     };
-    let metric: MetricType = metric.into();
+    let Some(metric) = MetricType::from_repr(metric) else {
+        report_result(Err("Invalid metric.".to_string()), reply_tx, None);
+        return;
+    };
     command_from_ffi!(
         LanceDbCommand::CreateIndex {
             connection_handle: ConnectionHandle(connection_handle),
@@ -500,7 +512,10 @@ pub extern "C" fn vector_query(
     refine_factor: u32,
     batch_size: u32,
 ) {
-    let metric: MetricType = metric.into();
+    let Some(metric) = MetricType::from_repr(metric) else {
+        report_result(Err("Invalid metric.".to_string()), reply_tx, None);
+        return;
+    };
     let where_clause = if where_clause.is_null() {
         None
     } else {
@@ -653,7 +668,10 @@ pub extern "C" fn explain_vector_query(
     n_probes: u64,
     refine_factor: u32,
 ) {
-    let metric: MetricType = metric.into();
+    let Some(metric) = MetricType::from_repr(metric) else {
+        report_result(Err("Invalid metric.".to_string()), reply_tx, None);
+        return;
+    };
     let where_clause = if where_clause.is_null() {
         None
     } else {
@@ -832,6 +850,51 @@ pub extern "C" fn update_rows(
             update_callback: callback,
         },
         "Update",
+        reply_tx
+    );
+}
+
+/// List indices in a table
+#[no_mangle]
+pub extern "C" fn list_indices(
+    connection_handle: i64,
+    table_handle: i64,
+    string_callback: Option<extern "C" fn(*const c_char, u32, *const *const c_char, column_count: u64)>,
+    reply_tx: ErrorReportFn,
+) {
+    command_from_ffi!(
+        LanceDbCommand::ListIndices {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+            string_callback,
+        },
+        "ListIndices",
+        reply_tx
+    );
+}
+
+/// Get index statistics
+#[no_mangle]
+pub extern "C" fn get_index_statistics(
+    connection_handle: i64,
+    table_handle: i64,
+    index_name: *const c_char,
+    callback: Option<extern "C" fn(u32, u32, u64, u64, u64)>,
+    reply_tx: ErrorReportFn,
+) {
+    let index_name = unsafe {
+        std::ffi::CStr::from_ptr(index_name)
+            .to_string_lossy()
+            .to_string()
+    };
+    command_from_ffi!(
+        LanceDbCommand::GetIndexStats {
+            connection_handle: ConnectionHandle(connection_handle),
+            table_handle: TableHandle(table_handle),
+            index_name,
+            callback,
+        },
+        "GetIndexStatistics",
         reply_tx
     );
 }

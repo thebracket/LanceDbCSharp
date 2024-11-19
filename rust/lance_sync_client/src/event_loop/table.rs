@@ -1,14 +1,15 @@
+use std::ffi::{c_char, CString};
 use crate::connection_handler::{ConnectionCommand, ConnectionHandle};
-use crate::event_loop::command::{BadVectorHandling, IndexType, WriteMode};
+use crate::event_loop::command::{BadVectorHandling, IndexType, ScalarIndexType, WriteMode};
 use crate::event_loop::connection::get_table;
-use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorReportFn};
+use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorReportFn, MetricType};
 use crate::table_handler::{TableCommand, TableHandle};
 use arrow_array::{RecordBatch, RecordBatchIterator};
 use arrow_schema::ArrowError;
 use lancedb::index::scalar::{
     BTreeIndexBuilder, BitmapIndexBuilder, FtsIndexBuilder, LabelListIndexBuilder,
 };
-use lancedb::index::Index;
+use lancedb::index::{Index, IndexConfig};
 use lancedb::table::OptimizeAction;
 use lancedb::DistanceType;
 use tokio::sync::mpsc::Sender;
@@ -113,22 +114,22 @@ pub(crate) async fn do_crate_scalar_index(
     tables: Sender<TableCommand>,
     table_handle: TableHandle,
     column_name: String,
-    index_type: IndexType,
+    index_type: ScalarIndexType,
     replace: bool,
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
 ) {
     if let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await {
         let build_command = match index_type {
-            IndexType::BTree => {
+            ScalarIndexType::BTree => {
                 let builder = BTreeIndexBuilder::default();
                 table.create_index(&[column_name], Index::BTree(builder))
             }
-            IndexType::Bitmap => {
+            ScalarIndexType::Bitmap => {
                 let builder = BitmapIndexBuilder::default();
                 table.create_index(&[column_name], Index::Bitmap(builder))
             }
-            IndexType::LabelList => {
+            ScalarIndexType::LabelList => {
                 let builder = LabelListIndexBuilder::default();
                 table.create_index(&[column_name], Index::LabelList(builder))
             }
@@ -302,6 +303,99 @@ pub(crate) async fn do_update(
                 report_result(Err(err), reply_tx, Some(completion_sender));
                 return;
             }
+        }
+    }
+
+    // Indicate that it is done
+    completion_sender.send(()).unwrap();
+}
+
+pub(crate) async fn do_list_table_indices(
+    connection_handle: ConnectionHandle,
+    tables: Sender<TableCommand>,
+    table_handle: TableHandle,
+    reply_tx: ErrorReportFn,
+    completion_sender: CompletionSender,
+    index_callback: Option<extern "C" fn(*const c_char, u32, *const *const c_char, column_count: u64)>,
+) {
+    let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
+        let err = format!("Table not found: {table_handle:?}");
+        report_result(Err(err), reply_tx, Some(completion_sender));
+        return;
+    };
+
+    let Ok(indices) = table.list_indices().await else {
+        report_result(
+            Err("Error listing table indices".to_string()),
+            reply_tx,
+            Some(completion_sender),
+        );
+        return;
+    };
+
+    for index in indices {
+        let index_type_ffi: IndexType = index.index_type.into();
+        let index_index:u32 = index_type_ffi as u32;
+        let index_name = CString::new(index.name).unwrap().into_raw();
+        let index_columns = index.
+            columns.
+            iter().
+            map(|c| CString::new(c.as_str()).unwrap().into_raw() as *const c_char).
+            collect::<Vec<*const c_char>>();
+        if let Some(index_callback) = index_callback {
+            index_callback(index_name, index_index, index_columns.as_ptr(), index.columns.len() as u64);
+        }
+    }
+
+
+    // Indicate that it is done
+    completion_sender.send(()).unwrap();
+}
+
+pub(crate) async fn do_get_index_stats(
+    connection_handle: ConnectionHandle,
+    tables: Sender<TableCommand>,
+    table_handle: TableHandle,
+    index_name: String,
+    reply_tx: ErrorReportFn,
+    completion_sender: CompletionSender,
+    // fn(index_type_u32, metric_type_u32, num_indexed_rows: u64, num_indices: u64, num_index_rows: u64)
+    callback: Option<extern "C" fn(u32, u32, u64, u64, u64)>,
+) {
+    let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
+        let err = format!("Table not found: {table_handle:?}");
+        report_result(Err(err), reply_tx, Some(completion_sender));
+        return;
+    };
+
+    let Ok(stats) = table.index_stats(&index_name).await else {
+        report_result(
+            Err("Error getting index stats".to_string()),
+            reply_tx,
+            Some(completion_sender),
+        );
+        return;
+    };
+    if let Some(stats) = stats {
+        // Send the stats
+        let index_type_ffi: IndexType = stats.index_type.into();
+        let index_index:u32 = index_type_ffi as u32;
+        let metric_type_ffi: MetricType = if let Some(metric) = stats.distance_type {
+            metric.into()
+        } else {
+            MetricType::None
+        };
+        let metric_index:u32 = metric_type_ffi as u32;
+        let num_indexed_rows = stats.num_indexed_rows as u64;
+        let num_indices = stats.num_indices.unwrap_or(0) as u64;
+        let num_unindex_rows = stats.num_unindexed_rows as u64;
+        if let Some(callback) = callback {
+            callback(index_index, metric_index, num_indexed_rows, num_indices, num_unindex_rows);
+        }
+    } else {
+        // Send a no-stats result
+        if let Some(callback) = callback {
+            callback(0, 0, 0, 0, 0);
         }
     }
 

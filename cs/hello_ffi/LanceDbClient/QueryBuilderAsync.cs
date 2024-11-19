@@ -6,7 +6,7 @@ using MathNet.Numerics.LinearAlgebra;
 
 namespace LanceDbClient;
 
-public partial class QueryBuilder : ILanceQueryBuilder
+public partial class QueryBuilder
 {
     public Task<Apache.Arrow.Table> ToArrowAsync(CancellationToken token = default)
     {

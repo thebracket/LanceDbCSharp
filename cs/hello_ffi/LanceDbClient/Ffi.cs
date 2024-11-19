@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
-using LanceDbInterface;
 using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;
@@ -31,6 +30,12 @@ static partial class Ffi
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void UpdateCalback(ulong updatedRows);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate void TableIndexEntryCallback(string name, uint indexType, string[] columns, ulong columnsLength);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate void IndexStatisticsCallback(uint indexType, uint metricType, ulong numIndexedRows, ulong numIndices, ulong numIndexRows);
 
     /* FFI functions */
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
@@ -122,6 +127,12 @@ static partial class Ffi
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
     internal static partial void drop_database(long connectionHandle, ResultCallback onResult);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void list_indices(long connectionHandle, long tableHandle, TableIndexEntryCallback callback, ResultCallback onResult);
+    
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void get_index_statistics(long connectionHandle, long tableHandle, string indexName, IndexStatisticsCallback callback, ResultCallback onResult);
     
     internal static byte[] SerializeSchemaOnly(Schema schema)
     {
