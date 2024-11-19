@@ -29,8 +29,8 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
         
         // Defaults
         DistanceMetric = LanceDbInterface.Metric.L2;
-        NumProbes = 1;
-        RefinementFactor = 1;
+        NumProbes = 0;
+        RefinementFactor = 0;
     }
     
     internal VectorQueryBuilder WithVectorData(ArrayHelpers.VectorDataImpl vectorData)

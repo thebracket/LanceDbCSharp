@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Runtime.InteropServices;
 using Apache.Arrow;
 using LanceDbInterface;
@@ -112,7 +113,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <param name="vector">A list of either f16 (half), f32, f64</param>
     /// <typeparam name="T">Half, f16 or f32</typeparam>
     /// <returns>A VectorQueryBuilder</returns>
-    public ILanceQueryBuilder Vector<T>(List<T> vector)
+    public ILanceVectorQueryBuilder Vector<T>(List<T> vector)
     {
         var vectorData = ArrayHelpers.CastVectorList(vector);
         return new VectorQueryBuilder(this)
@@ -125,7 +126,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <param name="vector">A vector of either f16 (half), f32, f64</param>
     /// <typeparam name="T">Half, f16 or f32</typeparam>
     /// <returns>A VectorQueryBuilder</returns>
-    public ILanceQueryBuilder Vector<T>(Vector<T> vector) where T : struct, IEquatable<T>, IFormattable
+    public ILanceVectorQueryBuilder Vector<T>(Vector<T> vector) where T : struct, IEquatable<T>, IFormattable
     {
         var vectorData = ArrayHelpers.CastVectorList(vector.ToList());
         return new VectorQueryBuilder(this)
@@ -138,7 +139,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <param name="vector">A matrix of either f16 (half), f32, f64</param>
     /// <typeparam name="T">Half, f16 or f32</typeparam>
     /// <returns>A VectorQueryBuilder</returns>
-    public ILanceQueryBuilder Vector<T>(Matrix<T> vector) where T : struct, IEquatable<T>, IFormattable
+    public ILanceVectorQueryBuilder Vector<T>(Matrix<T> vector) where T : struct, IEquatable<T>, IFormattable
     {
         // Is column-major the correct choice?
         var asArray = vector.ToColumnMajorArray();
@@ -192,18 +193,40 @@ public partial class QueryBuilder : ILanceQueryBuilder
         var table = ToArrow();
         var result = new List<IDictionary<string, object>>();
         
+        // Pre-fill the list with empty dictionaries
         for (var i = 0; i < table.RowCount; i++)
         {
-            var row = new Dictionary<string, object>();
-            for (var j = 0; j < table.ColumnCount; j++)
+            result.Add(new Dictionary<string, object>());
+        }
+        
+        for (var j = 0; j < table.ColumnCount; j++)
+        {
+            var column = table.Column(j);
+            if (column.Data.ArrayCount > 0)
             {
-                var column = table.Column(j);
-                if (column.Data.ArrayCount > 0)
+                
+                var raw = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.Array(0), rowCount:(int)table.RowCount);
+                if (raw is ArrayList chunked)
                 {
-                    row[column.Name] = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.Array(0));
+                    if (chunked[0] is IEnumerable inner)
+                    {
+                        var rowIdx = 0;
+                        foreach(var row in inner)
+                        {
+                            result[rowIdx][column.Name] = row;
+                            rowIdx++;
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception("Unexpected chunked data");
+                    }
+                }
+                else
+                {
+                    result[0][column.Name] = raw;
                 }
             }
-            result.Add(row);
         }
         return result;
     }

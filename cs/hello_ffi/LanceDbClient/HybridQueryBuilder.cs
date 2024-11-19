@@ -9,8 +9,8 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
     {
         // Defaults
         DistanceMetric = LanceDbInterface.Metric.L2;
-        NumProbes = 1;
-        RefinementFactor = 1;
+        NumProbes = 0;
+        RefinementFactor = 0;
     }
 
     public override IEnumerable<RecordBatch> ToBatches(int batchSize)

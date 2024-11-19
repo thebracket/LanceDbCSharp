@@ -2,7 +2,9 @@
 
 using Apache.Arrow;
 using Apache.Arrow.Types;
+using ApiTestbed;
 using LanceDbClient;
+using LanceDbInterface;
 
 using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
 {
@@ -12,7 +14,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
 
     // We create an empty table
     var table1 = cnn.CreateTable("table1", GetSchema());
-    var table2 = cnn.CreateTable("table2", GetSchema());
+    var table2 = cnn.CreateTable("table2", Helpers.GetSchema());
     System.Console.WriteLine("Tables Created: " + table1 + ", " + table2);
     // So its now expected to see 2 tables
     ListTables(cnn);
@@ -26,6 +28,27 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     System.Console.WriteLine("Table 2 Opened: " + table2Opened);
     System.Console.WriteLine("Table 2 row count (expect 0): " + table2Opened.CountRows());
 
+    // Let's add some data
+    var recordBatch = Helpers.CreateSampleRecordBatch(
+        Helpers.GetSchema(), 4096, 8
+    );
+    table2.Add([recordBatch]);
+    
+    // Let's do a quick full-text search
+    Console.WriteLine("Searching for '12'");
+    table2.CreateFtsIndex(["id"], ["id"]);
+    var search = table2.Search().Text("'12'").ToList();
+    PrintDictList(search);
+    
+    // Let's do a quick vector search
+    var vector = new List<float>
+    {
+        12, 12.125f, 12.25f, 12.375f, 12.5f, 12.625f, 12.75f, 12.875f,
+    };
+    Console.WriteLine("Searching for vector: " + vector);
+    var vectorSearch = table2.Search().Vector(vector).Metric(Metric.Cosine).ToList();
+    PrintDictList(vectorSearch);
+    
     // Now we'll drop table2
     cnn.DropTable("table2");
     System.Console.WriteLine("Table 2 Dropped");
@@ -81,4 +104,29 @@ Schema GetSchema()
     var schema = new Schema(fields, metadata);
 
     return schema;
+}
+
+void PrintDictList(IEnumerable<IDictionary<string, object>> enumerable)
+{
+    foreach (var row in enumerable)
+    {
+        // Print out each key and value
+        foreach (var keyValuePair in row)
+        {
+            Console.Write(keyValuePair.Key + ": ");
+            if (keyValuePair.Value is IList<float> inner)
+            {
+                Console.Write("[");
+                foreach (var item in inner)
+                {
+                    Console.Write(item + ", ");
+                }
+                Console.WriteLine("]");
+            }
+            else
+            {
+                Console.WriteLine(keyValuePair.Value);
+            }
+        }
+    }
 }
