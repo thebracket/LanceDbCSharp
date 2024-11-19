@@ -1,5 +1,6 @@
 ﻿// Setup the LanceDB client (creates a command processor)
 
+using System.Diagnostics;
 using Apache.Arrow;
 using Apache.Arrow.Types;
 using ApiTestbed;
@@ -48,6 +49,15 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     Console.WriteLine("Searching for vector: " + vector);
     var vectorSearch = table2.Search().Vector(vector).Metric(Metric.Cosine).ToList();
     PrintDictList(vectorSearch);
+    
+    // Reranking simplest case
+    Console.WriteLine("Reranking '12' and '7' with the simplest merge rerank");
+    IReranker rrf = new RRFReranker();
+    var arrow1 = table2.Search().Text("'12'").WithRowId(true).ToArrow();
+    var arrow2 = table2.Search().Text("'7'").WithRowId(true).ToArrow();
+    var merged = rrf.MergeResults(arrow1, arrow2);
+    var mergedTable = ArrayHelpers.ArrowTableToListOfDicts(merged);
+    PrintDictList(mergedTable);
     
     // Now we'll drop table2
     cnn.DropTable("table2");
@@ -118,6 +128,15 @@ void PrintDictList(IEnumerable<IDictionary<string, object>> enumerable)
             {
                 Console.Write("[");
                 foreach (var item in inner)
+                {
+                    Console.Write(item + ", ");
+                }
+                Console.WriteLine("]");
+            }
+            else if (keyValuePair.Value is IList<ulong> innerLong)
+            {
+                Console.Write("[");
+                foreach (var item in innerLong)
                 {
                     Console.Write(item + ", ");
                 }

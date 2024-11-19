@@ -166,7 +166,9 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <returns>The updated query builder</returns>
     public virtual ILanceQueryBuilder Rerank(IReranker reranker)
     {
-        throw new NotImplementedException();
+        WithRowIdent = true; // All the re-rankers seem to use this
+        Reranker = reranker;
+        return this;
     }
 
     /// <summary>
@@ -191,46 +193,9 @@ public partial class QueryBuilder : ILanceQueryBuilder
         // then morphing into a PyList.
         // TODO: I'm not 100% sure about this?
         var table = ToArrow();
-        var result = new List<IDictionary<string, object>>();
-        
-        // Pre-fill the list with empty dictionaries
-        for (var i = 0; i < table.RowCount; i++)
-        {
-            result.Add(new Dictionary<string, object>());
-        }
-        
-        for (var j = 0; j < table.ColumnCount; j++)
-        {
-            var column = table.Column(j);
-            if (column.Data.ArrayCount > 0)
-            {
-                
-                var raw = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.Array(0), rowCount:(int)table.RowCount);
-                if (raw is ArrayList chunked)
-                {
-                    if (chunked[0] is IEnumerable inner)
-                    {
-                        var rowIdx = 0;
-                        foreach(var row in inner)
-                        {
-                            result[rowIdx][column.Name] = row;
-                            rowIdx++;
-                        }
-                    }
-                    else
-                    {
-                        throw new Exception("Unexpected chunked data");
-                    }
-                }
-                else
-                {
-                    result[0][column.Name] = raw;
-                }
-            }
-        }
-        return result;
+        return ArrayHelpers.ArrowTableToListOfDicts(table);
     }
-    
+
     /// <summary>
     /// Perform the query and return the results as a list of RecordBatch objects.
     /// </summary>

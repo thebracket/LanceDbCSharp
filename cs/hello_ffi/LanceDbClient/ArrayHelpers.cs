@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Data.Common;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -28,7 +29,7 @@ public static class ArrayHelpers
             val.Add(value.Value);
         }
 
-        if (rowCount == 1) return val;
+        if (length == 1) return val;
         
         // Set the chunk size to equal the number of elements in the array divided by rowCount
         var chunkSize = (int)(length / rowCount);
@@ -350,13 +351,7 @@ public static class ArrayHelpers
         }
 
         var schema = tables[0].Schema;
-        for (int i = 1; i < tables.Count; i++)
-        {
-            if (!tables[i].Schema.Equals(schema))
-            {
-                throw new ArgumentException("Cannot concatenate tables with different schemas.");
-            }
-        }
+        // TODO: Equals isn't implemented on Schema, so a deep comparison is required
 
         List<RecordBatch> combinedRecordBatches = new List<RecordBatch>();
 
@@ -368,5 +363,46 @@ public static class ArrayHelpers
         var concatenatedTable = Apache.Arrow.Table.TableFromRecordBatches(schema, combinedRecordBatches);
 
         return concatenatedTable;
+    }
+
+    public static IEnumerable<IDictionary<string, object>> ArrowTableToListOfDicts(Apache.Arrow.Table table)
+    {
+        var result = new List<IDictionary<string, object>>();
+        
+        // Pre-fill the list with empty dictionaries
+        for (var i = 0; i < table.RowCount; i++)
+        {
+            result.Add(new Dictionary<string, object>());
+        }
+        
+        for (var j = 0; j < table.ColumnCount; j++)
+        {
+            var column = table.Column(j);
+            for (var colIdx = 0 ; colIdx < column.Data.ArrayCount; colIdx++)
+            {
+                var raw = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.Array(colIdx), rowCount:(int)table.RowCount);
+                if (raw is ArrayList chunked)
+                {
+                    if (chunked[0] is IEnumerable inner)
+                    {
+                        var rowIdx = 0;
+                        foreach(var row in inner)
+                        {
+                            result[rowIdx][column.Name] = row;
+                            rowIdx++;
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception("Unexpected chunked data");
+                    }
+                }
+                else
+                {
+                    result[colIdx][column.Name] = raw;
+                }
+            }
+        }
+        return result;
     }
 }

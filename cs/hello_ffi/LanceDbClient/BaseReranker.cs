@@ -39,10 +39,7 @@ public abstract class BaseReranker : IReranker
     public Apache.Arrow.Table MergeResults(Apache.Arrow.Table vectorResults, Apache.Arrow.Table ftsResults)
     {
         // See base.py, in the rerankers module. Line 130.
-        if (vectorResults.Schema != ftsResults.Schema)
-        {
-            throw new Exception("The schemas of the two tables must match");
-        }
+        // TODO: Schema comparison isn't implemented in C#.
         
         // The original code uses a Concatenation type that isn't implemented in C#. It then calls a de-duplicator that isn't in C# either.
         var combined = ArrayHelpers.ConcatTables([vectorResults, ftsResults]);
