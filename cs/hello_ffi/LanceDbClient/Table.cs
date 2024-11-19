@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Apache.Arrow;
 using LanceDbInterface;
 using MathNet.Numerics.LinearAlgebra;
@@ -6,7 +5,7 @@ using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;
 
-public partial class Table : ITable, IDisposable
+public sealed partial class Table : ITable
 {
     /// <summary>
     /// Creates a Table object, which represents a table in the database. It's represented as a handle,
@@ -43,8 +42,8 @@ public partial class Table : ITable, IDisposable
         // Suppress finalization.
         GC.SuppressFinalize(this);
     }
-    
-    protected virtual void Dispose(bool disposing)
+
+    private void Dispose(bool disposing)
     {
         if (disposing)
         {
@@ -90,7 +89,7 @@ public partial class Table : ITable, IDisposable
     /// <param name="indexType">The type of index to create</param>
     /// <param name="replace">Should the index be replaced?</param>
     /// <exception cref="Exception">If index creation fails.</exception>
-    public void CreateScalarIndex(string columnName, LanceDbInterface.ScalarIndexType indexType = LanceDbInterface.ScalarIndexType.BTree, bool replace = true)
+    public void CreateScalarIndex(string columnName, ScalarIndexType indexType = ScalarIndexType.BTree, bool replace = true)
     {
         if (!IsOpen) throw new Exception("Table is not open.");
         Exception? exception = null;
@@ -145,7 +144,8 @@ public partial class Table : ITable, IDisposable
     {
         if (!IsOpen) throw new Exception("Table is not open.");
         Exception? exception = null;
-        Ffi.create_full_text_index(_connectionHandle, _tableHandle, columnNames.ToArray(), (ulong)columnNames.Count(), withPosition, replace, tokenizerName, (code, message) =>
+        var columnNamesList = columnNames.ToArray();
+        Ffi.create_full_text_index(_connectionHandle, _tableHandle, columnNamesList, (ulong)columnNamesList.Count(), withPosition, replace, tokenizerName, (code, message) =>
         {
             if (code < 0 && message != null)
             {
@@ -180,8 +180,7 @@ public partial class Table : ITable, IDisposable
         var updateList = new List<string>();
         foreach (var (key, value) in updates)
         {
-            var s = value as string;
-            if (s != null)
+            if (value is string s)
             {
                 // SQL Sanitizing
                 s = s.Replace("'", "''");
@@ -189,7 +188,7 @@ public partial class Table : ITable, IDisposable
             }
             else
             {
-                updateList.Add(key + "=" + value.ToString());
+                updateList.Add(key + "=" + value);
             }
         }
 
@@ -361,21 +360,28 @@ public partial class Table : ITable, IDisposable
     public ILanceQueryBuilder Search(Array vector, string vectorColumnName, QueryType queryType = QueryType.Auto)
     {
         var bytes = Ffi.SerializeArrowArray(vector);
-        var vectorData = new QueryBuilder.VectorDataImpl
+        var vectorData = new ArrayHelpers.VectorDataImpl
         {
             Data = bytes,
             Length = (ulong)vector.Length,
-            DataType = QueryBuilder.TypeIndex.ArrowArray
+            DataType = ArrayHelpers.TypeIndex.ArrowArray
         };
         switch (queryType)
         {
             case QueryType.Vector:
-            case QueryType.Fts:
+                return new VectorQueryBuilder(_connectionHandle, _tableHandle)
+                    .WithVectorData(vectorData)
+                    .SelectColumns([vectorColumnName]);
             case QueryType.Hybrid:
-            case QueryType.Auto:
-                return new VectorQueryBuilder(_connectionHandle, _tableHandle, vectorData, 
-                    0, null, false, [vectorColumnName], null);
-            default: throw new NotImplementedException();
+                return new HybridQueryBuilder(_connectionHandle, _tableHandle)
+                    .WithVectorData(vectorData)
+                    .SelectColumns([vectorColumnName]);
+            case QueryType.Fts:
+                throw new Exception("Cannot use FTS with a vector query unless an embedding system is provided. These aren't supported in C# yet.");
+            default:
+                return new VectorQueryBuilder(_connectionHandle, _tableHandle)
+                    .WithVectorData(vectorData)
+                    .SelectColumns([vectorColumnName]);
         }
     }
 
@@ -386,23 +392,61 @@ public partial class Table : ITable, IDisposable
 
     public ILanceQueryBuilder Search<T>(List<T> vector, string vectorColumnName, QueryType queryType = QueryType.Auto)
     {
-        return new VectorQueryBuilder(_connectionHandle, _tableHandle,
-                0, null, false, [vectorColumnName])
-            .Vector(vector);
+        switch (queryType)
+        {
+            // If a vector is provided, a vector is the obvious choice
+            case QueryType.Vector: return new VectorQueryBuilder(_connectionHandle, _tableHandle)
+                .WithVectorData(ArrayHelpers.CastVectorList(vector))
+                .SelectColumns([vectorColumnName]);
+            // Hybrid is requested
+            case QueryType.Hybrid: return new HybridQueryBuilder(_connectionHandle, _tableHandle)
+                .Vector(vector)
+                .SelectColumns([vectorColumnName]);
+            // FTS is requested - but we don't support embeddings currently
+            case QueryType.Fts: throw new Exception("Cannot use FTS with a vector query unless an embedding system is provided. These aren't supported in C# yet.");
+            // Auto - we'd try and guess, but "vector" is the only one that makes sense right now
+            default: return new VectorQueryBuilder(_connectionHandle, _tableHandle)
+                .WithVectorData(ArrayHelpers.CastVectorList(vector))
+                .SelectColumns([vectorColumnName]);
+        }
     }
 
     public ILanceQueryBuilder Search<T>(Vector<T> vector, string vectorColumnName, QueryType queryType = QueryType.Auto) where T : struct, IEquatable<T>, IFormattable
     {
-        return new VectorQueryBuilder(_connectionHandle, _tableHandle,
-                0, null, false, [vectorColumnName])
-            .Vector(vector);
+        switch (queryType)
+        {
+            case QueryType.Vector: return new VectorQueryBuilder(_connectionHandle, _tableHandle)
+                .WithVectorData(ArrayHelpers.CastVectorList(vector.ToList()))
+                .SelectColumns([vectorColumnName]);
+            case QueryType.Hybrid: return new HybridQueryBuilder(_connectionHandle, _tableHandle)
+                .WithVectorData(ArrayHelpers.CastVectorList(vector.ToList()))
+                .SelectColumns([vectorColumnName]);
+            // FTS is requested - but we don't support embeddings currently
+            case QueryType.Fts: throw new Exception("Cannot use FTS with a vector query unless an embedding system is provided. These aren't supported in C# yet.");
+            // Auto - we'd try and guess, but "vector" is the only one that makes sense right now
+            default: return new VectorQueryBuilder(_connectionHandle, _tableHandle)
+                .WithVectorData(ArrayHelpers.CastVectorList(vector.ToList()))
+                .SelectColumns([vectorColumnName]);
+        }
     }
 
     public ILanceQueryBuilder Search<T>(Matrix<T> vector, string vectorColumnName, QueryType queryType = QueryType.Auto) where T : struct, IEquatable<T>, IFormattable
     {
-        return new VectorQueryBuilder(_connectionHandle, _tableHandle,
-                0, null, false, [vectorColumnName])
-            .Vector(vector);
+        switch (queryType)
+        {
+            case QueryType.Vector: return new QueryBuilder(_connectionHandle, _tableHandle)
+                .Vector(vector)
+                .SelectColumns([vectorColumnName]);
+            case QueryType.Hybrid: return new QueryBuilder(_connectionHandle, _tableHandle)
+                .Vector(vector)
+                .SelectColumns([vectorColumnName]);
+            // FTS is requested - but we don't support embeddings currently
+            case QueryType.Fts: throw new Exception("Cannot use FTS with a vector query unless an embedding system is provided. These aren't supported in C# yet.");
+            // Auto - we'd try and guess, but "vector" is the only one that makes sense right now
+            default: return new QueryBuilder(_connectionHandle, _tableHandle)
+                .Vector(vector)
+                .SelectColumns([vectorColumnName]);
+        }
     }
 
     public bool IsOpen { get; private set; }
@@ -419,7 +463,7 @@ public partial class Table : ITable, IDisposable
         if (!IsOpen) throw new Exception("Table is not open.");
         var indices = new List<IndexConfig>();
         Exception? exception = null;
-        Ffi.list_indices(_connectionHandle, _tableHandle, (name, type, columns, columnCount) =>
+        Ffi.list_indices(_connectionHandle, _tableHandle, (name, type, columns, _) =>
         {
             indices.Add(new IndexConfig
             {
@@ -487,7 +531,7 @@ public partial class Table : ITable, IDisposable
     /// Adds rows to the table in RecordBatch format.
     /// </summary>
     /// <param name="data">The record batch to add.</param>
-    /// <param name="mode">Append or overrwrite</param>
+    /// <param name="mode">Append or overwrite</param>
     /// <param name="badVectorHandling">Not implemented yet.</param>
     /// <param name="fillValue">Not Implemented yet.</param>
     /// <exception cref="ArgumentNullException">Data must be provided</exception>

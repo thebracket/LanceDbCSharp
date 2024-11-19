@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
-using LanceDbInterface;
 using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;

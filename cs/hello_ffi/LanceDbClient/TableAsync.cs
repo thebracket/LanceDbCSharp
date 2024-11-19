@@ -5,7 +5,7 @@ using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;
 
-public partial class Table : ITable, IDisposable
+public sealed partial class Table
 {
     public Task<int> CountRowsAsync(string? filter = null, CancellationToken token = default)
     {

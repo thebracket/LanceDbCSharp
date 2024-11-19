@@ -1,10 +1,9 @@
-using System.Runtime.InteropServices;
 using Apache.Arrow;
 using LanceDbInterface;
 
 namespace LanceDbClient;
 
-public partial class Connection : IConnection
+public sealed partial class Connection
 {
     public Task<IEnumerable<string>> TableNamesAsync(CancellationToken cancellationToken = default)
     {

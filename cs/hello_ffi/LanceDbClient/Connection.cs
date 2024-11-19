@@ -4,7 +4,7 @@ using LanceDbInterface;
 
 namespace LanceDbClient;
 
-public partial class Connection : IConnection
+public sealed partial class Connection : IConnection
 {
     // <summary>
     // Creates a new connection to the database.
@@ -131,7 +131,7 @@ public partial class Connection : IConnection
     /// </summary>
     /// <param name="name">Table name to drop</param>
     /// <param name="ignoreMissing">Do not throw an exception if the table does not exist</param>
-    /// <exception cref="Exception">If the connection is unavailable, or the table doesn't exist and you didn't specify ignoreMissing.</exception>
+    /// <exception cref="Exception">If the connection is unavailable, or the table doesn't exist, and you didn't specify ignoreMissing.</exception>
     public void DropTable(string name, bool ignoreMissing = false)
     {
         if (!IsOpen) throw new Exception("Connection is not open");
@@ -222,8 +222,8 @@ public partial class Connection : IConnection
         // Suppress finalization.
         GC.SuppressFinalize(this);
     }
-    
-    protected virtual void Dispose(bool disposing)
+
+    private void Dispose(bool disposing)
     {
         if (!IsOpen)
         {

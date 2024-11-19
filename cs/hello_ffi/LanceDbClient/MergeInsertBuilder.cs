@@ -8,9 +8,9 @@ public partial class MergeInsertBuilder : ILanceMergeInsertBuilder
     private readonly long _connectionId;
     private readonly long _tableId;
     private readonly List<string> _columns;
-    private string? _where = null;
-    private bool _whenNotMatchedInsertAll = false;
-    private string? _whenNotMatchedBySourceDelete = null;
+    private string? _where;
+    private bool _whenNotMatchedInsertAll;
+    private string? _whenNotMatchedBySourceDelete;
     private readonly Schema _schema;
 
     internal MergeInsertBuilder(long connectionId, long tableId, IEnumerable<string> columns, Schema schema)
