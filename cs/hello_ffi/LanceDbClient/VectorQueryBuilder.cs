@@ -6,16 +6,16 @@ namespace LanceDbClient;
 
 public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
 {
-    private ArrayHelpers.VectorDataImpl _vectorData;
-    private Metric _metric;
-    private int _nProbes;
-    private int _refineFactor;
+    protected ArrayHelpers.VectorDataImpl? VectorData = null;
+    protected Metric DistanceMetric;
+    protected int NumProbes;
+    protected int RefinementFactor;
 
     internal VectorQueryBuilder(long connectionId, long tableId) : base(connectionId, tableId)
     {
-        _metric = LanceDbInterface.Metric.L2;
-        _nProbes = 1;
-        _refineFactor = 1;
+        DistanceMetric = LanceDbInterface.Metric.L2;
+        NumProbes = 1;
+        RefinementFactor = 1;
     }
     
     internal VectorQueryBuilder(QueryBuilder parent) : base(parent.ConnectionId, parent.TableId)
@@ -25,63 +25,37 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
         WithRowIdent = parent.WithRowIdent;
         SelectColumnsList = parent.SelectColumnsList;
         FullTextSearch = parent.FullTextSearch;
+        Reranker = parent.Reranker;
         
         // Defaults
-        _metric = LanceDbInterface.Metric.L2;
-        _nProbes = 1;
-        _refineFactor = 1;
+        DistanceMetric = LanceDbInterface.Metric.L2;
+        NumProbes = 1;
+        RefinementFactor = 1;
     }
     
     internal VectorQueryBuilder WithVectorData(ArrayHelpers.VectorDataImpl vectorData)
     {
         return new VectorQueryBuilder(this)
         {
-            _vectorData = vectorData
+            VectorData = vectorData
         };
     }
     
-    /*internal VectorQueryBuilder(long connectionId, long tableId, VectorDataImpl vectorData,
-        ulong limit, string? whereClause, bool withRowId, List<string> selectColumns) 
-        : base(connectionId, tableId)
-    {
-        _vectorData = vectorData;
-        _limit = limit;
-        _whereClause = whereClause;
-        _withRowId = withRowId;
-        _selectColumns = selectColumns;
-        _metric = LanceDbInterface.Metric.L2;
-        _nProbes = 1;
-        _refineFactor = 1;
-    }
-    
-    internal VectorQueryBuilder(long connectionId, long tableId,
-        ulong limit, string? whereClause, bool withRowId, List<string> selectColumns) 
-        : base(connectionId, tableId)
-    {
-        _limit = limit;
-        _whereClause = whereClause;
-        _withRowId = withRowId;
-        _selectColumns = selectColumns;
-        _metric = LanceDbInterface.Metric.L2;
-        _nProbes = 1;
-        _refineFactor = 1;
-    }*/
-    
     public ILanceVectorQueryBuilder Metric(Metric metric = LanceDbInterface.Metric.L2)
     {
-        _metric = metric;
+        DistanceMetric = metric;
         return this;
     }
 
     public ILanceVectorQueryBuilder NProbes(int nProbes)
     {
-        _nProbes = nProbes;
+        NumProbes = nProbes;
         return this;
     }
-
+    
     public ILanceVectorQueryBuilder RefineFactor(int refineFactor)
     {
-        _refineFactor = refineFactor;
+        RefinementFactor = refineFactor;
         return this;
     }
     
@@ -93,10 +67,14 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
     /// <exception cref="Exception">If the call fails.</exception>
     public override unsafe string ExplainPlan(bool verbose = false)
     {
+        if (VectorData == null)
+        {
+            throw new Exception("VectorData must be set before calling ToBatches");
+        }
         Exception? exception = null;
         string? result = null;
 
-        fixed (byte* b = _vectorData.Data)
+        fixed (byte* b = VectorData.Data)
         {
             Ffi.explain_vector_query(
                 ConnectionId,
@@ -115,13 +93,13 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
                 (message) => { result = message; },
                 SelectColumnsList.ToArray(),
                 (ulong)SelectColumnsList.Count,
-                (uint)_vectorData.DataType,
+                (uint)VectorData.DataType,
                 b,
-                (ulong)_vectorData.Data.Length,
-                _vectorData.Length,
-                (uint)_metric,
-                (ulong)_nProbes,
-                (uint)_refineFactor
+                (ulong)VectorData.Data.Length,
+                VectorData.Length,
+                (uint)DistanceMetric,
+                (ulong)NumProbes,
+                (uint)RefinementFactor
             );
         }
 
@@ -137,6 +115,10 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
     /// <exception cref="Exception">If the query fails</exception>
     public override unsafe IEnumerable<RecordBatch> ToBatches(int batchSize)
     {
+        if (VectorData == null)
+        {
+            throw new Exception("VectorData must be set before calling ToBatches");
+        }
         var result = new List<RecordBatch>();
         Exception? exception = null;
         
@@ -146,7 +128,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
             selectColumns = SelectColumnsList.ToArray();
         }
 
-        fixed (byte* b = _vectorData.Data)
+        fixed (byte* b = VectorData.Data)
         {
 
             Ffi.vector_query(ConnectionId, TableId, (bytes, len) =>
@@ -164,8 +146,8 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
                         exception = new Exception("Failed to compact files: " + message);
                     }
                 }, LimitCount, WhereSql, WithRowIdent, selectColumns!, (ulong)SelectColumnsList.Count,
-                (uint)_vectorData.DataType, b, (ulong)_vectorData.Data.Length, _vectorData.Length,
-                (uint)_metric, (ulong)_nProbes, (uint)_refineFactor, (uint)batchSize);
+                (uint)VectorData.DataType, b, (ulong)VectorData.Data.Length, VectorData.Length,
+                (uint)DistanceMetric, (ulong)NumProbes, (uint)RefinementFactor, (uint)batchSize);
         }
 
         if (exception != null) throw exception;

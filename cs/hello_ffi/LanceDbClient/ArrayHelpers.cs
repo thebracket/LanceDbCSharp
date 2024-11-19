@@ -242,7 +242,7 @@ public static class ArrayHelpers
         ArrowArray = 4,
     }
 
-    public struct VectorDataImpl
+    public class VectorDataImpl
     {
         public byte[] Data;
         public ulong Length;
@@ -292,5 +292,75 @@ public static class ArrayHelpers
         }
         
         throw new Exception("Unsupported type: " + typeof(T) + ". Supported types are Half, float, double, and Apache.Arrow.Array.");
+    }
+
+    internal static IList<RecordBatch> ArrowTableToRecordBatch(Apache.Arrow.Table data)
+    {
+        // Extract the schema from the table
+        Schema schema = data.Schema;
+
+        // Create a RecordBatch from the table
+        var arrays = new List<IArrowArray>();
+        for (int i = 0; i < data.ColumnCount; i++)
+        {
+            var chunkedArray = data.Column(i).Data;
+            var count = chunkedArray.ArrayCount; 
+            for (int n = 0; n < count; n++)
+            {
+                var array = chunkedArray.ArrowArray(n);
+                arrays.Add(array);
+            }
+        }
+        var recordBatch = new RecordBatch(schema, arrays, (int)data.RowCount);
+        var recordBatches = new List<RecordBatch> { recordBatch };
+        return recordBatches;
+    }
+    
+    internal static List<IArrowArray> ArrowTableToArrays(Apache.Arrow.Table table)
+    {
+        var arrays = new List<IArrowArray>();
+
+        for (var i=0; i<table.ColumnCount; i++)
+        {
+            var column = table.Column(i);
+            for (var j=0; j<column.Data.ArrayCount; j++)
+            {
+                arrays.Add(column.Data.Array(j));
+            }
+        }
+
+        return arrays;
+    }
+    
+    internal static Apache.Arrow.Table ConcatTables(IList<Apache.Arrow.Table> tables)
+    {
+        if (tables == null || tables.Count == 0)
+        {
+            throw new ArgumentException("Concat requires input of at least one table.");
+        }
+        else if (tables.Count == 1)
+        {
+            return tables[0];
+        }
+
+        var schema = tables[0].Schema;
+        for (int i = 1; i < tables.Count; i++)
+        {
+            if (!tables[i].Schema.Equals(schema))
+            {
+                throw new ArgumentException("Cannot concatenate tables with different schemas.");
+            }
+        }
+
+        List<RecordBatch> combinedRecordBatches = new List<RecordBatch>();
+
+        foreach (var table in tables)
+        {
+            combinedRecordBatches.AddRange(ArrowTableToRecordBatch(table));
+        }
+
+        var concatenatedTable = Apache.Arrow.Table.TableFromRecordBatches(schema, combinedRecordBatches);
+
+        return concatenatedTable;
     }
 }

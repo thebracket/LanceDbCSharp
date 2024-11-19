@@ -1,41 +1,39 @@
+using Apache.Arrow;
 using LanceDbInterface;
 
 namespace LanceDbClient;
 
-public class HybridQueryBuilder : QueryBuilder, ILanceQueryBuilder
+public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
 {
-    private Metric _metric;
-    private int _nProbes;
-    private int _refineFactor;
-    private ArrayHelpers.VectorDataImpl _vectorData;
-    
     internal HybridQueryBuilder(long connectionId, long tableId) : base(connectionId, tableId)
     {
         // Defaults
-        _metric = LanceDbInterface.Metric.L2;
-        _nProbes = 1;
-        _refineFactor = 1;
+        DistanceMetric = LanceDbInterface.Metric.L2;
+        NumProbes = 1;
+        RefinementFactor = 1;
     }
-    
-    internal HybridQueryBuilder(QueryBuilder parent) : base(parent.ConnectionId, parent.TableId)
+
+    public override IEnumerable<RecordBatch> ToBatches(int batchSize)
     {
-        LimitCount = parent.LimitCount;
-        WhereSql = parent.WhereSql;
-        WithRowIdent = parent.WithRowIdent;
-        SelectColumnsList = parent.SelectColumnsList;
-        FullTextSearch = parent.FullTextSearch;
-        
-        // Defaults
-        _metric = LanceDbInterface.Metric.L2;
-        _nProbes = 1;
-        _refineFactor = 1;
-    }
-    
-    internal HybridQueryBuilder WithVectorData(ArrayHelpers.VectorDataImpl vectorData)
-    {
-        return new HybridQueryBuilder(this)
+        // A Hybrid query runs both a vector and a full-text query. We have to make sure that both are set.
+        if (FullTextSearch == null || VectorData == null)
         {
-            _vectorData = vectorData
-        };
+            throw new Exception("FullTextSearch and VectorData must be set before calling ToBatches");
+        }
+        if (Reranker == null)
+        {
+            throw new Exception("Reranker must be set before calling ToBatches");
+        }
+        
+        // Run the vector query and FTS query
+        var vectorQuery = new VectorQueryBuilder(this).WithVectorData(VectorData).ToArrow();
+        var ftsQuery = new QueryBuilder(ConnectionId, TableId).Text(FullTextSearch).ToArrow();
+        
+        // Perform the re-ranking
+        var reranked = Reranker.RerankHybrid(FullTextSearch, vectorQuery, ftsQuery);
+        
+        // Convert reranked into a RecordBatch
+        var batches = ArrayHelpers.ArrowTableToRecordBatch(reranked);
+        return batches;
     }
 }

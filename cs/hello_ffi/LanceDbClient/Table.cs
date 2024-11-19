@@ -570,23 +570,6 @@ public sealed partial class Table : ITable
     public void Add(Apache.Arrow.Table data, WriteMode mode = WriteMode.Append, BadVectorHandling badVectorHandling = BadVectorHandling.Error,
         float fillValue = 0)
     {
-        // Extract the schema from the table
-        Schema schema = data.Schema;
-
-        // Create a RecordBatch from the table
-        var arrays = new List<IArrowArray>();
-        for (int i = 0; i < data.ColumnCount; i++)
-        {
-            var chunkedArray = data.Column(i).Data;
-            var count = chunkedArray.ArrayCount; 
-            for (int n = 0; n < count; n++)
-            {
-                var array = chunkedArray.ArrowArray(n);
-                arrays.Add(array);
-            }
-        }
-        var recordBatch = new RecordBatch(schema, arrays, (int)data.RowCount);
-        var recordBatches = new List<RecordBatch> { recordBatch };
-        Add(recordBatches);
+        Add(ArrayHelpers.ArrowTableToRecordBatch(data), mode, badVectorHandling, fillValue);
     }
 }

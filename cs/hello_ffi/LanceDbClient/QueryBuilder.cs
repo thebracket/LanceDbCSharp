@@ -14,6 +14,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     protected internal bool WithRowIdent;
     protected internal List<string> SelectColumnsList;
     protected internal string? FullTextSearch;
+    protected internal IReranker? Reranker;
 
     internal QueryBuilder(long connectionId, long tableId)
     {
@@ -24,6 +25,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
         WithRowIdent = false;
         SelectColumnsList = [];
         FullTextSearch = null;
+        Reranker = null;
     }
     
     /// <summary>
