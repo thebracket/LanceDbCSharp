@@ -4,6 +4,7 @@ using System.Collections;
 using Apache.Arrow;
 using Apache.Arrow.Types;
 using System.Collections.Generic;
+using ApiTestbed;
 using LanceDbClient;
 using LanceDbInterface;
 using Array = Apache.Arrow.Array;
@@ -18,7 +19,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
 
     // We create an empty table
     var table1 = cnn.CreateTable("table1", GetSchema());
-    var table2 = cnn.CreateTable("table2", GetSchema());
+    var table2 = cnn.CreateTable("table2", Helpers.GetSchema());
     System.Console.WriteLine("Tables Created: " + table1 + ", " + table2);
     // So its now expected to see 2 tables
     ListTables(cnn);
@@ -41,12 +42,12 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     Console.WriteLine(queryBuilder.Limit(3).ExplainPlan());
     //var result = queryBuilder.Limit(3).WhereClause("id > 0").WithRowId(true).ToList();
 
-    List<float> vector = new List<float>();
+    List<float> vector1 = new List<float>();
     for (int i = 0; i < Dimension; i++)
     {
-        vector.Add(0.3f);
+        vector1.Add(0.3f);
     }   
-    var result = ((VectorQueryBuilder)queryBuilder.Vector(vector)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(3).WithRowId(true).ToList();
+    var result = ((VectorQueryBuilder)queryBuilder.Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(3).WithRowId(true).ToList();
     
     foreach (var row in result)
     {
@@ -62,7 +63,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
         Console.WriteLine();
     }
     
-    var resultTable = queryBuilder.Vector(vector).Limit(3).WithRowId(true).ToArrow();
+    var resultTable = queryBuilder.Vector(vector1).Limit(3).WithRowId(true).ToArrow();
     for (int i = 0; i < resultTable.ColumnCount; i++)
     {
         var column = resultTable.Column(i);
@@ -101,6 +102,36 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     System.Console.WriteLine("Table 2 Opened: " + table2Opened);
     System.Console.WriteLine("Table 2 row count (expect 0): " + table2Opened.CountRows());
 
+    // Let's add some data
+    var recordBatch = Helpers.CreateSampleRecordBatch(
+        Helpers.GetSchema(), 4096, 8
+    );
+    table2.Add([recordBatch]);
+    
+    // Let's do a quick full-text search
+    Console.WriteLine("Searching for '12'");
+    table2.CreateFtsIndex(["id"], ["id"]);
+    var search = table2.Search().Text("'12'").ToList();
+    PrintDictList(search);
+    
+    // Let's do a quick vector search
+    var vector = new List<float>
+    {
+        12, 12.125f, 12.25f, 12.375f, 12.5f, 12.625f, 12.75f, 12.875f,
+    };
+    Console.WriteLine("Searching for vector: " + vector);
+    var vectorSearch = table2.Search().Vector(vector).Metric(Metric.Cosine).ToList();
+    PrintDictList(vectorSearch);
+    
+    // Reranking simplest case
+    Console.WriteLine("Reranking '12' and '7' with the simplest merge rerank");
+    IReranker rrf = new RRFReranker();
+    var arrow1 = table2.Search().Text("'12'").WithRowId(true).ToArrow();
+    var arrow2 = table2.Search().Text("'7'").WithRowId(true).ToArrow();
+    var merged = rrf.MergeResults(arrow1, arrow2);
+    var mergedTable = ArrayHelpers.ArrowTableToListOfDicts(merged);
+    PrintDictList(mergedTable);
+    
     // Now we'll drop table2
     cnn.DropTable("table2");
     System.Console.WriteLine("Table 2 Dropped");
@@ -169,6 +200,11 @@ IEnumerable<RecordBatch> GetBatches(int numEntries)
     float[] randomFloatArray = new float[Dimension * numEntries];
     float step = 0f;
     int dimensionIndex = 0;
+    // generate array like this:
+    // 0.01, 0.01, ..... 0.01,
+    // 0.02, 0.02, ..... 0.02,
+    // and so on...
+    // until we have filled up the array with numEntries * Dimension floats.
     for (int i = 0; i < randomFloatArray.Length; i++)
     {
         if (dimensionIndex == Dimension)
@@ -203,12 +239,38 @@ IEnumerable<RecordBatch> GetBatches(int numEntries)
     return batches;
 }
 
-FloatArray GetFloatArray(float value)
+void PrintDictList(IEnumerable<IDictionary<string, object>> enumerable)
 {
-    var builder = new FloatArray.Builder();
-    for (int i = 0; i < Dimension; i++)
+    foreach (var row in enumerable)
     {
-        builder.Append(value);
+        // Print out each key and value
+        foreach (var keyValuePair in row)
+        {
+            Console.Write(keyValuePair.Key + ": ");
+            if (keyValuePair.Value is IList<float> inner)
+            {
+                Console.Write("[");
+                foreach (var item in inner)
+                {
+                    Console.Write(item + ", ");
+                }
+
+                Console.WriteLine("]");
+            }
+            else if (keyValuePair.Value is IList<ulong> innerLong)
+            {
+                Console.Write("[");
+                foreach (var item in innerLong)
+                {
+                    Console.Write(item + ", ");
+                }
+
+                Console.WriteLine("]");
+            }
+            else
+            {
+                Console.WriteLine(keyValuePair.Value);
+            }
+        }
     }
-    return builder.Build();
 }

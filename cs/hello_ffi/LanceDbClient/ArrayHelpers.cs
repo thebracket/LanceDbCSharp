@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Data.Common;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -10,7 +11,7 @@ namespace LanceDbClient;
 
 public static class ArrayHelpers
 {
-    private static object GetValue<T>(Array array)
+    private static object GetValue<T>(Array array, long rowCount)
         where T: struct, IEquatable<T>
     {
         var length = array.Length;
@@ -27,38 +28,44 @@ public static class ArrayHelpers
             if (value == null) continue;
             val.Add(value.Value);
         }
-        return val;
+
+        if (length == 1) return val;
+        
+        // Set the chunk size to equal the number of elements in the array divided by rowCount
+        var chunkSize = (int)(length / rowCount);
+        var chunks = new ArrayList { val.Chunk(chunkSize) };
+        return chunks;
     }
     
-    public static object ArrowArrayDataToConcrete(object array, int depth=0)
+    public static object ArrowArrayDataToConcrete(object array, int depth=0, long rowCount=1)
     {
         object val;
         switch (array)
         {
-            case Int32Array intArray: val = GetValue<int>(intArray); break;
-            case FloatArray floatArray: val = GetValue<float>(floatArray); break;
-            case DoubleArray doubleArray: val = GetValue<double>(doubleArray); break;
+            case Int32Array intArray: val = GetValue<int>(intArray, rowCount); break;
+            case FloatArray floatArray: val = GetValue<float>(floatArray, rowCount); break;
+            case DoubleArray doubleArray: val = GetValue<double>(doubleArray, rowCount); break;
             case StringArray stringArray:
                 val = stringArray.GetString(0); // Returns as string
                 break;
-            case BooleanArray boolArray: val = GetValue<bool>(boolArray); break;
-            case Int8Array int8Array: val = GetValue<sbyte>(int8Array); break;
-            case Int16Array int16Array: val = GetValue<short>(int16Array); break;
-            case Int64Array int64Array: val = GetValue<long>(int64Array); break;
-            case UInt8Array uint8Array: val = GetValue<byte>(uint8Array); break;
-            case UInt16Array uint16Array: val = GetValue<ushort>(uint16Array); break;
-            case UInt32Array uint32Array: val = GetValue<uint>(uint32Array); break;
-            case UInt64Array uint64Array: val = GetValue<ulong>(uint64Array); break;
-            case Date32Array date32Array: val = GetValue<int>(date32Array); break;
-            case Date64Array date64Array: val = GetValue<long>(date64Array); break;
-            case TimestampArray timestampArray: val = GetValue<long>(timestampArray); break;
-            case Time32Array time32Array: val = GetValue<int>(time32Array); break;
-            case Time64Array time64Array: val = GetValue<long>(time64Array); break;
-            case Decimal128Array decimal128Array: val = GetValue<decimal>(decimal128Array); break;
-            case Decimal256Array decimal256Array: val = GetValue<decimal>(decimal256Array); break;
+            case BooleanArray boolArray: val = GetValue<bool>(boolArray, rowCount); break;
+            case Int8Array int8Array: val = GetValue<sbyte>(int8Array, rowCount); break;
+            case Int16Array int16Array: val = GetValue<short>(int16Array, rowCount); break;
+            case Int64Array int64Array: val = GetValue<long>(int64Array, rowCount); break;
+            case UInt8Array uint8Array: val = GetValue<byte>(uint8Array, rowCount); break;
+            case UInt16Array uint16Array: val = GetValue<ushort>(uint16Array, rowCount); break;
+            case UInt32Array uint32Array: val = GetValue<uint>(uint32Array, rowCount); break;
+            case UInt64Array uint64Array: val = GetValue<ulong>(uint64Array, rowCount); break;
+            case Date32Array date32Array: val = GetValue<int>(date32Array, rowCount); break;
+            case Date64Array date64Array: val = GetValue<long>(date64Array, rowCount); break;
+            case TimestampArray timestampArray: val = GetValue<long>(timestampArray, rowCount); break;
+            case Time32Array time32Array: val = GetValue<int>(time32Array, rowCount); break;
+            case Time64Array time64Array: val = GetValue<long>(time64Array, rowCount); break;
+            case Decimal128Array decimal128Array: val = GetValue<decimal>(decimal128Array, rowCount); break;
+            case Decimal256Array decimal256Array: val = GetValue<decimal>(decimal256Array, rowCount); break;
             case ListArray listArray:
                 if (depth > 1) throw new NotSupportedException("List depth > 1 is not supported.");
-                val = ArrowArrayDataToConcrete(listArray.Values, depth + 1); // Returns as Apache.Arrow.Array
+                val = ArrowArrayDataToConcrete(listArray.Values, depth + 1, rowCount); // Returns as Apache.Arrow.Array
                 break;
             
             case BinaryArray binaryArray:
@@ -76,7 +83,7 @@ public static class ArrayHelpers
             // We have to repeat on the fixed size array type - it contains an inner array
             case FixedSizeListArray fixedSizeListArray:
                 if (depth > 1) throw new NotSupportedException("Fixed size list depth > 1 is not supported.");
-                val = ArrowArrayDataToConcrete(fixedSizeListArray.Values, depth+1); // Returns as Apache.Arrow.Array
+                val = ArrowArrayDataToConcrete(fixedSizeListArray.Values, depth+1, rowCount); // Returns as Apache.Arrow.Array
                 break;
             default:
                 throw new NotSupportedException($"Array type {array.GetType()} is not supported.");
@@ -344,13 +351,7 @@ public static class ArrayHelpers
         }
 
         var schema = tables[0].Schema;
-        for (int i = 1; i < tables.Count; i++)
-        {
-            if (!tables[i].Schema.Equals(schema))
-            {
-                throw new ArgumentException("Cannot concatenate tables with different schemas.");
-            }
-        }
+        // TODO: Equals isn't implemented on Schema, so a deep comparison is required
 
         List<RecordBatch> combinedRecordBatches = new List<RecordBatch>();
 
@@ -362,5 +363,46 @@ public static class ArrayHelpers
         var concatenatedTable = Apache.Arrow.Table.TableFromRecordBatches(schema, combinedRecordBatches);
 
         return concatenatedTable;
+    }
+
+    public static IEnumerable<IDictionary<string, object>> ArrowTableToListOfDicts(Apache.Arrow.Table table)
+    {
+        var result = new List<IDictionary<string, object>>();
+        
+        // Pre-fill the list with empty dictionaries
+        for (var i = 0; i < table.RowCount; i++)
+        {
+            result.Add(new Dictionary<string, object>());
+        }
+        
+        for (var j = 0; j < table.ColumnCount; j++)
+        {
+            var column = table.Column(j);
+            for (var colIdx = 0 ; colIdx < column.Data.ArrayCount; colIdx++)
+            {
+                var raw = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.Array(colIdx), rowCount:(int)table.RowCount);
+                if (raw is ArrayList chunked)
+                {
+                    if (chunked[0] is IEnumerable inner)
+                    {
+                        var rowIdx = 0;
+                        foreach(var row in inner)
+                        {
+                            result[rowIdx][column.Name] = row;
+                            rowIdx++;
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception("Unexpected chunked data");
+                    }
+                }
+                else
+                {
+                    result[colIdx][column.Name] = raw;
+                }
+            }
+        }
+        return result;
     }
 }

@@ -10,10 +10,10 @@ namespace LanceDbInterface
         ILanceQueryBuilder WhereClause(string whereClause, bool prefilter = false);
         ILanceQueryBuilder WithRowId(bool withRowId);
         string ExplainPlan(bool verbose = false);
-        ILanceQueryBuilder Vector<T>(List<T> vector);
+        ILanceVectorQueryBuilder Vector<T>(List<T> vector);
         
-        ILanceQueryBuilder Vector<T>(Vector<T> vector) where T : struct, IEquatable<T>, IFormattable;
-        ILanceQueryBuilder Vector<T>(Matrix<T> vector) where T : struct, IEquatable<T>, IFormattable;
+        ILanceVectorQueryBuilder Vector<T>(Vector<T> vector) where T : struct, IEquatable<T>, IFormattable;
+        ILanceVectorQueryBuilder Vector<T>(Matrix<T> vector) where T : struct, IEquatable<T>, IFormattable;
         
         ILanceQueryBuilder Text(string text);
         ILanceQueryBuilder Rerank(IReranker reranker);

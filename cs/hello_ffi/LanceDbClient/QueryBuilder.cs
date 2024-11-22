@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Runtime.InteropServices;
 using Apache.Arrow;
 using LanceDbInterface;
@@ -112,7 +113,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <param name="vector">A list of either f16 (half), f32, f64</param>
     /// <typeparam name="T">Half, f16 or f32</typeparam>
     /// <returns>A VectorQueryBuilder</returns>
-    public ILanceQueryBuilder Vector<T>(List<T> vector)
+    public ILanceVectorQueryBuilder Vector<T>(List<T> vector)
     {
         var vectorData = ArrayHelpers.CastVectorList(vector);
         return new VectorQueryBuilder(this)
@@ -125,7 +126,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <param name="vector">A vector of either f16 (half), f32, f64</param>
     /// <typeparam name="T">Half, f16 or f32</typeparam>
     /// <returns>A VectorQueryBuilder</returns>
-    public ILanceQueryBuilder Vector<T>(Vector<T> vector) where T : struct, IEquatable<T>, IFormattable
+    public ILanceVectorQueryBuilder Vector<T>(Vector<T> vector) where T : struct, IEquatable<T>, IFormattable
     {
         var vectorData = ArrayHelpers.CastVectorList(vector.ToList());
         return new VectorQueryBuilder(this)
@@ -138,7 +139,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <param name="vector">A matrix of either f16 (half), f32, f64</param>
     /// <typeparam name="T">Half, f16 or f32</typeparam>
     /// <returns>A VectorQueryBuilder</returns>
-    public ILanceQueryBuilder Vector<T>(Matrix<T> vector) where T : struct, IEquatable<T>, IFormattable
+    public ILanceVectorQueryBuilder Vector<T>(Matrix<T> vector) where T : struct, IEquatable<T>, IFormattable
     {
         // Is column-major the correct choice?
         var asArray = vector.ToColumnMajorArray();
@@ -165,7 +166,9 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <returns>The updated query builder</returns>
     public virtual ILanceQueryBuilder Rerank(IReranker reranker)
     {
-        throw new NotImplementedException();
+        WithRowIdent = true; // All the re-rankers seem to use this
+        Reranker = reranker;
+        return this;
     }
 
     /// <summary>
@@ -190,24 +193,9 @@ public partial class QueryBuilder : ILanceQueryBuilder
         // then morphing into a PyList.
         // TODO: I'm not 100% sure about this?
         var table = ToArrow();
-        var result = new List<IDictionary<string, object>>();
-        
-        for (var i = 0; i < table.RowCount; i++)
-        {
-            var row = new Dictionary<string, object>();
-            for (var j = 0; j < table.ColumnCount; j++)
-            {
-                var column = table.Column(j);
-                if (column.Data.ArrayCount > 0)
-                {
-                    row[column.Name] = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.Array(0));
-                }
-            }
-            result.Add(row);
-        }
-        return result;
+        return ArrayHelpers.ArrowTableToListOfDicts(table);
     }
-    
+
     /// <summary>
     /// Perform the query and return the results as a list of RecordBatch objects.
     /// </summary>
