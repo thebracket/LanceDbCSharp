@@ -8,6 +8,7 @@ using ApiTestbed;
 using LanceDbClient;
 using LanceDbInterface;
 using Array = Apache.Arrow.Array;
+using Table = Apache.Arrow.Table;
 
 const int Dimension = 128;
 
@@ -24,7 +25,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     // So its now expected to see 2 tables
     ListTables(cnn);
 
-    int numEntries = 3;
+    int numEntries = 5;
     System.Console.WriteLine($"{numEntries} records added.");
     table1.Add(GetBatches(numEntries));
     System.Console.WriteLine($"Table 1 row count (expect {numEntries}): {table1.CountRows()}" );
@@ -38,52 +39,33 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     table1.CreateIndex("vector", Metric.Cosine, 256, 16);
     table1.CreateScalarIndex("id");
 
+    var indexes = table1.ListIndices();
+    foreach (var index in indexes)
+    {
+        var statistics = table1.GetIndexStatistics(index.Name);
+        Console.WriteLine($"Index: {index.Name}, Type: {index.IndexType}, Statistics: {statistics}");
+    }
+    
     var queryBuilder = table1.Search();
     Console.WriteLine(queryBuilder.Limit(3).ExplainPlan());
-    //var result = queryBuilder.Limit(3).WhereClause("id > 0").WithRowId(true).ToList();
+
+    table1.CreateFtsIndex(["text"], ["text"]);
+    var resultWithWhere = queryBuilder.Limit(2).WhereClause("id < 4").WithRowId(true).ToList();
+    
+    PrintResults(resultWithWhere);
 
     List<float> vector1 = new List<float>();
     for (int i = 0; i < Dimension; i++)
     {
         vector1.Add(0.3f);
-    }   
-    var result = ((VectorQueryBuilder)queryBuilder.Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(3).WithRowId(true).ToList();
-    
-    foreach (var row in result)
-    {
-        foreach (string key in row.Keys)
-        {
-            Console.Write($"{key}:");
-            foreach (var item in (IList)row[key])
-            {
-                Console.Write(item + " "); // Prints each integer in the list
-            }
-            Console.WriteLine();    
-        }
-        Console.WriteLine();
     }
-    
-    var resultTable = queryBuilder.Vector(vector1).Limit(3).WithRowId(true).ToArrow();
-    for (int i = 0; i < resultTable.ColumnCount; i++)
-    {
-        var column = resultTable.Column(i);
-        Console.WriteLine($"Column {i}: {column.Name} {column.Type.Name}");
-        for (int j = 0; j < column.Data.ArrayCount; j++)
-        {
-            Console.WriteLine($"size: {column.Data.ArrayCount}");
-            // it seems it usually has only 1 element in this ChunkedArray
-            var array = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.ArrowArray(j));
-            // Cast the object to List<int> or List<type>
-            IList typedList = (IList)array;
 
-            // You can now access the elements as a list of integers
-            foreach (var item in typedList)
-            {
-                Console.Write(item + " "); // Prints each integer in the list
-            }
-            Console.WriteLine();
-        }
-    }
+    var result = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(3).WithRowId(true).ToList();
+    
+    PrintResults(result);
+    
+    var resultTable = table1.Search().Vector(vector1).Limit(3).WithRowId(true).ToArrow();
+    PrintTable(resultTable);
 
     System.Console.WriteLine($"Rows before delete: {table1.CountRows()}");
     table1.Delete("id < 100");
@@ -179,9 +161,11 @@ Schema GetSchema()
 
     // Define the "vector" field (FixedSizeList, nullable)
     var vectorField = new Field("vector", vectorType, nullable: true);
+    
+    var textField = new Field("text", StringType.Default, nullable: false);
 
     // Create the schema with the "id" and "vector" fields
-    var fields = new List<Field> { idField, vectorField };
+    var fields = new List<Field> { idField, textField, vectorField };
     
     // Since metadata is required, but we don't have any, pass an empty dictionary
     var metadata = new Dictionary<string, string>();
@@ -196,6 +180,14 @@ IEnumerable<RecordBatch> GetBatches(int numEntries)
     
     var idArray = new Int32Array.Builder().AppendRange(Enumerable.Range(1, numEntries)).Build();
 
+    var textBuilder = new StringArray.Builder();
+    string[] stringValues = new string[5] { "orange", "apple", "pear", "peach", "avocado" };
+    for (int i = 0; i < numEntries; i++)
+    {
+        textBuilder.Append(stringValues[i%5]);
+    }
+    var textArray = textBuilder.Build();
+    
     Random random = new Random();
     float[] randomFloatArray = new float[Dimension * numEntries];
     float step = 0f;
@@ -233,7 +225,7 @@ IEnumerable<RecordBatch> GetBatches(int numEntries)
     );
     var fixedSizeListArray = new FixedSizeListArray(listArrayData);
 
-    RecordBatch recordBatch = new RecordBatch(GetSchema(), new IArrowArray[] {idArray, fixedSizeListArray},  idArray.Length);
+    RecordBatch recordBatch = new RecordBatch(GetSchema(), new IArrowArray[] {idArray, textArray, fixedSizeListArray},  idArray.Length);
     RecordBatch[] batches = new[] { recordBatch };
 
     return batches;
@@ -273,4 +265,61 @@ void PrintDictList(IEnumerable<IDictionary<string, object>> enumerable)
             }
         }
     }
+}
+
+void PrintResults(IEnumerable<IDictionary<string, object>> result)
+{
+    foreach (var row in result)
+    {   
+        foreach (string key in row.Keys)
+        {
+            Console.Write($"{key}:");
+            if (row[key] is IList)
+            {
+                foreach (var item in (IList)row[key])
+                {
+                    Console.Write(item + " "); // Prints each integer in the list
+                }
+            }
+            else
+            {
+                Console.Write(row[key] + " ");
+            }
+            Console.WriteLine();    
+        }
+        Console.WriteLine();
+    }
+}
+
+void PrintTable(Table table)
+{
+    for (int i = 0; i < table.ColumnCount; i++)
+    {
+        var column = table.Column(i);
+        Console.WriteLine($"Column {i}: {column.Name} {column.Type.Name}");
+        for (int j = 0; j < column.Data.ArrayCount; j++)
+        {
+            Console.WriteLine($"size: {column.Data.ArrayCount}");
+            // it seems it usually has only 1 element in this ChunkedArray
+            // the intention of ChunkedArray seems for scalability,
+            // however, if we try to merge all chunks into one, will it break the scalability? unless now it is a single field so it doesn't matter?
+            var array = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.ArrowArray(j));
+            // Cast the object to List<int> or List<type>
+
+            var list = array as IList;
+            if (list != null)
+            {
+                foreach (var item in list)
+                {
+                    Console.Write(item + " "); // Prints each integer in the list
+                }
+            }
+            else
+            {
+                Console.Write(array + " ");
+            }
+            Console.WriteLine();
+        }
+    }
+
 }
