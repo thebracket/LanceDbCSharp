@@ -46,7 +46,22 @@ public static class ArrayHelpers
             case FloatArray floatArray: val = GetValue<float>(floatArray, rowCount); break;
             case DoubleArray doubleArray: val = GetValue<double>(doubleArray, rowCount); break;
             case StringArray stringArray:
-                val = stringArray.GetString(0); // Returns as string
+                var stringList = new List<string>();
+                for (var k = 0; k < stringArray.Length; k++)
+                {
+                    stringList.Add(stringArray.GetString(k));
+                }
+
+                if (stringList.Count == 1)
+                {
+                    val = stringList;
+                }
+                else
+                {
+                    var chunkSize = (int)(stringList.Count / rowCount);
+                    var chunks = new ArrayList { stringList.Chunk(chunkSize) };
+                    val = chunks;
+                }
                 break;
             case BooleanArray boolArray: val = GetValue<bool>(boolArray, rowCount); break;
             case Int8Array int8Array: val = GetValue<sbyte>(int8Array, rowCount); break;

@@ -259,6 +259,15 @@ void PrintDictList(IEnumerable<IDictionary<string, object>> enumerable)
 
                 Console.WriteLine("]");
             }
+            else if (keyValuePair.Value is IList<string> innerString)
+            {
+                Console.Write("[");
+                foreach (var item in innerString)
+                {
+                    Console.Write("\"" + item + "\", ");
+                }
+                Console.WriteLine("]");
+            }
             else
             {
                 Console.WriteLine(keyValuePair.Value);
