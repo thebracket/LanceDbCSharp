@@ -34,13 +34,13 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
         Helpers.GetSchema(), 4096, 8
     );
     await table2.AddAsync([recordBatch]);
-    System.Console.WriteLine("Table 2 row count (expect 4096): " + await table2Opened.CountRowsAsync());
+    System.Console.WriteLine("Table 2 row count (expect 4096): " + await table2.CountRowsAsync());
     
     // Let's do a quick full-text search
     Console.WriteLine("Searching for '12'");
     await table2.CreateFtsIndexAsync(["id"], ["id"]);
     await table2.OptimizeAsync();
-    var search = table2.Search().Text("'12'").ToList();
+    var search = await table2.Search().Text("'12'").ToListAsync();
     PrintDictList(search);
     
     // Let's do a quick vector search
@@ -49,7 +49,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
         12, 12.125f, 12.25f, 12.375f, 12.5f, 12.625f, 12.75f, 12.875f,
     };
     Console.WriteLine("Searching for vector: " + vector);
-    var vectorSearch = table2.Search().Vector(vector).Metric(Metric.Cosine).ToList();
+    var vectorSearch = await table2.Search().Vector(vector).Metric(Metric.Cosine).Limit(4).ToListAsync();
     PrintDictList(vectorSearch);
     
     // Reranking simplest case
@@ -63,10 +63,10 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     
     // Reranking with RRF
     Console.WriteLine("Reranking '12' with RRF");
-    var testRrf = table2.Search(vector, "vector", queryType: QueryType.Hybrid)
+    var testRrf = await table2.Search(vector, "vector", queryType: QueryType.Hybrid)
         .Text("'12'")
         .Rerank(new RrfReranker())
-        .ToList();
+        .ToListAsync();
     PrintDictList(testRrf);
     
     // Now we'll drop table2
