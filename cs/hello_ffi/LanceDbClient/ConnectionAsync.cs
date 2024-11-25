@@ -13,7 +13,33 @@ public sealed partial class Connection
 
     public Task<ITable> CreateTableAsync(string name, Schema schema, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        var tcs = new TaskCompletionSource<ITable>();
+        
+        var schemaBytes = Ffi.SerializeSchemaOnly(schema);
+        
+        Ffi.ResultCallback callback = (code, message) =>
+        {
+            if (code < 0)
+            {
+                tcs.SetException(new Exception(message));
+            }
+            else
+            {
+                tcs.SetResult(new Table(name, code, _connectionId, schema));
+            }
+        };
+        
+        Task.Run(() =>
+        {
+            unsafe
+            {
+                fixed (byte* p = schemaBytes)
+                {
+                    Ffi.create_empty_table(name, _connectionId, p, (ulong)schemaBytes.Length, callback);
+                }
+            }
+        });
+        return tcs.Task;
     }
 
     public Task<ITable> OpenTableAsync(string name, CancellationToken cancellationToken = default)

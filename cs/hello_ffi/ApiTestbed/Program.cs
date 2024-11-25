@@ -14,9 +14,9 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     ListTables(cnn);
 
     // We create an empty table
-    var table1 = cnn.CreateTable("table1", GetSchema());
-    var table2 = cnn.CreateTable("table2", Helpers.GetSchema());
-    System.Console.WriteLine("Tables Created: " + table1 + ", " + table2);
+    var table1 = await cnn.CreateTableAsync("table1", GetSchema());
+    var table2 = await cnn.CreateTableAsync("table2", Helpers.GetSchema());
+    System.Console.WriteLine("Tables Created (Asynchronously): " + table1 + ", " + table2);
     // So it's now expected to see 2 tables
     ListTables(cnn);
     
