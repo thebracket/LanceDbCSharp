@@ -8,7 +8,28 @@ public sealed partial class Connection
 {
     public Task<IEnumerable<string>> TableNamesAsync(CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        var tcs = new TaskCompletionSource<IEnumerable<string>>();
+        var strings = new List<string>();
+        Ffi.ResultCallback callback = (code, message) =>
+        {
+            if (code < 0)
+            {
+                tcs.SetException(new Exception(message));
+            }
+            else
+            {
+                tcs.SetResult(strings);
+            }
+        };
+        Ffi.StringCallback stringCallback = (s) =>
+        {
+            strings.Add(s);
+        };
+        Task.Run(() =>
+        {
+            Ffi.list_table_names(_connectionId, stringCallback, callback);
+        }, cancellationToken);
+        return tcs.Task;
     }
 
     public Task<ITable> CreateTableAsync(string name, Schema schema, CancellationToken cancellationToken = default)

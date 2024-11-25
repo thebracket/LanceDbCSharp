@@ -11,14 +11,14 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
 {
     System.Console.WriteLine("Connection Opened. There should be 0 tables.");
     // It's expected that the database is empty
-    ListTables(cnn);
+    await ListTables(cnn);
 
     // We create an empty table
     var table1 = await cnn.CreateTableAsync("table1", GetSchema());
     var table2 = await cnn.CreateTableAsync("table2", Helpers.GetSchema());
     System.Console.WriteLine("Tables Created (Asynchronously): " + table1 + ", " + table2);
     // So it's now expected to see 2 tables
-    ListTables(cnn);
+    await ListTables(cnn);
     
     // Now we'll drop table1
     await cnn.DropTableAsync("table1");
@@ -70,7 +70,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     // Now we'll drop table2
     await cnn.DropTableAsync("table2");
     System.Console.WriteLine("Table 2 Dropped (Asynchronously)");
-    ListTables(cnn);
+    await ListTables(cnn);
     
     // Now we'll drop the database
     //await cnn.DropDatabaseAsync();
@@ -81,10 +81,10 @@ System.Console.WriteLine("Complete");
 
 // Helper functions
 
-void ListTables(Connection cnn)
+async Task ListTables(Connection cnn)
 {
     System.Console.Write("Tables: ");
-    var tables = cnn.TableNames();
+    var tables = await cnn.TableNamesAsync();
     var count = 0;
     foreach (var table in tables)
     {
