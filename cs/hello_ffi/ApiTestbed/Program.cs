@@ -115,12 +115,20 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     
     // Reranking simplest case
     Console.WriteLine("Reranking '12' and '7' with the simplest merge rerank");
-    IReranker rrf = new RRFReranker();
+    IReranker rrf = new RrfReranker();
     var arrow1 = table2.Search().Text("'12'").WithRowId(true).ToArrow();
     var arrow2 = table2.Search().Text("'7'").WithRowId(true).ToArrow();
     var merged = rrf.MergeResults(arrow1, arrow2);
     var mergedTable = ArrayHelpers.ArrowTableToListOfDicts(merged);
     PrintDictList(mergedTable);
+    
+    // Reranking with RRF
+    Console.WriteLine("Reranking '12' with RRF");
+    var testRrf = table2.Search(vector, "vector", queryType: QueryType.Hybrid)
+        .Text("'12'")
+        .Rerank(new RrfReranker())
+        .ToList();
+    PrintDictList(testRrf);
     
     // Now we'll drop table2
     cnn.DropTable("table2");

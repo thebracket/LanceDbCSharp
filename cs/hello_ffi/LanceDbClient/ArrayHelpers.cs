@@ -338,22 +338,6 @@ public static class ArrayHelpers
         return recordBatches;
     }
     
-    internal static List<IArrowArray> ArrowTableToArrays(Apache.Arrow.Table table)
-    {
-        var arrays = new List<IArrowArray>();
-
-        for (var i=0; i<table.ColumnCount; i++)
-        {
-            var column = table.Column(i);
-            for (var j=0; j<column.Data.ArrayCount; j++)
-            {
-                arrays.Add(column.Data.Array(j));
-            }
-        }
-
-        return arrays;
-    }
-    
     internal static Apache.Arrow.Table ConcatTables(IList<Apache.Arrow.Table> tables)
     {
         if (tables == null || tables.Count == 0)
@@ -420,4 +404,152 @@ public static class ArrayHelpers
         }
         return result;
     }
+    
+    internal static List<String>? ArrowTableStringColumnToList(Apache.Arrow.Table table, string name)
+    {
+        for (var i = 0; i < table.ColumnCount; i++)
+        {
+            var col = table.Column(i);
+            if (col.Name == name)
+            {
+                // We found it
+                var result = new List<String>();
+                for (var j = 0; j < col.Data.ArrayCount; j++)
+                {
+                    var array = col.Data.Array(j);
+                    if (array is StringArray stringArray)
+                    {
+                        for (var k = 0; k < stringArray.Length; k++)
+                        {
+                            result.Add(stringArray.GetString(k));
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception("Column " + name + " is not a string column.");
+                    }
+                }
+                return result;
+            }
+        }
+
+        return null;
+    }
+    
+    internal static bool TableContainsColumn(Apache.Arrow.Table table, string name)
+    {
+        for (var i = 0; i < table.ColumnCount; i++)
+        {
+            if (table.Column(i).Name == name)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+    
+    internal static Apache.Arrow.Table DropColumns(Apache.Arrow.Table table, List<string> columns)
+    {
+        foreach (var column in columns)
+        {
+            for (var i = 0; i < table.ColumnCount; i++)
+            {
+                if (table.Column(i).Name == column)
+                {
+                    table = table.RemoveColumn(i);
+                    break;
+                }
+            }
+        }
+
+        return table;
+    }
+    
+    internal static Apache.Arrow.Table AppendFloatColumn(Apache.Arrow.Table table, string name, List<float> values, IArrowType type)
+    {
+        // Validate
+        if (values == null || values.Count != table.RowCount)
+        {
+            throw new ArgumentException("Values list is null or does not match the row count of the table.");
+        }
+        if (type.TypeId != ArrowTypeId.Float)
+        {
+            throw new ArgumentException("Type provided is not a FloatType.");
+        }
+
+        // Build the array
+        var builder = new FloatArray.Builder();
+        foreach (var value in values)
+        {
+            builder.Append(value);
+        }
+        var floatArray = builder.Build();
+
+        // Build the column
+        var field = new Field(name, type, false, null);
+        var column = new Column(field, [(IArrowArray)floatArray]);
+        table.InsertColumn(table.ColumnCount, column);
+        
+        // Modify the schema to add the column
+        var fieldIndex = table.Schema.FieldsList.Count;
+        table.Schema.InsertField(fieldIndex, field);
+        
+        return table;
+    }
+    
+    internal static Apache.Arrow.Table SortBy(Apache.Arrow.Table table, string column, bool descending)
+    {
+        // Find the column
+        if (!TableContainsColumn(table, column))
+        {
+            throw new ArgumentException("Column " + column + " not found in the table.");
+        }
+        
+        // Extract the column. This gives us an array of arrays.
+        var native = ArrowTableToListOfDicts(table).ToList();
+        var targetColumn = native.Select(row => row[column]).ToList();
+        // Transform IList<Object> to IList<(Object, int)>. The (int) should be the enumerator.
+        var withIndex = new List<(object, int)>();
+        for (var i = 0; i < targetColumn.Count; i++)
+        {
+            withIndex.Add((targetColumn[i], i));
+        }
+        // Sort withIndex by the object
+        withIndex.Sort((a, b) =>
+        {
+            if (a.Item1 is IComparable comparableA && b.Item1 is IComparable comparableB)
+            {
+                return descending ? comparableB.CompareTo(comparableA) : comparableA.CompareTo(comparableB);
+            }
+            throw new ArgumentException("Column " + column + " is not comparable.");
+        });
+        // Extract just the index from withIndex
+        var sortedIndices = withIndex.Select(x => x.Item2).ToList();
+        // If descending, reverse the list
+        if (descending)
+        {
+            sortedIndices.Reverse();
+        }
+        
+        // Reorder the table
+        var reordered = new List<IDictionary<string, object>>();
+        foreach (var index in sortedIndices)
+        {
+            reordered.Add(native[index]);
+        }
+        
+        // Convert back to Arrow Table
+        var schema = table.Schema;
+        var listOfDicts = new List<IDictionary<string, object>>();
+        // Populate listOfDicts
+
+        var convertedList = listOfDicts
+            .Select(dict => dict.ToDictionary(entry => entry.Key, entry => entry.Value))
+            .ToList();
+
+        var result = ConcreteToArrowTable(convertedList, schema);
+        return Apache.Arrow.Table.TableFromRecordBatches(table.Schema, result);
+    }
+
 }
