@@ -27,17 +27,18 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     // Now we'll open table2
     var table2Opened = await cnn.OpenTableAsync("table2");
     System.Console.WriteLine("Table 2 Opened (Async): " + table2Opened);
-    System.Console.WriteLine("Table 2 row count (expect 0): " + table2Opened.CountRows());
+    System.Console.WriteLine("Table 2 row count (expect 0): " + await table2Opened.CountRowsAsync());
 
     // Let's add some data
     var recordBatch = Helpers.CreateSampleRecordBatch(
         Helpers.GetSchema(), 4096, 8
     );
     table2.Add([recordBatch]);
+    System.Console.WriteLine("Table 2 row count (expect 4096): " + await table2Opened.CountRowsAsync());
     
     // Let's do a quick full-text search
     Console.WriteLine("Searching for '12'");
-    table2.CreateFtsIndex(["id"], ["id"]);
+    await table2.CreateFtsIndexAsync(["id"], ["id"]);
     var search = table2.Search().Text("'12'").ToList();
     PrintDictList(search);
     
