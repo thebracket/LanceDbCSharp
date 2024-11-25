@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Apache.Arrow;
 using LanceDbInterface;
 
@@ -17,8 +18,35 @@ public sealed partial class Connection
 
     public Task<ITable> OpenTableAsync(string name, CancellationToken cancellationToken = default)
     {
-        
-        throw new NotImplementedException();
+        var tcs = new TaskCompletionSource<ITable>();
+
+        unsafe
+        {
+            Schema? schema = null;
+            Ffi.ResultCallback callback = (code, message) =>
+            {
+                if (code < 0)
+                {
+                    tcs.SetException(new Exception(message));
+                }
+                else
+                {
+                    tcs.SetResult(new Table(name, code, _connectionId, schema));
+                }
+            };
+            Task.Run(() =>
+            {
+                Ffi.BlobCallback schemaBlob = (bytes, len) =>
+                {
+                    // Convert byte pointer and length to byte[]
+                    var schemaBytes = new byte[len];
+                    Marshal.Copy((IntPtr)bytes, schemaBytes, 0, (int)len);
+                    schema = Ffi.DeserializeSchema(schemaBytes);
+                };
+                Ffi.open_table(name, _connectionId, schemaBlob, callback);
+            });
+            return tcs.Task;
+        }
     }
 
     public Task DropTableAsync(string name, bool ignoreMissing = false, CancellationToken cancellationToken = default)

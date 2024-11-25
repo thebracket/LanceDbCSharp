@@ -25,8 +25,8 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     System.Console.WriteLine("Table 1 Dropped (Asynchronously)");
     
     // Now we'll open table2
-    var table2Opened = cnn.OpenTable("table2");
-    System.Console.WriteLine("Table 2 Opened: " + table2Opened);
+    var table2Opened = await cnn.OpenTableAsync("table2");
+    System.Console.WriteLine("Table 2 Opened (Async): " + table2Opened);
     System.Console.WriteLine("Table 2 row count (expect 0): " + table2Opened.CountRows());
 
     // Let's add some data
