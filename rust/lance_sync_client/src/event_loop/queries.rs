@@ -12,6 +12,7 @@ use lancedb::DistanceType;
 use std::ffi::c_char;
 use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
+use tokio::task::spawn_blocking;
 
 // Vector search data type. Holds types that accept implement VectorQuery
 #[derive(Debug)]
@@ -187,7 +188,9 @@ pub(crate) async fn do_query(
                         ).await;
                         return;
                     };
-                    batch_callback(bytes.as_ptr(), bytes.len() as u64);
+                    spawn_blocking(move || {
+                        batch_callback(bytes.as_ptr(), bytes.len() as u64);
+                    }).await.unwrap();
                 }
             }
 
@@ -315,7 +318,9 @@ pub(crate) async fn do_vector_query(
                         ).await;
                         return;
                     };
-                    batch_callback(bytes.as_ptr(), bytes.len() as u64);
+                    spawn_blocking(move || {
+                        batch_callback(bytes.as_ptr(), bytes.len() as u64);
+                    }).await.unwrap();
                 }
             }
 
