@@ -49,21 +49,29 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     var queryBuilder = table1.Search();
     Console.WriteLine(queryBuilder.Limit(3).ExplainPlan());
 
-    table1.CreateFtsIndex(["text"], ["text"]);
+    System.Console.WriteLine("======  Search id < 4================================");
     var resultWithWhere = queryBuilder.Limit(2).WhereClause("id < 4").WithRowId(true).ToList();
-    
     PrintResults(resultWithWhere);
-
+    
+    table1.CreateFtsIndex(["text"], ["text"]);
+    System.Console.WriteLine("======  Search Text(apple)================================");
+    PrintResults(table1.Search().Text("apple").Limit(5).ToList());
+    
     List<float> vector1 = new List<float>();
     for (int i = 0; i < Dimension; i++)
     {
         vector1.Add(0.3f);
     }
 
-    var result = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(3).WithRowId(true).ToList();
+    System.Console.WriteLine("======  Search vector 0.3....Return List===============================");
+    var resultList = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(3).WithRowId(true).ToList();
+    PrintResults(resultList);
     
-    PrintResults(result);
-    
+    System.Console.WriteLine("======  Search vector 0.3....Return Batches===============================");
+    var resultBatches = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(3).WithRowId(true).ToBatches(2);
+    PrintBatches(resultBatches);
+
+    System.Console.WriteLine("======  Search vector 0.3...., return Table===============================");
     var resultTable = table1.Search().Vector(vector1).Limit(3).WithRowId(true).ToArrow();
     PrintTable(resultTable);
 
@@ -213,7 +221,6 @@ IEnumerable<RecordBatch> GetBatches(int numEntries)
         .AppendRange(randomFloatArray)
         .Build();
     ArrayData arrayData = new ArrayData(FloatType.Default, Dimension * numEntries, 0, 0, new [] {ArrowBuffer.Empty, floatBuffer});
-    var floatArray = new FloatArray(arrayData);
     
     var listArrayData = new ArrayData(
         new FixedSizeListType(new Field("item", FloatType.Default, nullable: true), Dimension),
@@ -221,7 +228,7 @@ IEnumerable<RecordBatch> GetBatches(int numEntries)
         nullCount: 0,
         offset: 0,
         buffers: new[] { ArrowBuffer.Empty },
-        children: new[] { floatArray.Data }
+        children: new[] { arrayData }
     );
     var fixedSizeListArray = new FixedSizeListArray(listArrayData);
 
@@ -330,5 +337,56 @@ void PrintTable(Table table)
             Console.WriteLine();
         }
     }
-
 }
+
+void PrintBatches(IEnumerable<RecordBatch> recordBatches)
+{
+    foreach (var batch in recordBatches)
+    {
+        for (int i = 0; i < batch.Length; i++)
+        {
+            for (int j = 0; j < batch.ColumnCount; j++)
+            {
+                var column = batch.Column(j);
+                var field = batch.Schema.FieldsList[j];
+                Console.Write(field.Name + ": ");
+                Console.WriteLine(field.DataType.GetType());
+
+                if (column.Data.DataType.TypeId == ArrowTypeId.FixedSizeList)
+                {
+                    var fixedSizeListArray = (FixedSizeListArray)column;
+                    int k = 0;
+                    foreach (var value in (IEnumerable)(fixedSizeListArray.Values))
+                    {
+                        Console.Write(value + " ");
+                        k++;
+                        if (k == fixedSizeListArray.Values.Length / fixedSizeListArray.Length)
+                        {
+                            Console.WriteLine("total elements:" + k);
+                            k = 0;
+                            Console.WriteLine();
+                        }
+                    }
+
+                }
+                else
+                {
+                    foreach (var x in (IEnumerable)column)
+                    {
+                        Console.WriteLine(x);
+                    }
+                }
+
+                // var array = ArrayHelpers.ArrowArrayDataToConcrete(column);
+                // foreach (var item in (IList)array)
+                // {
+                //     foreach (var y in (IEnumerable)item)
+                //         Console.Write(y + " ");
+                // }
+                Console.WriteLine();
+            }
+            Console.WriteLine();
+        }
+    }
+}
+
