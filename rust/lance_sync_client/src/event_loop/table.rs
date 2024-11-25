@@ -24,23 +24,26 @@ pub(crate) async fn do_count_rows(
     completion_sender: CompletionSender,
 ) {
     if let Some(_cnn) = get_connection(connections.clone(), connection_handle).await {
-        if let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await {
-            match table.count_rows(filter).await {
-                Ok(count) => {
-                    report_result(Ok(count as i64), reply_tx, Some(completion_sender));
-                    return;
-                }
-                Err(e) => {
-                    let err = format!("Error counting rows: {:?}", e);
-                    report_result(Err(err), reply_tx, Some(completion_sender));
-                    return;
-                }
+        let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
+            let err = format!("Table not found: {table_handle:?}");
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
+            return;
+        };
+        match table.count_rows(filter).await {
+            Ok(count) => {
+                report_result(Ok(count as i64), reply_tx, Some(completion_sender)).await;
+                return;
+            }
+            Err(e) => {
+                let err = format!("Error counting rows: {:?}", e);
+                report_result(Err(err), reply_tx, Some(completion_sender)).await;
+                return;
             }
         }
     } else {
         eprintln!("Connection handle {} not found.", connection_handle.0);
+        report_result(Err("Connection not found".to_string()), reply_tx, Some(completion_sender)).await;
     }
-    completion_sender.send(()).unwrap();
 }
 
 pub(crate) async fn do_add_record_batch(
@@ -56,7 +59,7 @@ pub(crate) async fn do_add_record_batch(
 ) {
     let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
-        report_result(Err(err), reply_tx, Some(completion_sender));
+        report_result(Err(err), reply_tx, Some(completion_sender)).await;
         return;
     };
 
@@ -68,7 +71,7 @@ pub(crate) async fn do_add_record_batch(
             Err("Error getting table schema".to_string()),
             reply_tx,
             Some(completion_sender),
-        );
+        ).await;
         return;
     };
     let batch = RecordBatchIterator::new(batch, schema);
@@ -76,11 +79,11 @@ pub(crate) async fn do_add_record_batch(
 
     match result {
         Ok(_) => {
-            report_result(Ok(0), reply_tx, Some(completion_sender));
+            report_result(Ok(0), reply_tx, Some(completion_sender)).await;
         }
         Err(e) => {
             let err = format!("Error adding record batch: {:?}", e);
-            report_result(Err(err), reply_tx, Some(completion_sender));
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
         }
     }
 }
@@ -95,16 +98,16 @@ pub(crate) async fn do_delete_rows(
 ) {
     let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
-        report_result(Err(err), reply_tx, Some(completion_sender));
+        report_result(Err(err), reply_tx, Some(completion_sender)).await;
         return;
     };
     match table.delete(&where_clause).await {
         Ok(_) => {
-            report_result(Ok(0), reply_tx, Some(completion_sender));
+            report_result(Ok(0), reply_tx, Some(completion_sender)).await;
         }
         Err(e) => {
             let err = format!("Error deleting rows: {:?}", e);
-            report_result(Err(err), reply_tx, Some(completion_sender));
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
         }
     }
 }
@@ -119,35 +122,37 @@ pub(crate) async fn do_crate_scalar_index(
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
 ) {
-    if let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await {
-        let build_command = match index_type {
-            ScalarIndexType::BTree => {
-                let builder = BTreeIndexBuilder::default();
-                table.create_index(&[column_name], Index::BTree(builder))
-            }
-            ScalarIndexType::Bitmap => {
-                let builder = BitmapIndexBuilder::default();
-                table.create_index(&[column_name], Index::Bitmap(builder))
-            }
-            ScalarIndexType::LabelList => {
-                let builder = LabelListIndexBuilder::default();
-                table.create_index(&[column_name], Index::LabelList(builder))
-            }
-        };
+    let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
+        let err = format!("Table not found: {table_handle:?}");
+        report_result(Err(err), reply_tx, Some(completion_sender)).await;
+        return;
+    };
+    let build_command = match index_type {
+        ScalarIndexType::BTree => {
+            let builder = BTreeIndexBuilder::default();
+            table.create_index(&[column_name], Index::BTree(builder))
+        }
+        ScalarIndexType::Bitmap => {
+            let builder = BitmapIndexBuilder::default();
+            table.create_index(&[column_name], Index::Bitmap(builder))
+        }
+        ScalarIndexType::LabelList => {
+            let builder = LabelListIndexBuilder::default();
+            table.create_index(&[column_name], Index::LabelList(builder))
+        }
+    };
 
-        match build_command.replace(replace).execute().await {
-            Ok(_) => {
-                report_result(Ok(0), reply_tx, Some(completion_sender));
-                return;
-            }
-            Err(e) => {
-                let err = format!("Error creating index: {:?}", e);
-                report_result(Err(err), reply_tx, Some(completion_sender));
-                return;
-            }
+    match build_command.replace(replace).execute().await {
+        Ok(_) => {
+            report_result(Ok(0), reply_tx, Some(completion_sender)).await;
+            return;
+        }
+        Err(e) => {
+            let err = format!("Error creating index: {:?}", e);
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
+            return;
         }
     }
-    completion_sender.send(()).unwrap();
 }
 
 pub(crate) async fn do_create_index(
@@ -164,7 +169,7 @@ pub(crate) async fn do_create_index(
 ) {
     let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
-        report_result(Err(err), reply_tx, Some(completion_sender));
+        report_result(Err(err), reply_tx, Some(completion_sender)).await;
         return;
     };
 
@@ -178,12 +183,12 @@ pub(crate) async fn do_create_index(
 
     match build_command.replace(replace).execute().await {
         Ok(_) => {
-            report_result(Ok(0), reply_tx, Some(completion_sender));
+            report_result(Ok(0), reply_tx, Some(completion_sender)).await;
             return;
         }
         Err(e) => {
             let err = format!("Error creating index: {:?}", e);
-            report_result(Err(err), reply_tx, Some(completion_sender));
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
             return;
         }
     }
@@ -203,7 +208,7 @@ pub(crate) async fn do_add_fts_index(
     //TODO: Where are the other options? OrderingColumns, tantivvy, etc.?
     let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
-        report_result(Err(err), reply_tx, Some(completion_sender));
+        report_result(Err(err), reply_tx, Some(completion_sender)).await;
         return;
     };
 
@@ -225,11 +230,11 @@ pub(crate) async fn do_add_fts_index(
 
     match index_builder.execute().await {
         Ok(_) => {
-            report_result(Ok(0), reply_tx, Some(completion_sender));
+            report_result(Ok(0), reply_tx, Some(completion_sender)).await;
         }
         Err(e) => {
             let err = format!("Error creating FTS index: {:?}", e);
-            report_result(Err(err), reply_tx, Some(completion_sender));
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
         }
     }
 }
@@ -243,31 +248,33 @@ pub(crate) async fn do_optimize_table(
     compaction_callback: extern "C" fn(u64, u64, u64, u64),
     prune_callback: extern "C" fn(u64, u64),
 ) {
-    if let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await {
-        match table.optimize(OptimizeAction::All).await {
-            Ok(stats) => {
-                if let Some(stats) = stats.compaction {
-                    compaction_callback(
-                        stats.files_added as u64,
-                        stats.files_removed as u64,
-                        stats.fragments_added as u64,
-                        stats.fragments_removed as u64,
-                    );
-                }
-                if let Some(stats) = stats.prune {
-                    prune_callback(stats.bytes_removed, stats.old_versions);
-                }
-                report_result(Ok(0), reply_tx, Some(completion_sender));
-                return;
+    let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
+        let err = format!("Table not found: {table_handle:?}");
+        report_result(Err(err), reply_tx, Some(completion_sender)).await;
+        return;
+    };
+    match table.optimize(OptimizeAction::All).await {
+        Ok(stats) => {
+            if let Some(stats) = stats.compaction {
+                compaction_callback(
+                    stats.files_added as u64,
+                    stats.files_removed as u64,
+                    stats.fragments_added as u64,
+                    stats.fragments_removed as u64,
+                );
             }
-            Err(e) => {
-                let err = format!("Error compacting files: {:?}", e);
-                report_result(Err(err), reply_tx, Some(completion_sender));
-                return;
+            if let Some(stats) = stats.prune {
+                prune_callback(stats.bytes_removed, stats.old_versions);
             }
+            report_result(Ok(0), reply_tx, Some(completion_sender)).await;
+            return;
+        }
+        Err(e) => {
+            let err = format!("Error compacting files: {:?}", e);
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
+            return;
         }
     }
-    completion_sender.send(()).unwrap();
 }
 
 pub(crate) async fn do_update(
@@ -282,7 +289,7 @@ pub(crate) async fn do_update(
 ) {
     let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
-        report_result(Err(err), reply_tx, Some(completion_sender));
+        report_result(Err(err), reply_tx, Some(completion_sender)).await;
         return;
     };
 
@@ -300,14 +307,14 @@ pub(crate) async fn do_update(
             }
             Err(e) => {
                 let err = format!("Error updating table: {:?}", e);
-                report_result(Err(err), reply_tx, Some(completion_sender));
+                report_result(Err(err), reply_tx, Some(completion_sender)).await;
                 return;
             }
         }
     }
 
     // Indicate that it is done
-    completion_sender.send(()).unwrap();
+    completion_sender.send((0, String::new())).unwrap();
 }
 
 pub(crate) async fn do_list_table_indices(
@@ -320,7 +327,7 @@ pub(crate) async fn do_list_table_indices(
 ) {
     let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
-        report_result(Err(err), reply_tx, Some(completion_sender));
+        report_result(Err(err), reply_tx, Some(completion_sender)).await;
         return;
     };
 
@@ -329,7 +336,7 @@ pub(crate) async fn do_list_table_indices(
             Err("Error listing table indices".to_string()),
             reply_tx,
             Some(completion_sender),
-        );
+        ).await;
         return;
     };
 
@@ -349,7 +356,7 @@ pub(crate) async fn do_list_table_indices(
 
 
     // Indicate that it is done
-    completion_sender.send(()).unwrap();
+    completion_sender.send((0, String::new())).unwrap();
 }
 
 pub(crate) async fn do_get_index_stats(
@@ -364,7 +371,7 @@ pub(crate) async fn do_get_index_stats(
 ) {
     let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
-        report_result(Err(err), reply_tx, Some(completion_sender));
+        report_result(Err(err), reply_tx, Some(completion_sender)).await;
         return;
     };
 
@@ -373,7 +380,7 @@ pub(crate) async fn do_get_index_stats(
             Err("Error getting index stats".to_string()),
             reply_tx,
             Some(completion_sender),
-        );
+        ).await;
         return;
     };
     if let Some(stats) = stats {
@@ -400,5 +407,5 @@ pub(crate) async fn do_get_index_stats(
     }
 
     // Indicate that it is done
-    completion_sender.send(()).unwrap();
+    completion_sender.send((0, String::new())).unwrap();
 }

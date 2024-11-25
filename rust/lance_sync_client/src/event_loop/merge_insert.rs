@@ -23,7 +23,7 @@ pub(crate) async fn do_merge_insert_with_record_batch(
 ) -> Result<()> {
     let Some(table) = get_table(table_actor.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
-        report_result(Err(err), reply_tx, Some(completion_sender));
+        report_result(Err(err), reply_tx, Some(completion_sender)).await;
         return Ok(());
     };
     let columns = columns.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
@@ -43,7 +43,7 @@ pub(crate) async fn do_merge_insert_with_record_batch(
     let batch = Box::new(RecordBatchIterator::new(batch, schema));
     merge_insert_builder.execute(batch).await?;
 
-    report_result(Ok(0), reply_tx, Some(completion_sender));
+    report_result(Ok(0), reply_tx, Some(completion_sender)).await;
 
     Ok(())
 }

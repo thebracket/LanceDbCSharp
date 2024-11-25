@@ -5,6 +5,7 @@ use arrow_schema::SchemaRef;
 use lancedb::Table;
 use std::collections::HashMap;
 use tokio::sync::mpsc::Sender;
+use tokio::task::spawn_blocking;
 
 /// Strongly typed table handle (to disambiguate from the other handles).
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -74,7 +75,7 @@ impl TableActor {
                                 Err("Error getting connection".to_string()),
                                 reply_sender,
                                 Some(completion_sender),
-                            );
+                            ).await;
                             continue;
                         };
                         let table = cnn.create_empty_table(&name, schema.into()).execute().await;
@@ -83,14 +84,14 @@ impl TableActor {
                                 let new_id = next_id;
                                 next_id += 1;
                                 tables.insert((connection_handle, TableHandle(new_id)), t);
-                                report_result(Ok(new_id), reply_sender, Some(completion_sender));
+                                report_result(Ok(new_id), reply_sender, Some(completion_sender)).await;
                             }
                             Err(e) => {
                                 report_result(
                                     Err(format!("Error creating table: {e:?}")),
                                     reply_sender,
                                     Some(completion_sender),
-                                );
+                                ).await;
                             }
                         }
                     }
@@ -112,6 +113,7 @@ impl TableActor {
                         reply_sender,
                         schema_callback,
                     } => {
+                        println!("Getting table by name: {name}");
                         let Some(cnn) =
                             get_connection(connections.clone(), connection_handle).await
                         else {
@@ -119,18 +121,24 @@ impl TableActor {
                             continue;
                         };
                         let table = cnn.open_table(&name).execute().await;
+                        println!("Got table by name: {name}");
                         match table {
                             Ok(t) => {
                                 if let Some(cb) = schema_callback {
                                     let schema = t.schema().await.unwrap();
                                     let schema_bytes = schema_to_bytes(&schema);
-                                    cb(schema_bytes.as_ptr(), schema_bytes.len() as u64);
+                                    println!("Sending the schema");
+                                    let _ = spawn_blocking(move || {
+                                        cb(schema_bytes.as_ptr(), schema_bytes.len() as u64);
+                                    }).await;
+                                    println!("Sent the schema");
                                 }
 
                                 let new_id = next_id;
                                 next_id += 1;
                                 tables.insert((connection_handle, TableHandle(new_id)), t);
 
+                                println!("Replying with table handle");
                                 let _ = reply_sender.send(Ok(TableHandle(new_id)));
                             }
                             Err(e) => {
@@ -154,20 +162,21 @@ impl TableActor {
                                 Err("Error getting connection".to_string()),
                                 reply_sender,
                                 Some(completion_sender),
-                            );
+                            ).await;
                             continue;
                         };
                         let result = cnn.drop_table(&name).await;
+                        println!("Dropped table: {name}, {result:?}");
                         match result {
                             Ok(_) => {
-                                report_result(Ok(0), reply_sender, Some(completion_sender));
+                                report_result(Ok(0), reply_sender, Some(completion_sender)).await;
                             }
                             Err(e) => {
                                 if ignore_missing {
-                                    report_result(Ok(0), reply_sender, Some(completion_sender));
+                                    report_result(Ok(0), reply_sender, Some(completion_sender)).await;
                                 } else {
                                     let err = format!("Error dropping table: {e:?}");
-                                    report_result(Err(err), reply_sender, Some(completion_sender));
+                                    report_result(Err(err), reply_sender, Some(completion_sender)).await;
                                 }
                             }
                         }

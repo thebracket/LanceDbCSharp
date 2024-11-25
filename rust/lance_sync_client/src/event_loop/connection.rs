@@ -76,16 +76,16 @@ pub(crate) async fn do_drop_database(
     if let Some(cnn) = get_connection(connections.clone(), connection_handle).await {
         match cnn.drop_db().await {
             Ok(_) => {
-                report_result(Ok(0), reply_sender, Some(completion_sender));
+                report_result(Ok(0), reply_sender, Some(completion_sender)).await;
             }
             Err(e) => {
                 let error = format!("Error dropping database: {:?}", e);
-                report_result(Err(error), reply_sender, Some(completion_sender));
+                report_result(Err(error), reply_sender, Some(completion_sender)).await;
             }
         }
     } else {
         let error = format!("Connection handle {} not found.", connection_handle.0);
-        report_result(Err(error), reply_sender, Some(completion_sender));
+        report_result(Err(error), reply_sender, Some(completion_sender)).await;
     }
 }
 
@@ -105,16 +105,16 @@ pub(crate) async fn do_list_tables(
                         cb(table_name.as_ptr());
                     }
                 }
-                report_result(Ok(0), reply_sender, Some(completion_sender));
+                report_result(Ok(0), reply_sender, Some(completion_sender)).await;
             }
             Err(e) => {
                 let err = format!("Error listing table names: {:?}", e);
-                report_result(Err(err), reply_sender, Some(completion_sender));
+                report_result(Err(err), reply_sender, Some(completion_sender)).await;
             }
         }
     } else {
         let err = format!("Connection handle {} not found.", connection_handle.0);
-        report_result(Err(err), reply_sender, Some(completion_sender));
+        report_result(Err(err), reply_sender, Some(completion_sender)).await;
     }
 }
 
@@ -162,17 +162,18 @@ pub(crate) async fn do_open_table(
         })
         .await
         .unwrap();
-    match rx.await {
+    let result = rx.await;
+    match result {
         Ok(Ok(handle)) => {
-            let _ = report_result(Ok(handle.0), reply_sender, Some(completion_sender));
+            let _ = report_result(Ok(handle.0), reply_sender, Some(completion_sender)).await;
         }
         Ok(Err(e)) => {
             let err = format!("Error opening table: {:?}", e);
-            let _ = report_result(Err(err), reply_sender, Some(completion_sender));
+            let _ = report_result(Err(err), reply_sender, Some(completion_sender)).await;
         }
         Err(e) => {
             let err = format!("Error receiving table handle: {:?}", e);
-            let _ = report_result(Err(err), reply_sender, Some(completion_sender));
+            let _ = report_result(Err(err), reply_sender, Some(completion_sender)).await;
         }
     }
 }
@@ -202,7 +203,7 @@ pub(crate) async fn do_drop_table(
             Err("Error sending drop table request.".to_string()),
             reply_sender,
             None,
-        );
+        ).await;
         return;
     }
 }
@@ -220,20 +221,20 @@ pub(crate) async fn do_rename_table(
             Err("Connection handle not found.".to_string()),
             reply_sender,
             Some(completion_sender),
-        );
+        ).await;
         return;
     };
 
     match cnn.rename_table(&old_name, &new_name).await {
         Ok(_) => {
-            report_result(Ok(0), reply_sender, Some(completion_sender));
+            report_result(Ok(0), reply_sender, Some(completion_sender)).await;
         }
         Err(e) => {
             report_result(
                 Err(format!("Error renaming table: {:?}", e)),
                 reply_sender,
                 Some(completion_sender),
-            );
+            ).await;
         }
     }
 }

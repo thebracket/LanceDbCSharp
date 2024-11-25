@@ -17,12 +17,12 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     var table1 = cnn.CreateTable("table1", GetSchema());
     var table2 = cnn.CreateTable("table2", Helpers.GetSchema());
     System.Console.WriteLine("Tables Created: " + table1 + ", " + table2);
-    // So its now expected to see 2 tables
+    // So it's now expected to see 2 tables
     ListTables(cnn);
     
     // Now we'll drop table1
-    cnn.DropTable("table1");
-    System.Console.WriteLine("Table 1 Dropped");
+    await cnn.DropTableAsync("table1");
+    System.Console.WriteLine("Table 1 Dropped (Asynchronously)");
     
     // Now we'll open table2
     var table2Opened = cnn.OpenTable("table2");
@@ -68,13 +68,14 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     PrintDictList(testRrf);
     
     // Now we'll drop table2
-    cnn.DropTable("table2");
-    System.Console.WriteLine("Table 2 Dropped");
+    await cnn.DropTableAsync("table2");
+    System.Console.WriteLine("Table 2 Dropped (Asynchronously)");
     ListTables(cnn);
     
     // Now we'll drop the database
+    //await cnn.DropDatabaseAsync();
     cnn.DropDatabase();
-    System.Console.WriteLine("Database Dropped");
+    System.Console.WriteLine("Database Dropped (Asynchronously)");
 }
 System.Console.WriteLine("Complete");
 

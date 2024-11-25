@@ -18,6 +18,7 @@ use crate::table_handler::{TableActor, TableCommand};
 use crate::MAX_COMMANDS;
 pub(crate) use command::LanceDbCommand;
 use std::sync::OnceLock;
+use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 
 use crate::event_loop::connection::{
@@ -26,7 +27,7 @@ use crate::event_loop::connection::{
 };
 pub(crate) use command::CompletionSender;
 pub(crate) use connection::get_connection;
-pub(crate) use errors::{report_result, ErrorReportFn};
+pub(crate) use errors::{report_result, report_result_sync, ErrorReportFn};
 pub(crate) use lifecycle::setup;
 pub(crate) use metric::MetricType;
 pub(crate) use queries::VectorDataType;
@@ -43,7 +44,7 @@ pub(crate) struct LanceDbCommandSet {
     pub(crate) completion_sender: CompletionSender,
 }
 
-async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
+async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<Handle>) {
     let (tx, mut rx) = channel::<LanceDbCommandSet>(MAX_COMMANDS);
     if let Err(e) = COMMAND_SENDER.set(tx) {
         eprintln!("Error setting up command sender: {:?}", e);
@@ -56,7 +57,10 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
     // Table handler
     let tables = TableActor::start().await;
 
-    ready_tx.send(()).unwrap();
+    // Signal readiness
+    let tokio_handle = Handle::current();
+    ready_tx.send(tokio_handle).unwrap();
+
     let mut quit_sender = None;
     while let Some(command) = rx.recv().await {
         // Extract the components of the command
@@ -174,7 +178,7 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<()>) {
                     })
                     .await
                     .unwrap();
-                report_result(Ok(0), reply_tx, Some(completion_sender));
+                report_result(Ok(0), reply_tx, Some(completion_sender)).await;
             }
             LanceDbCommand::AddRecordBatch {
                 connection_handle,

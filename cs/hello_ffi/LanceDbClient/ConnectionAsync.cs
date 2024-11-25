@@ -17,22 +17,73 @@ public sealed partial class Connection
 
     public Task<ITable> OpenTableAsync(string name, CancellationToken cancellationToken = default)
     {
+        
         throw new NotImplementedException();
     }
 
     public Task DropTableAsync(string name, bool ignoreMissing = false, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        var tcs = new TaskCompletionSource();
+        Ffi.ResultCallback callback = (code, message) =>
+        {
+            if (code < 0)
+            {
+                tcs.SetException(new Exception(message));
+            }
+            else
+            {
+                tcs.SetResult();
+            }
+        };
+        Task.Run(() =>
+        {
+            Ffi.drop_table(name, _connectionId, ignoreMissing, callback);
+        }, cancellationToken);
+        return tcs.Task;
     }
 
     public Task DropDatabaseAsync(CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        var tcs = new TaskCompletionSource();
+        Ffi.ResultCallback callback = (code, message) =>
+        {
+            if (code < 0)
+            {
+                tcs.SetException(new Exception(message));
+            }
+            else
+            {
+                tcs.SetResult();
+            }
+        };
+        Task.Run(() =>
+        {
+            Ffi.drop_database(_connectionId, callback);
+            IsOpen = false;
+        }, cancellationToken);
+        return tcs.Task;
     }
 
     public Task CloseAsync(CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        var tcs = new TaskCompletionSource();
+        Ffi.ResultCallback callback = (code, message) =>
+        {
+            if (code < 0)
+            {
+                tcs.SetException(new Exception(message));
+            }
+            else
+            {
+                tcs.SetResult();
+            }
+        };
+        Task.Run(() =>
+        {
+            Ffi.disconnect(this._connectionId, callback);
+            IsOpen = false;
+        }, cancellationToken);
+        return tcs.Task;
     }
 
 }

@@ -10,10 +10,10 @@ use strum::FromRepr;
 
 /// Used to synchronize timings - make sure that the function
 /// does not return until all async processing is complete.
-pub(crate) type CompletionSender = tokio::sync::oneshot::Sender<()>;
+pub(crate) type CompletionSender = tokio::sync::oneshot::Sender<(i64, String)>;
 
 /// Helper function to create a completion pair.
-pub(crate) fn get_completion_pair() -> (CompletionSender, tokio::sync::oneshot::Receiver<()>) {
+pub(crate) fn get_completion_pair() -> (CompletionSender, tokio::sync::oneshot::Receiver<(i64, String)>) {
     tokio::sync::oneshot::channel()
 }
 

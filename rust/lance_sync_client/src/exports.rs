@@ -3,7 +3,7 @@
 
 use crate::command_from_ffi;
 use crate::connection_handler::ConnectionHandle;
-use crate::event_loop::{report_result, ErrorReportFn, LanceDbCommand, MetricType, VectorDataType};
+use crate::event_loop::{report_result_sync, ErrorReportFn, LanceDbCommand, MetricType, VectorDataType};
 use crate::serialization::{bytes_to_batch, bytes_to_schema};
 use crate::table_handler::TableHandle;
 use std::ffi::c_char;
@@ -71,7 +71,7 @@ pub extern "C" fn create_empty_table(
 ) {
     let schema_batch = unsafe { std::slice::from_raw_parts(schema_bytes, len) };
     let Ok(schema) = bytes_to_schema(schema_batch) else {
-        report_result(Err("Could not process schema.".to_string()), reply_tx, None);
+        report_result_sync(Err("Could not process schema.".to_string()), reply_tx, None);
         return;
     };
     let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
@@ -203,7 +203,7 @@ pub extern "C" fn add_record_batch(
     let data = unsafe { std::slice::from_raw_parts(data, len) };
     let batch = bytes_to_batch(data);
     if let Err(e) = batch {
-        report_result(
+        report_result_sync(
             Err(format!("Could not parse record batch: {:?}", e)),
             reply_tx,
             None,
@@ -211,7 +211,7 @@ pub extern "C" fn add_record_batch(
         return;
     }
     let Some(write_mode) = WriteMode::from_repr(write_mode) else {
-        report_result(Err("Invalid write mode.".to_string()), reply_tx, None);
+        report_result_sync(Err("Invalid write mode.".to_string()), reply_tx, None);
         return;
     };
     command_from_ffi!(
@@ -272,7 +272,7 @@ pub extern "C" fn create_scalar_index(
             .to_string()
     };
     let Some(index_type) = ScalarIndexType::from_repr(index_type) else {
-        report_result(Err("Invalid index type.".to_string()), reply_tx, None);
+        report_result_sync(Err("Invalid index type.".to_string()), reply_tx, None);
         return;
     };
     command_from_ffi!(
@@ -351,7 +351,7 @@ pub extern "C" fn create_index(
             .to_string()
     };
     let Some(metric) = MetricType::from_repr(metric) else {
-        report_result(Err("Invalid metric.".to_string()), reply_tx, None);
+        report_result_sync(Err("Invalid metric.".to_string()), reply_tx, None);
         return;
     };
     command_from_ffi!(
@@ -513,7 +513,7 @@ pub extern "C" fn vector_query(
     batch_size: u32,
 ) {
     let Some(metric) = MetricType::from_repr(metric) else {
-        report_result(Err("Invalid metric.".to_string()), reply_tx, None);
+        report_result_sync(Err("Invalid metric.".to_string()), reply_tx, None);
         return;
     };
     let where_clause = if where_clause.is_null() {
@@ -669,7 +669,7 @@ pub extern "C" fn explain_vector_query(
     refine_factor: u32,
 ) {
     let Some(metric) = MetricType::from_repr(metric) else {
-        report_result(Err("Invalid metric.".to_string()), reply_tx, None);
+        report_result_sync(Err("Invalid metric.".to_string()), reply_tx, None);
         return;
     };
     let where_clause = if where_clause.is_null() {
@@ -782,7 +782,7 @@ pub extern "C" fn merge_insert_with_record_batch(
     let data = unsafe { std::slice::from_raw_parts(batch, batch_len) };
     let batch = bytes_to_batch(data);
     if let Err(e) = batch {
-        report_result(
+        report_result_sync(
             Err(format!("Could not parse record batch: {:?}", e)),
             reply_tx,
             None,
@@ -825,7 +825,7 @@ pub extern "C" fn update_rows(
         };
         let parts: Vec<&str> = update.split('=').collect();
         if parts.len() != 2 {
-            report_result(Err("Invalid update statement".to_string()), reply_tx, None);
+            report_result_sync(Err("Invalid update statement".to_string()), reply_tx, None);
             return;
         }
         update_list.push((parts[0].to_string(), parts[1].to_string()));
