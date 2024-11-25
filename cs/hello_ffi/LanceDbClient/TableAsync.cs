@@ -102,19 +102,110 @@ public sealed partial class Table
         throw new NotImplementedException();
     }
 
-    public Task UpdateAsync(IDictionary<string, object> updates, string? whereClause = null, CancellationToken token = default)
+    public Task<ulong> UpdateAsync(IDictionary<string, object> updates, string? whereClause = null, CancellationToken token = default)
     {
-        throw new NotImplementedException();
+        var updateList = new List<string>();
+        foreach (var (key, value) in updates)
+        {
+            if (value is string s)
+            {
+                // SQL Sanitizing
+                s = s.Replace("'", "''");
+                updateList.Add(key + "='" + s + "'");
+            }
+            else
+            {
+                updateList.Add(key + "=" + value);
+            }
+        }
+        
+        var tcs = new TaskCompletionSource<ulong>();
+        
+        var rowsUpdated = 0ul;
+        var countCallback = new Ffi.UpdateCalback((count) =>
+        {
+            rowsUpdated = count;
+        });
+        
+        var resultCallback = new Ffi.ResultCallback((code, message) =>
+        {
+            if (code < 0)
+            {
+                tcs.SetException(new Exception(message));
+            }
+            else
+            {
+                tcs.SetResult(rowsUpdated);
+            }
+        });
+        
+        Task.Run(() =>
+        {
+            Ffi.update_rows(_connectionHandle, _tableHandle, updateList.ToArray(), (ulong)updateList.Count, whereClause,
+                resultCallback, countCallback);
+        }, token);
+        
+        return tcs.Task;
     }
 
-    public Task UpdateSqlAsync(IDictionary<string, string> updates, string? whereClause = null, CancellationToken token = default)
+    public Task<ulong> UpdateSqlAsync(IDictionary<string, string> updates, string? whereClause = null, CancellationToken token = default)
     {
-        throw new NotImplementedException();
+        var updateList = new List<string>();
+        foreach (var (key, value) in updates)
+        {
+            // In this case they are all guaranteed to be strings - because full SQL statements
+            // with escaping already baked in are expected.
+            updateList.Add(key + "=" + value);
+        }
+        
+        var tcs = new TaskCompletionSource<ulong>();
+        
+        var rowsUpdated = 0ul;
+        var countCallback = new Ffi.UpdateCalback((count) =>
+        {
+            rowsUpdated = count;
+        });
+        
+        var resultCallback = new Ffi.ResultCallback((code, message) =>
+        {
+            if (code < 0)
+            {
+                tcs.SetException(new Exception(message));
+            }
+            else
+            {
+                tcs.SetResult(rowsUpdated);
+            }
+        });
+
+        Task.Run(() =>
+        {
+            Ffi.update_rows(_connectionHandle, _tableHandle, updateList.ToArray(), (ulong)updateList.Count,
+                whereClause, resultCallback, countCallback);
+        });
+        
+        return tcs.Task;
     }
 
     public Task DeleteAsync(string whereClause, CancellationToken token = default)
     {
-        throw new NotImplementedException();
+        var tcs = new TaskCompletionSource();
+        Ffi.ResultCallback callback = (code, message) =>
+        {
+            if (code < 0)
+            {
+                tcs.SetException(new Exception(message));
+            }
+            else
+            {
+                tcs.SetResult();
+            }
+        };
+        Task.Run(() =>
+        {
+            Ffi.delete_rows(_connectionHandle, _tableHandle, whereClause, callback);
+        }, token);
+        return tcs.Task;
     }
 
     public Task CloseAsync(CancellationToken cancellationToken = default)
@@ -124,17 +215,110 @@ public sealed partial class Table
 
     public Task<OptimizeStats> OptimizeAsync(TimeSpan? cleanupOlderThan = null, bool deleteUnverified = false, CancellationToken token = default)
     {
-        throw new NotImplementedException();
+        CompactionMetrics? compaction = null;
+        RemovalStats? prune = null;
+        
+        var tcs = new TaskCompletionSource<OptimizeStats>();
+        Ffi.CompactCallback compactCallback = (fragmentsRemoved, fragmentsAdded, filesRemoved, filesAdded) =>
+        {
+            compaction = new CompactionMetrics
+            {
+                FragmentsRemoved = (int)fragmentsRemoved,
+                FragmentsAdded = (int)fragmentsAdded,
+                FilesRemoved = (int)filesRemoved,
+                FilesAdded = (int)filesAdded
+            };
+        };
+        Ffi.PruneCallback pruneCallback = (removed, added) =>
+        {
+            prune = new RemovalStats
+            {
+                BytesRemoved = (int)removed,
+                OldVersionsRemoved = (int)added
+            };
+        };
+        Ffi.ResultCallback callback = (code, message) =>
+        {
+            if (code < 0)
+            {
+                tcs.SetException(new Exception(message));
+            }
+            else
+            {
+                tcs.SetResult(new OptimizeStats
+                {
+                    Compaction = compaction,
+                    Prune = prune
+                });
+            }
+        };
+        Task.Run(() =>
+        {
+            Ffi.optimize_table(_connectionHandle, _tableHandle, callback, compactCallback, pruneCallback);
+        }, token);
+        return tcs.Task;
     }
 
     public Task<IEnumerable<IndexConfig>> ListIndicesAsync(CancellationToken token = default)
     {
-        throw new NotImplementedException();
+        var indices = new List<IndexConfig>();
+        var tcs = new TaskCompletionSource<IEnumerable<IndexConfig>>();
+        Ffi.TableIndexEntryCallback indexCallback = (name, type, columns, _) =>
+        {
+            indices.Add(new IndexConfig
+            {
+                Name = name,
+                IndexType = (IndexType)type,
+                Columns = columns
+            });
+        };
+        Ffi.ResultCallback callback = (code, message) =>
+        {
+            if (code < 0)
+            {
+                tcs.SetException(new Exception(message));
+            }
+            else
+            {
+                tcs.SetResult(indices);
+            }
+        };
+        Task.Run(() =>
+        {
+            Ffi.list_indices(_connectionHandle, _tableHandle, indexCallback, callback);
+        }, token);
+        return tcs.Task;
     }
 
     public Task<IndexStatistics> GetIndexStatisticsAsync(string columnName, CancellationToken token = default)
     {
-        throw new NotImplementedException();
+        IndexStatistics stats = new IndexStatistics();
+        Ffi.IndexStatisticsCallback indexCallback =
+            (indexType, distanceType, numIndexedRows, numIndices, numUnIndexedRows) =>
+            {
+                stats.NumIndexedRows = (int)numIndexedRows;
+                stats.NumUnIndexedRows = (int)numUnIndexedRows;
+                stats.IndexType = (IndexType)indexType;
+                stats.DistanceType = (Metric)distanceType;
+                stats.NumIndices = (int)numIndices;
+            };
+        var tcs = new TaskCompletionSource<IndexStatistics>();
+        Ffi.ResultCallback callback = (code, message) =>
+        {
+            if (code < 0)
+            {
+                tcs.SetException(new Exception(message));
+            }
+            else
+            {
+                tcs.SetResult(stats);
+            }
+        };
+        Task.Run(() =>
+        {
+            Ffi.get_index_statistics(_connectionHandle, _tableHandle, columnName, indexCallback, callback);
+        }, token);
+        return tcs.Task;
     }
 
     public Task AddAsync(IEnumerable<Dictionary<string, object>> data, WriteMode mode = WriteMode.Append,

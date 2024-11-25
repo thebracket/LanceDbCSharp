@@ -39,6 +39,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     // Let's do a quick full-text search
     Console.WriteLine("Searching for '12'");
     await table2.CreateFtsIndexAsync(["id"], ["id"]);
+    await table2.OptimizeAsync();
     var search = table2.Search().Text("'12'").ToList();
     PrintDictList(search);
     
