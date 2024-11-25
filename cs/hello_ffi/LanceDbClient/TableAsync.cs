@@ -325,21 +325,47 @@ public sealed partial class Table
         BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0,
         CancellationToken token = default)
     {
-        throw new NotImplementedException();
+        // Convert the dictionary into a record batch
+        var batch = ArrayHelpers.ConcreteToArrowTable(data, Schema);
+        return AddAsync(batch, mode, badVectorHandling, fillValue, token);
     }
 
     public Task AddAsync(IEnumerable<RecordBatch> data, WriteMode mode = WriteMode.Append,
         BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0,
         CancellationToken token = default)
     {
-        throw new NotImplementedException();
+        var tcs = new TaskCompletionSource();
+        Task.Run(() =>
+        {
+            unsafe
+            {
+                foreach (var recordBatch in data)
+                {
+                    var batch = Ffi.SerializeRecordBatch(recordBatch);
+                    fixed (byte* p = batch)
+                    {
+                        Ffi.add_record_batch(_connectionHandle, _tableHandle, p, (ulong)batch.Length, (uint)mode,
+                            (uint)badVectorHandling, fillValue, (code, message) =>
+                            {
+                                if (code < 0)
+                                {
+                                    tcs.SetException(new Exception("Failed to add record batch: " + message));
+                                }
+                            });
+                    }
+                }
+            }
+
+            tcs.SetResult();
+        }, token);
+        return tcs.Task;
     }
 
     public Task AddAsync(Apache.Arrow.Table data, WriteMode mode = WriteMode.Append,
         BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0,
         CancellationToken token = default)
     {
-        throw new NotImplementedException();
+        return AddAsync(ArrayHelpers.ArrowTableToRecordBatch(data), mode, badVectorHandling, fillValue, token);
     }
 
 }

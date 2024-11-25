@@ -33,7 +33,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     var recordBatch = Helpers.CreateSampleRecordBatch(
         Helpers.GetSchema(), 4096, 8
     );
-    table2.Add([recordBatch]);
+    await table2.AddAsync([recordBatch]);
     System.Console.WriteLine("Table 2 row count (expect 4096): " + await table2Opened.CountRowsAsync());
     
     // Let's do a quick full-text search
