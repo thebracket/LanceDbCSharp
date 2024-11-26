@@ -201,7 +201,6 @@ public static class ArrayHelpers
                 if (type == null) throw new Exception("Type not found in schema.");
 
                 // Check if the type matches the schema
-                // TODO: Not working with fixed sized lists
                 if (type.TypeId == ArrowTypeId.FixedSizeList)
                 {
                     // Get the inner type
@@ -271,7 +270,6 @@ public static class ArrayHelpers
         public TypeIndex DataType;
     }
     
-    // TODO: Can C# do this at compile time?
     internal static VectorDataImpl CastVectorList<T>(List<T> vector)
     {
         // Calculate the buffer size
