@@ -7,4 +7,4 @@ cs/hello_ffi/**/[Oo]bj
 cs/hello_ffi/.idea
 .idea
 rust/data
-
+*.user

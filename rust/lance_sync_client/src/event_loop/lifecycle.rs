@@ -1,12 +1,16 @@
 use crate::event_loop::event_loop;
 use anyhow::Result;
 use std::sync::atomic::AtomicI64;
+use std::sync::Mutex;
+use tokio::runtime::Handle;
 
 pub(crate) static INSTANCE_COUNT: AtomicI64 = AtomicI64::new(0);
 
 pub fn is_already_setup() -> bool {
     INSTANCE_COUNT.load(std::sync::atomic::Ordering::Relaxed) > 0
 }
+
+pub(crate) static TOKIO_HANDLE: Mutex<Option<Handle>> = Mutex::new(None);
 
 pub(crate) fn setup() -> Result<()> {
     if is_already_setup() {
@@ -19,12 +23,13 @@ pub(crate) fn setup() -> Result<()> {
         .name("lance_sync_client".to_string())
         .spawn(|| {
             match tokio::runtime::Builder::new_multi_thread()
-                .worker_threads(4)
                 .enable_all()
                 .build()
             {
                 Ok(runtime) => {
                     runtime.block_on(async move { event_loop(ready_tx).await });
+                    println!("Event loop finished.");
+                    *TOKIO_HANDLE.lock().unwrap() = None;
                 }
                 Err(e) => {
                     eprintln!("Error creating runtime: {:?}", e);
@@ -35,11 +40,15 @@ pub(crate) fn setup() -> Result<()> {
     match result {
         Ok(_) => {
             let awaiter = ready_rx.blocking_recv();
-            if awaiter.is_err() {
-                eprintln!("Error waiting for event loop to start.");
-                Err(anyhow::anyhow!("Error waiting for event loop to start."))
-            } else {
-                Ok(())
+            match awaiter {
+                Ok(handle) => {
+                    TOKIO_HANDLE.lock().unwrap().replace(handle);
+                    Ok(())
+                }
+                Err(e) => {
+                    eprintln!("Error waiting for event loop to start: {:?}", e);
+                    Err(anyhow::anyhow!("Error waiting for event loop to start."))
+                }
             }
         }
         Err(e) => {

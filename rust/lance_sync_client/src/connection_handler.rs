@@ -51,14 +51,14 @@ impl ConnectionActor {
                                     Ok(new_handle_id),
                                     reply_sender,
                                     Some(completion_sender),
-                                );
+                                ).await;
                             }
                             Err(e) => {
                                 report_result(
                                     Err(format!("Error acquiring connection: {e:?}")),
                                     reply_sender,
                                     Some(completion_sender),
-                                );
+                                ).await;
                             }
                         }
                     }
@@ -68,13 +68,13 @@ impl ConnectionActor {
                         completion_sender,
                     } => {
                         if let Some(_connection) = connections.remove(&handle.0) {
-                            report_result(Ok(0), reply_sender, Some(completion_sender));
+                            report_result(Ok(0), reply_sender, Some(completion_sender)).await;
                         } else {
                             report_result(
                                 Err("Connection not found".to_string()),
                                 reply_sender,
                                 Some(completion_sender),
-                            );
+                            ).await;
                         }
                     }
                     ConnectionCommand::GetConnection {

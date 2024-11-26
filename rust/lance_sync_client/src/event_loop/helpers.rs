@@ -28,12 +28,12 @@ pub(crate) fn send_command(
     }
 
     if let Some(tx) = COMMAND_SENDER.get() {
-        tx.blocking_send(LanceDbCommandSet {
+        let _ = tx.blocking_send(LanceDbCommandSet {
             command,
             reply_tx,
             completion_sender,
-        })
-        .inspect_err(|e| println!("Error sending command: {:?}", e))?;
+        }).inspect_err(|e| println!("Error sending command: {:?}", e));
+
         Ok(())
     } else {
         println!("No command sender found.");
@@ -50,14 +50,22 @@ macro_rules! command_from_ffi {
         let (tx, rx) = crate::event_loop::command::get_completion_pair();
         if crate::event_loop::helpers::send_command($command, $reply_sender, tx).is_err() {
             let err = format!("Error sending command: {}", $name);
-            report_result(Err(err), $reply_sender, None);
+            report_result_sync(Err(err), $reply_sender, None);
             return;
         };
-        if let Err(e) = rx.blocking_recv() {
-            println!("ALMOST CERTAINLY: IMPLEMENTOR FORGOT TO HANDLE COMPLETION CALLER!");
-            let err = format!("Error processing command: {}, {e:?}", $name);
-            report_result(Err(err), $reply_sender, None);
-            return;
+        match rx.blocking_recv() {
+            Ok((code, error)) => {
+                if code < 0 {
+                    report_result_sync(Err(error), $reply_sender, None);
+                } else {
+                    report_result_sync(Ok(code), $reply_sender, None);
+                }
+            }
+            Err(e) => {
+                println!("ALMOST CERTAINLY: IMPLEMENTOR FORGOT TO HANDLE COMPLETION CALLER!");
+                let err = format!("Error processing command: {}, {e:?}", $name);
+                report_result_sync(Err(err), $reply_sender, None);
+            }
         }
     };
 }

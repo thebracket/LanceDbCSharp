@@ -200,7 +200,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// Perform the query and return the results as a list of RecordBatch objects.
     /// </summary>
     /// <param name="batchSize">Not implemented yet.</param>
-    /// <returns>The queyr result</returns>
+    /// <returns>The query result</returns>
     /// <exception cref="Exception">If the query fails</exception>
     public virtual unsafe IEnumerable<RecordBatch> ToBatches(int batchSize)
     {

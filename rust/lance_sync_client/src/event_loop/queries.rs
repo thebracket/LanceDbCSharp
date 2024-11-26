@@ -114,7 +114,7 @@ pub(crate) async fn do_query(
 ) {
     let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
-        report_result(Err(err), reply_tx, Some(completion_sender));
+        report_result(Err(err), reply_tx, Some(completion_sender)).await;
         return;
     };
 
@@ -152,14 +152,14 @@ pub(crate) async fn do_query(
         match query_builder.explain_plan(verbose).await {
             Err(e) => {
                 let err = format!("Error explaining query: {:?}", e);
-                report_result(Err(err), reply_tx, Some(completion_sender));
+                report_result(Err(err), reply_tx, Some(completion_sender)).await;
                 return;
             }
             Ok(explain) => {
                 let explain = format!("{:?}", explain);
                 let explain = std::ffi::CString::new(explain).unwrap();
                 explain_callback(explain.as_ptr());
-                report_result(Ok(0), reply_tx, Some(completion_sender));
+                report_result(Ok(0), reply_tx, Some(completion_sender)).await;
                 return;
             }
         }
@@ -184,7 +184,7 @@ pub(crate) async fn do_query(
                             Err("Unable to convert result to bytes".to_string()),
                             reply_tx,
                             Some(completion_sender),
-                        );
+                        ).await;
                         return;
                     };
                     batch_callback(bytes.as_ptr(), bytes.len() as u64);
@@ -192,11 +192,11 @@ pub(crate) async fn do_query(
             }
 
             // Announce that we're done
-            report_result(Ok(0), reply_tx, Some(completion_sender));
+            report_result(Ok(0), reply_tx, Some(completion_sender)).await;
         }
         Err(e) => {
             let err = format!("Error querying table: {:?}", e);
-            report_result(Err(err), reply_tx, Some(completion_sender));
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
         }
     }
 }
@@ -221,7 +221,7 @@ pub(crate) async fn do_vector_query(
 ) {
     let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
-        report_result(Err(err), reply_tx, Some(completion_sender));
+        report_result(Err(err), reply_tx, Some(completion_sender)).await;
         return;
     };
 
@@ -258,7 +258,7 @@ pub(crate) async fn do_vector_query(
     };
     if let Err(e) = vec_result {
         let err = format!("Error querying table: {:?}", e);
-        report_result(Err(err), reply_tx, Some(completion_sender));
+        report_result(Err(err), reply_tx, Some(completion_sender)).await;
         return;
     }
     let mut query_builder = vec_result.unwrap();
@@ -280,14 +280,14 @@ pub(crate) async fn do_vector_query(
         match query_builder.explain_plan(verbose).await {
             Err(e) => {
                 let err = format!("Error explaining query: {:?}", e);
-                report_result(Err(err), reply_tx, Some(completion_sender));
+                report_result(Err(err), reply_tx, Some(completion_sender)).await;
                 return;
             }
             Ok(explain) => {
                 let explain = format!("{:?}", explain);
                 let explain = std::ffi::CString::new(explain).unwrap();
                 explain_callback(explain.as_ptr());
-                report_result(Ok(0), reply_tx, Some(completion_sender));
+                report_result(Ok(0), reply_tx, Some(completion_sender)).await;
                 return;
             }
         }
@@ -312,7 +312,7 @@ pub(crate) async fn do_vector_query(
                             Err("Unable to convert result to bytes".to_string()),
                             reply_tx,
                             Some(completion_sender),
-                        );
+                        ).await;
                         return;
                     };
                     batch_callback(bytes.as_ptr(), bytes.len() as u64);
@@ -320,11 +320,11 @@ pub(crate) async fn do_vector_query(
             }
 
             // Announce that we're done
-            report_result(Ok(0), reply_tx, Some(completion_sender));
+            report_result(Ok(0), reply_tx, Some(completion_sender)).await;
         }
         Err(e) => {
             let err = format!("Error querying table: {:?}", e);
-            report_result(Err(err), reply_tx, Some(completion_sender));
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
         }
     }
 }

@@ -30,10 +30,10 @@ namespace LanceDbInterface
         Task AddAsync(IEnumerable<Dictionary<string, object>> data, WriteMode mode = WriteMode.Append, BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0.0F, CancellationToken token = default);
 
         ulong Update(IDictionary<string, Object> updates, string? whereClause = null);
-        Task UpdateAsync(IDictionary<string, Object> updates, string? whereClause = null, CancellationToken token = default);
+        Task<ulong> UpdateAsync(IDictionary<string, Object> updates, string? whereClause = null, CancellationToken token = default);
 
         ulong UpdateSql(IDictionary<string, string> updates, string? whereClause = null);
-        Task UpdateSqlAsync(IDictionary<string, string> updates, string? whereClause = null, CancellationToken token = default);
+        Task<ulong> UpdateSqlAsync(IDictionary<string, string> updates, string? whereClause = null, CancellationToken token = default);
 
         void Delete(string whereClause);
         Task DeleteAsync(string whereClause, CancellationToken token = default);
