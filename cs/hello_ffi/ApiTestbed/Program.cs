@@ -74,18 +74,24 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
 
     System.Console.WriteLine("======  Search vector 0.3....Return Batches Async ===============================");
     var resultBatchesAsync = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(5).WithRowId(true).ToBatchesAsync(4);
-    
+    // the result will be displayed together with the next query due to the nature of asynchronous
     PrintBatchesAsync(resultBatchesAsync);
 
     System.Console.WriteLine("======  Search vector 0.3...., return Table===============================");
     var resultTable = table1.Search().Vector(vector1).Limit(3).WithRowId(true).ToArrow();
     PrintTable(resultTable);
     
+    /*
     Console.WriteLine("======hybrid, return batches =================");
-    var testHybrid = table1.Search(vector1, "vector", queryType: QueryType.Hybrid)
+    // the following search(...) will not create HybridQueryBuilder, it is VectorQueryBuilder
+    var testHybrid = ((HybridQueryBuilder)(table1.Search(vector1, "vector", queryType: QueryType.Hybrid)))
+        .Metric(Metric.Cosine)
+        .NProbes(10)
+        .RefineFactor(10)
         .Limit(7)
         .ToBatches(3);
     PrintBatches(testHybrid);
+    */
 
     System.Console.WriteLine($"Rows before delete: {table1.CountRows()}");
     table1.Delete("id < 100");
@@ -396,7 +402,7 @@ void PrintBatches(IEnumerable<RecordBatch> recordBatches)
     }
 }
 
-static void PrintBatch(RecordBatch batch)
+void PrintBatch(RecordBatch batch)
 {
     for (int j = 0; j < batch.ColumnCount; j++)
     {
