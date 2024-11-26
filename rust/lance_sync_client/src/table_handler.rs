@@ -127,18 +127,15 @@ impl TableActor {
                                 if let Some(cb) = schema_callback {
                                     let schema = t.schema().await.unwrap();
                                     let schema_bytes = schema_to_bytes(&schema);
-                                    println!("Sending the schema");
                                     let _ = spawn_blocking(move || {
                                         cb(schema_bytes.as_ptr(), schema_bytes.len() as u64);
                                     }).await;
-                                    println!("Sent the schema");
                                 }
 
                                 let new_id = next_id;
                                 next_id += 1;
                                 tables.insert((connection_handle, TableHandle(new_id)), t);
 
-                                println!("Replying with table handle");
                                 let _ = reply_sender.send(Ok(TableHandle(new_id)));
                             }
                             Err(e) => {
@@ -166,7 +163,6 @@ impl TableActor {
                             continue;
                         };
                         let result = cnn.drop_table(&name).await;
-                        println!("Dropped table: {name}, {result:?}");
                         match result {
                             Ok(_) => {
                                 report_result(Ok(0), reply_sender, Some(completion_sender)).await;

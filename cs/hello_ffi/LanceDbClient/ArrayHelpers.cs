@@ -201,7 +201,6 @@ public static class ArrayHelpers
                 if (type == null) throw new Exception("Type not found in schema.");
 
                 // Check if the type matches the schema
-                // TODO: Not working with fixed sized lists
                 if (type.TypeId == ArrowTypeId.FixedSizeList)
                 {
                     // Get the inner type
@@ -271,7 +270,6 @@ public static class ArrayHelpers
         public TypeIndex DataType;
     }
     
-    // TODO: Can C# do this at compile time?
     internal static VectorDataImpl CastVectorList<T>(List<T> vector)
     {
         // Calculate the buffer size
@@ -350,7 +348,10 @@ public static class ArrayHelpers
         }
 
         var schema = tables[0].Schema;
-        // TODO: Equals isn't implemented on Schema, so a deep comparison is required
+        if (!SchemaMatch(schema, tables[1].Schema))
+        {
+            throw new ArgumentException("Schema mismatch between tables.");
+        }
 
         List<RecordBatch> combinedRecordBatches = new List<RecordBatch>();
 
@@ -552,4 +553,14 @@ public static class ArrayHelpers
         return Apache.Arrow.Table.TableFromRecordBatches(table.Schema, result);
     }
 
+    private static bool SchemaMatch(Schema a, Schema b)
+    {
+        if (a.FieldsList.Count != b.FieldsList.Count) return false;
+        for (var i = 0; i < a.FieldsList.Count; i++)
+        {
+            if (a.GetFieldByIndex(i).Name != b.GetFieldByIndex(i).Name) return false;
+            if (a.GetFieldByIndex(i).DataType.TypeId != b.GetFieldByIndex(i).DataType.TypeId) return false;
+        }
+        return true;
+    }
 }

@@ -114,6 +114,15 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     Console.WriteLine("Searching for vector: " + vector);
     var vectorSearch = await table2.Search().Vector(vector).Metric(Metric.Cosine).Limit(4).ToListAsync();
     PrintDictList(vectorSearch);
+
+    // Sync vs Async Comparison
+    var v1 = table2.Search().Vector(vector).ToBatches(0);
+    var v2 = new List<RecordBatch>();
+    await foreach (var batch in table2.Search().Vector(vector).ToBatchesAsync(0))
+    {
+        v2.Add(batch);
+    }
+    Debug.Assert(v1.Count() == v2.Count);
     
     // Reranking simplest case
     Console.WriteLine("Reranking '12' and '7' with the simplest merge rerank");

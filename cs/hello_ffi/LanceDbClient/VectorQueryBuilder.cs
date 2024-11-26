@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Threading.Channels;
 using Apache.Arrow;
 using LanceDbInterface;
 
@@ -152,5 +153,66 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
 
         if (exception != null) throw exception;
         return result;
+    }
+
+    public async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)
+    {
+        if (VectorData == null)
+        {
+            throw new Exception("VectorData must be set before calling ToBatches");
+        }
+        var result = new List<RecordBatch>();
+        Exception? exception = null;
+        
+        string[]? selectColumns = null;
+        if (SelectColumnsList.Count > 0)
+        {
+            selectColumns = SelectColumnsList.ToArray();
+        }
+        
+        var channel = Channel.CreateUnbounded<RecordBatch>();
+        
+        Ffi.ResultCallback resultCallback = (code, message) =>
+        {
+            // If an error occurred, turn it into an exception
+            if (code < 0 && message != null)
+            {
+                throw new Exception("Failed to compact files: " + message);
+            }
+        };
+        
+        _ = Task.Run(() =>
+        {
+            unsafe
+            {
+                Ffi.BlobCallback blobCallback = (bytes, len) =>
+                {
+                    // Marshall schema/length into a managed object
+                    var schemaBytes = new byte[len];
+                    Marshal.Copy((IntPtr)bytes, schemaBytes, 0, (int)len);
+                    var batch = Ffi.DeserializeRecordBatch(schemaBytes);
+                    channel.Writer.TryWrite(batch);
+                };
+
+                fixed (byte* b = VectorData.Data)
+                {
+                    Ffi.vector_query(ConnectionId, TableId, blobCallback, resultCallback,
+                        LimitCount, WhereSql, WithRowIdent, selectColumns!, (ulong)SelectColumnsList.Count,
+                        (uint)VectorData.DataType, b, (ulong)VectorData.Data.Length, VectorData.Length,
+                        (uint)DistanceMetric, (ulong)NumProbes, (uint)RefinementFactor, (uint)batchSize);
+                    channel.Writer.Complete();
+                }
+            }
+
+
+        }, token);
+
+        while (await channel.Reader.WaitToReadAsync(token))
+        {
+            while (channel.Reader.TryRead(out var batch))
+            {
+                yield return batch;
+            }
+        }
     }
 }
