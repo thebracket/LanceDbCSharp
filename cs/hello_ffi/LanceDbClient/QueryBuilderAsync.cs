@@ -12,7 +12,7 @@ public partial class QueryBuilder
     public async Task<Apache.Arrow.Table> ToArrowAsync(CancellationToken token = default)
     {
         var batches = new List<RecordBatch>();
-        await foreach (var batch in ToBatchesAsync(4096, token))
+        await foreach (var batch in ToBatchesAsync(0, token))
         {
             batches.Add(batch);
         }
@@ -73,7 +73,6 @@ public partial class QueryBuilder
         {
             while (channel.Reader.TryRead(out var batch))
             {
-                Console.WriteLine(batch);
                 yield return batch;
             }
         }
