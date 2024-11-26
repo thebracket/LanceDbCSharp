@@ -4,6 +4,7 @@ using System.Collections;
 using Apache.Arrow;
 using Apache.Arrow.Types;
 using System.Collections.Generic;
+using System.Diagnostics;
 using ApiTestbed;
 using LanceDbClient;
 using LanceDbInterface;
@@ -67,13 +68,24 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     var resultList = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(3).WithRowId(true).ToList();
     PrintResults(resultList);
     
-    System.Console.WriteLine("======  Search vector 0.3....Return Batches===============================");
+    System.Console.WriteLine("======  Search vector 0.3....Return Batches Sync ===============================");
     var resultBatches = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(3).WithRowId(true).ToBatches(2);
     PrintBatches(resultBatches);
+
+    System.Console.WriteLine("======  Search vector 0.3....Return Batches Async ===============================");
+    var resultBatchesAsync = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(5).WithRowId(true).ToBatchesAsync(4);
+    
+    PrintBatchesAsync(resultBatchesAsync);
 
     System.Console.WriteLine("======  Search vector 0.3...., return Table===============================");
     var resultTable = table1.Search().Vector(vector1).Limit(3).WithRowId(true).ToArrow();
     PrintTable(resultTable);
+    
+    Console.WriteLine("======hybrid, return batches =================");
+    var testHybrid = table1.Search(vector1, "vector", queryType: QueryType.Hybrid)
+        .Limit(7)
+        .ToBatches(3);
+    PrintBatches(testHybrid);
 
     System.Console.WriteLine($"Rows before delete: {table1.CountRows()}");
     table1.Delete("id < 100");
@@ -367,54 +379,65 @@ void PrintTable(Table table)
     }
 }
 
+
+async void PrintBatchesAsync(IAsyncEnumerable<RecordBatch> recordBatches)
+{
+    await foreach (var batch in recordBatches)
+    {
+        PrintBatch(batch);
+    }
+}
+
 void PrintBatches(IEnumerable<RecordBatch> recordBatches)
 {
     foreach (var batch in recordBatches)
     {
-        for (int i = 0; i < batch.Length; i++)
-        {
-            for (int j = 0; j < batch.ColumnCount; j++)
-            {
-                var column = batch.Column(j);
-                var field = batch.Schema.FieldsList[j];
-                Console.Write(field.Name + ": ");
-                Console.WriteLine(field.DataType.GetType());
-
-                if (column.Data.DataType.TypeId == ArrowTypeId.FixedSizeList)
-                {
-                    var fixedSizeListArray = (FixedSizeListArray)column;
-                    int k = 0;
-                    foreach (var value in (IEnumerable)(fixedSizeListArray.Values))
-                    {
-                        Console.Write(value + " ");
-                        k++;
-                        if (k == fixedSizeListArray.Values.Length / fixedSizeListArray.Length)
-                        {
-                            Console.WriteLine("total elements:" + k);
-                            k = 0;
-                            Console.WriteLine();
-                        }
-                    }
-
-                }
-                else
-                {
-                    foreach (var x in (IEnumerable)column)
-                    {
-                        Console.WriteLine(x);
-                    }
-                }
-
-                // var array = ArrayHelpers.ArrowArrayDataToConcrete(column);
-                // foreach (var item in (IList)array)
-                // {
-                //     foreach (var y in (IEnumerable)item)
-                //         Console.Write(y + " ");
-                // }
-                Console.WriteLine();
-            }
-            Console.WriteLine();
-        }
+        PrintBatch(batch);
     }
+}
+
+static void PrintBatch(RecordBatch batch)
+{
+    for (int j = 0; j < batch.ColumnCount; j++)
+    {
+        var column = batch.Column(j);
+        var field = batch.Schema.FieldsList[j];
+        Console.Write(field.Name + ": ");
+        Console.WriteLine(field.DataType.GetType());
+
+        if (column.Data.DataType.TypeId == ArrowTypeId.FixedSizeList)
+        {
+            var fixedSizeListArray = (FixedSizeListArray)column;
+            int k = 0;
+            foreach (var value in (IEnumerable)(fixedSizeListArray.Values))
+            {
+                Console.Write(value + " ");
+                k++;
+                if (k == fixedSizeListArray.Values.Length / fixedSizeListArray.Length)
+                {
+                    Console.WriteLine("total elements:" + k);
+                    k = 0;
+                    Console.WriteLine();
+                }
+            }
+
+        }
+        else
+        {
+            foreach (var x in (IEnumerable)column)
+            {
+                Console.WriteLine(x);
+            }
+        }
+
+        // var array = ArrayHelpers.ArrowArrayDataToConcrete(column);
+        // foreach (var item in (IList)array)
+        // {
+        //     foreach (var y in (IEnumerable)item)
+        //         Console.Write(y + " ");
+        // }
+        Console.WriteLine();
+    }
+    Console.WriteLine();
 }
 
