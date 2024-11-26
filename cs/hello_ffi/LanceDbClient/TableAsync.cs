@@ -99,7 +99,8 @@ public sealed partial class Table
 
     public Task<ILanceMergeInsertBuilder> MergeInsertAsync(IEnumerable<string> on, CancellationToken token = default)
     {
-        throw new NotImplementedException();
+        var result = this.MergeInsert(on);
+        return Task.FromResult(result);
     }
 
     public Task<ulong> UpdateAsync(IDictionary<string, object> updates, string? whereClause = null, CancellationToken token = default)
@@ -210,7 +211,23 @@ public sealed partial class Table
 
     public Task CloseAsync(CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        var tcs = new TaskCompletionSource();
+        Ffi.ResultCallback callback = (code, message) =>
+        {
+            if (code < 0)
+            {
+                tcs.SetException(new Exception(message));
+            }
+            else
+            {
+                tcs.SetResult();
+            }
+        };
+        Task.Run(() =>
+        {
+            Ffi.close_table(_connectionHandle, _tableHandle, callback);
+        }, cancellationToken);
+        return tcs.Task;
     }
 
     public Task<OptimizeStats> OptimizeAsync(TimeSpan? cleanupOlderThan = null, bool deleteUnverified = false, CancellationToken token = default)
