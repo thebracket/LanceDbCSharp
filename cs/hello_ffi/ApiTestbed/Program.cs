@@ -72,11 +72,14 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     
     // Reranking with RRF
     Console.WriteLine("Reranking '12' with RRF");
-    var testRrf = await table2.Search(vector, "vector", queryType: QueryType.Hybrid)
+    var testRrf = table2
+        .Search(vector, "vector", queryType: QueryType.Hybrid)
+        .SelectColumns(["id", "vector"]);
+    var testRrf2 = testRrf
         .Text("'12'")
-        .Rerank(new RrfReranker())
-        .ToListAsync();
-    PrintDictList(testRrf);
+        .Rerank(new RrfReranker());
+    var testRrf3 = testRrf2.ToArrow();
+    //PrintDictList(testRrf3);
     
     // Now we'll drop table2
     await cnn.DropTableAsync("table2");

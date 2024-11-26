@@ -18,10 +18,8 @@ public abstract class BaseReranker : IReranker
         throw new NotImplementedException();
     }
 
-    public Apache.Arrow.Table RerankHybrid(string query, Apache.Arrow.Table vectorResults, Apache.Arrow.Table ftsResults)
-    {
-        throw new NotImplementedException();
-    }
+    public abstract Apache.Arrow.Table RerankHybrid(string query, Apache.Arrow.Table vectorResults,
+        Apache.Arrow.Table ftsResults);
 
     /// <summary>
     /// Merge the results from the vector and FTS search. This is a vanilla merging
@@ -39,7 +37,10 @@ public abstract class BaseReranker : IReranker
     public Apache.Arrow.Table MergeResults(Apache.Arrow.Table vectorResults, Apache.Arrow.Table ftsResults)
     {
         // See base.py, in the rerankers module. Line 130.
-        // TODO: Schema comparison isn't implemented in C#.
+        /*if (ArrayHelpers.SchemaMatch(vectorResults.Schema, ftsResults.Schema) == false)
+        {
+            throw new Exception("The schemas of the vector and FTS results do not match.");
+        }*/
         
         // The original code uses a Concatenation type that isn't implemented in C#. It then calls a de-duplicator that isn't in C# either.
         var combined = ArrayHelpers.ConcatTables([vectorResults, ftsResults]);

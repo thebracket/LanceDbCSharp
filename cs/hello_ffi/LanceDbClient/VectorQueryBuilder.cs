@@ -7,7 +7,7 @@ namespace LanceDbClient;
 
 public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
 {
-    protected ArrayHelpers.VectorDataImpl? VectorData = null;
+    protected internal ArrayHelpers.VectorDataImpl? VectorData = null;
     protected Metric DistanceMetric;
     protected int NumProbes;
     protected int RefinementFactor;

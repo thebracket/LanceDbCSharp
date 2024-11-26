@@ -13,22 +13,22 @@ public class RrfReranker : BaseReranker
         this._score = score;
     }
     
-    public new Apache.Arrow.Table RerankHybrid(string query, Apache.Arrow.Table vectorResults, Apache.Arrow.Table ftsResults)
+    public override Apache.Arrow.Table RerankHybrid(string query, Apache.Arrow.Table vectorResults, Apache.Arrow.Table ftsResults)
     {
-        var vectorIds = ArrayHelpers.ArrowTableStringColumnToList(vectorResults, "_rowid") ?? [];
-        var ftsIds = ArrayHelpers.ArrowTableStringColumnToList(ftsResults, "_rowid") ?? [];
+        var vectorIds = ArrayHelpers.ArrowTableUint64ColumnToList(vectorResults, "_rowid") ?? [];
+        var ftsIds = ArrayHelpers.ArrowTableUint64ColumnToList(ftsResults, "_rowid") ?? [];
 
         // Initialize RRF score map with a default float value
-        var rrfScoreMap = new Dictionary<string, float>();
+        var rrfScoreMap = new Dictionary<ulong, float>();
         
         // Calculate RRF score for each result
-        foreach (var ids in new List<List<string>> { vectorIds, ftsIds })
+        foreach (var ids in new List<List<ulong>> { vectorIds, ftsIds })
         {
             for (var i = 0; i < ids.Count; i++)
             {
                 var resultId = ids[i];
                 rrfScoreMap.TryAdd(resultId, 0f);
-                rrfScoreMap[resultId] += 1.0f / (i + 1 + _k); // K is assumed to be inherited from BaseReranker
+                rrfScoreMap[resultId] += 1.0f / (i + _k); // K is assumed to be inherited from BaseReranker
             }
         }
 
@@ -36,7 +36,7 @@ public class RrfReranker : BaseReranker
         var combinedResults = MergeResults(vectorResults, ftsResults);
 
         // Extract combined row IDs
-        var combinedRowIds = ArrayHelpers.ArrowTableStringColumnToList(combinedResults, "_rowid");
+        var combinedRowIds = ArrayHelpers.ArrowTableUint64ColumnToList(combinedResults, "_rowid");
         if (combinedRowIds == null)
         {
             throw new Exception("Combined results do not contain a '_rowid' column.");

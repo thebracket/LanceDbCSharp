@@ -205,12 +205,28 @@ public static class ArrayHelpers
                 {
                     // Get the inner type
                     var innerType = ((FixedSizeListType)type).ValueDataType;
-                    if (!DoesTypeMatchSchema(item.Value, innerType.TypeId)) throw new Exception("Type mismatch for " + item.Key + ". Expected " + innerType.TypeId + ", got " + item.Value.GetType() + ".");
-                } else if (!DoesTypeMatchSchema(item.Value, type.TypeId)) throw new Exception("Type mismatch for " + item.Key + ". Expected " + type.TypeId + ", got " + item.Value.GetType() + ".");
+                    //if (!DoesTypeMatchSchema(item.Value, innerType.TypeId)) throw new Exception("Type mismatch for " + item.Key + ". Expected " + innerType.TypeId + ", got " + item.Value.GetType() + ".");
+                    
+                } else if (item.Value is string[] || item.Value is System.Single[] || item.Value is UInt64[] )
+                {
+                    // String[] isn't a list
+                } 
+                else if (!DoesTypeMatchSchema(item.Value, type.TypeId)) throw new Exception("Type mismatch for " + item.Key + ". Expected " + type.TypeId + ", got " + item.Value.GetType() + ".");
 
                 // Get the array builder
                 // TODO: Many more builders required
-                var baseType = item.Value.GetType();
+                var val = item.Value;
+                if (val is string[] strings)
+                {
+                    val = strings.ToList();
+                } else if (val is float[] floats)
+                {
+                    val = floats.ToList();
+                } else if (val is ulong[] ulongs)
+                {
+                    val = ulongs.ToList();
+                }
+                var baseType = val.GetType();
                 var subType = baseType.GetGenericArguments()[0];
                 object? builder;
                 if (type.TypeId == ArrowTypeId.FixedSizeList)
@@ -348,10 +364,10 @@ public static class ArrayHelpers
         }
 
         var schema = tables[0].Schema;
-        if (!SchemaMatch(schema, tables[1].Schema))
+        /*if (!SchemaMatch(schema, tables[1].Schema))
         {
             throw new ArgumentException("Schema mismatch between tables.");
-        }
+        }*/
 
         List<RecordBatch> combinedRecordBatches = new List<RecordBatch>();
 
@@ -380,7 +396,7 @@ public static class ArrayHelpers
             var column = table.Column(j);
             for (var colIdx = 0 ; colIdx < column.Data.ArrayCount; colIdx++)
             {
-                var raw = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.Array(colIdx), rowCount:(int)table.RowCount);
+                var raw = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.Array(colIdx), rowCount:(int)column.Data.Array(colIdx).Length);
                 if (raw is ArrayList chunked)
                 {
                     if (chunked[0] is IEnumerable inner)
@@ -406,7 +422,7 @@ public static class ArrayHelpers
         return result;
     }
     
-    internal static List<String>? ArrowTableStringColumnToList(Apache.Arrow.Table table, string name)
+    internal static List<ulong>? ArrowTableUint64ColumnToList(Apache.Arrow.Table table, string name)
     {
         for (var i = 0; i < table.ColumnCount; i++)
         {
@@ -414,20 +430,22 @@ public static class ArrayHelpers
             if (col.Name == name)
             {
                 // We found it
-                var result = new List<String>();
+                var result = new List<ulong>();
                 for (var j = 0; j < col.Data.ArrayCount; j++)
                 {
                     var array = col.Data.Array(j);
-                    if (array is StringArray stringArray)
+                    if (array is UInt64Array idArray)
                     {
-                        for (var k = 0; k < stringArray.Length; k++)
+                        for (var k = 0; k < idArray.Length; k++)
                         {
-                            result.Add(stringArray.GetString(k));
+                            var value = idArray.GetValue(k);
+                            if (value == null) continue;
+                            result.Add((ulong)value);
                         }
                     }
                     else
                     {
-                        throw new Exception("Column " + name + " is not a string column.");
+                        throw new Exception("Column " + name + " is not a string column. It is a " + array.GetType() + ".");
                     }
                 }
                 return result;
@@ -490,13 +508,13 @@ public static class ArrayHelpers
         // Build the column
         var field = new Field(name, type, false, null);
         var column = new Column(field, [(IArrowArray)floatArray]);
-        table.InsertColumn(table.ColumnCount, column);
+        var newTable = table.InsertColumn(table.ColumnCount, column);
         
         // Modify the schema to add the column
         var fieldIndex = table.Schema.FieldsList.Count;
-        table.Schema.InsertField(fieldIndex, field);
+        newTable.Schema.InsertField(fieldIndex, field);
         
-        return table;
+        return newTable;
     }
     
     internal static Apache.Arrow.Table SortBy(Apache.Arrow.Table table, string column, bool descending)
@@ -519,12 +537,21 @@ public static class ArrayHelpers
         // Sort withIndex by the object
         withIndex.Sort((a, b) =>
         {
-            if (a.Item1 is IComparable comparableA && b.Item1 is IComparable comparableB)
+            if (a.Item1 is IList listA)
             {
-                return descending ? comparableB.CompareTo(comparableA) : comparableA.CompareTo(comparableB);
+                if (b.Item1 is IList listB)
+                {
+                    // Compare the first element of the list
+                    if (listA[0] is IComparable comparableA && listB[0] is IComparable comparableB)
+                    {
+                        return descending ? comparableB.CompareTo(comparableA) : comparableA.CompareTo(comparableB);
+                    }
+                }
             }
+
             throw new ArgumentException("Column " + column + " is not comparable.");
         });
+        
         // Extract just the index from withIndex
         var sortedIndices = withIndex.Select(x => x.Item2).ToList();
         // If descending, reverse the list
@@ -542,18 +569,19 @@ public static class ArrayHelpers
         
         // Convert back to Arrow Table
         var schema = table.Schema;
-        var listOfDicts = new List<IDictionary<string, object>>();
+        
         // Populate listOfDicts
-
-        var convertedList = listOfDicts
+        var convertedList = reordered
             .Select(dict => dict.ToDictionary(entry => entry.Key, entry => entry.Value))
             .ToList();
+        // Remove any items where the dictionary only contains one item
+        convertedList = convertedList.Where(dict => dict.Count > 1).ToList();
 
         var result = ConcreteToArrowTable(convertedList, schema);
         return Apache.Arrow.Table.TableFromRecordBatches(table.Schema, result);
     }
 
-    private static bool SchemaMatch(Schema a, Schema b)
+    internal static bool SchemaMatch(Schema a, Schema b)
     {
         if (a.FieldsList.Count != b.FieldsList.Count) return false;
         for (var i = 0; i < a.FieldsList.Count; i++)
