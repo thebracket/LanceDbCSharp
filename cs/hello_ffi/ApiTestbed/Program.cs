@@ -8,6 +8,7 @@ using System.Diagnostics;
 using ApiTestbed;
 using LanceDbClient;
 using LanceDbInterface;
+using MathNet.Numerics.LinearAlgebra;
 using Array = Apache.Arrow.Array;
 using Table = Apache.Arrow.Table;
 
@@ -80,6 +81,10 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     System.Console.WriteLine("======  Search vector 0.3...., return Table===============================");
     var resultTable = table1.Search().Vector(vector1).Limit(3).WithRowId(true).ToArrow();
     PrintTable(resultTable);
+
+    Vector<float> vectorValues = Vector<float>.Build.Dense(vector1.ToArray());
+    var vectorValuesResult = table1.Search(vector1, "vector").Limit(2).ToList();
+    PrintResults(vectorValuesResult);
     
     /*
     Console.WriteLine("======hybrid, return batches =================");
