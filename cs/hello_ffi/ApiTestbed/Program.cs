@@ -70,7 +70,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     var mergedTable = ArrayHelpers.ArrowTableToListOfDicts(merged);
     PrintDictList(mergedTable);
     
-    // Reranking with RRF
+    // Reranking with RRF (This is broken out into steps for debugging)
     Console.WriteLine("Reranking '12' with RRF");
     var testRrf = table2
         .Search(vector, "vector", queryType: QueryType.Hybrid)
@@ -78,8 +78,8 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     var testRrf2 = testRrf
         .Text("'12'")
         .Rerank(new RrfReranker());
-    var testRrf3 = testRrf2.ToArrow();
-    //PrintDictList(testRrf3);
+    var testRrf3 = testRrf2.ToList();
+    PrintDictList(testRrf3);
     
     // Now we'll drop table2
     await cnn.DropTableAsync("table2");
@@ -97,7 +97,8 @@ System.Console.WriteLine("Complete");
 
 async Task ListTables(Connection cnn)
 {
-    System.Console.Write("Tables: ");
+    Console.WriteLine("--------------------------------------------------------");
+    Console.Write("Tables: ");
     var tables = await cnn.TableNamesAsync();
     var count = 0;
     foreach (var table in tables)
@@ -110,6 +111,7 @@ async Task ListTables(Connection cnn)
         System.Console.Write("None");
     }
     System.Console.WriteLine();
+    Console.WriteLine("--------------------------------------------------------");
 }
 
 // Data generation functions
@@ -141,6 +143,7 @@ Schema GetSchema()
 
 void PrintDictList(IEnumerable<IDictionary<string, object>> enumerable)
 {
+    Console.WriteLine("--------------------------------------------------------");
     foreach (var row in enumerable)
     {
         // Print out each key and value
@@ -180,4 +183,5 @@ void PrintDictList(IEnumerable<IDictionary<string, object>> enumerable)
             }
         }
     }
+    Console.WriteLine("--------------------------------------------------------");
 }

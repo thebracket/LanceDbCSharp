@@ -181,21 +181,141 @@ public static class ArrayHelpers
         
         return null;
     }
+
+    private struct FieldData
+    {
+        internal object builder;
+        internal MethodInfo appendMethod;
+        internal Type subType;
+        internal bool isFixedSizeArray;
+    }
     
     public static List<RecordBatch> ConcreteToArrowTable(IEnumerable<Dictionary<string, object>> data, Schema schema)
     {
         var result = new List<RecordBatch>();
 
+        // Build a column-first dictionary. Every item contains a builder, so we end up with a big array
+        // containing all rows of for that field.
+        var columns = new Dictionary<string, FieldData>();
+        foreach (var field in schema.Fields)
+        {
+            // Construct the builder
+            bool isFixedSizedArray = false;
+            var typeForBuilder = field.Value.DataType;
+            if (typeForBuilder.TypeId == ArrowTypeId.FixedSizeList)
+            {
+                typeForBuilder = ((FixedSizeListType)typeForBuilder).ValueDataType;
+                isFixedSizedArray = true;
+            }
+            var builder = ArrayBuilderFactory(typeForBuilder.TypeId);
+            if (builder == null) throw new NotImplementedException("Type builder for " + typeForBuilder + " not implemented.");
+
+            // Determine the enumerable subtype
+            // Set val to the first value in the data
+            var val = data.FirstOrDefault()[field.Value.Name];
+            var dataType = val.GetType();
+            var subType = dataType;
+            if (dataType.GetGenericArguments().Length > 0)
+            {
+                // It's a list
+                subType = dataType.GetGenericArguments()[0];
+            }
+            else
+            {
+                if (val is IEnumerable innerList)
+                {
+                    var first = innerList.Cast<object>().FirstOrDefault();
+                    if (first != null)
+                    {
+                        subType = first.GetType();
+                    }
+                    else
+                    {
+                        throw new Exception("Could not determine subType for " + field.Key + ".");
+                    }
+                }
+                else
+                {
+                    subType = dataType;
+                }
+            }
+            
+            // Construct the append method
+            MethodInfo? appendMethod = builder.GetType().GetMethod("Append", subType == typeof(string) ? [typeof(string), typeof(Encoding)]
+                : [subType]);
+            if (appendMethod == null) throw new NotImplementedException("Append method for " + subType + " not implemented.");
+            
+            columns[field.Value.Name] = new FieldData()
+            {
+                builder = builder,
+                appendMethod = appendMethod,
+                subType = subType,
+                isFixedSizeArray = isFixedSizedArray
+            };
+        }
+        
+        // Iterate all the rows
         foreach (var row in data)
         {
-            List<IArrowArray> arrayRows = new List<IArrowArray>(); 
-            
+            // Iterate each column
+            foreach (var col in row)
+            {
+                // Check that the field exists in the columns dictionary
+                var targetBuilder = columns[col.Key];
+                
+                // Check that the field exists in the schema
+                var schemaField = schema.GetFieldByName(col.Key);
+                if (schemaField == null)
+                {
+                    throw new Exception("Field " + col.Key + " not found in schema.");
+                }
+                
+                // Append the value(s) to the builder
+                var val = col.Value;
+                if (val is IEnumerable list)
+                {
+                    foreach (var value in list)
+                    {
+                        if (targetBuilder.subType == typeof(string))
+                        {
+                            targetBuilder.appendMethod.Invoke(targetBuilder.builder, [value, null]);
+                        }
+                        else
+                        {
+                            targetBuilder.appendMethod.Invoke(targetBuilder.builder, [value]);
+                        }
+                    }
+                }
+                else
+                {
+                    // Handle naked types here
+                    throw new Exception("Naked types not in enumerable are not supported.");
+                }
+            }
+        }
+        
+        // Transform the dictionary to a list
+        var allEntries = new List<IArrowArray>();
+        foreach (var column in columns)
+        {
+            var array = (IArrowArray)column.Value.builder.GetType().GetMethod("Build")!.Invoke(column.Value.builder, [null])!;
+            AddToArrayOrWrapInList(allEntries, schema.GetFieldByName(column.Key).DataType, array);
+        }
+        var recordBatch = new RecordBatch(schema, allEntries, length: data.Count());
+        return [recordBatch];
+
+        /*
+        /// OLD CODE
+        foreach (var row in data)
+        {
+            List<IArrowArray> arrayRows = new List<IArrowArray>();
+
             // Foreach item in the row dictionary
             foreach (var item in row) {
                 // Get the field from the schema
                 var field = schema.GetFieldByName(item.Key);
                 if (field == null) throw new Exception("Field " + item.Key + " not found in schema.");
-                
+
                 // Get the type from the schema
                 var type = field.DataType;
                 if (type == null) throw new Exception("Type not found in schema.");
@@ -206,11 +326,11 @@ public static class ArrayHelpers
                     // Get the inner type
                     var innerType = ((FixedSizeListType)type).ValueDataType;
                     //if (!DoesTypeMatchSchema(item.Value, innerType.TypeId)) throw new Exception("Type mismatch for " + item.Key + ". Expected " + innerType.TypeId + ", got " + item.Value.GetType() + ".");
-                    
+
                 } else if (item.Value is string[] || item.Value is System.Single[] || item.Value is UInt64[] )
                 {
                     // String[] isn't a list
-                } 
+                }
                 else if (!DoesTypeMatchSchema(item.Value, type.TypeId)) throw new Exception("Type mismatch for " + item.Key + ". Expected " + type.TypeId + ", got " + item.Value.GetType() + ".");
 
                 // Get the array builder
@@ -240,7 +360,7 @@ public static class ArrayHelpers
                     builder = ArrayBuilderFactory(type.TypeId);
                 }
                 if (builder == null) throw new NotImplementedException("Type builder for " + type.TypeId + " not implemented.");
-                
+
                 MethodInfo? appendMethod = builder.GetType().GetMethod("Append", subType == typeof(string) ? [typeof(string), typeof(Encoding)]
                     : [subType]);
                 if (appendMethod == null) throw new NotImplementedException("Append method for " + subType + " not implemented.");
@@ -267,8 +387,8 @@ public static class ArrayHelpers
             var recordBatch = new RecordBatch(schema, arrayRows.ToArray(), length: 1);
             result.Add(recordBatch);
         }
-        
-        return result;
+
+        return result;*/
     }
     
     public enum TypeIndex

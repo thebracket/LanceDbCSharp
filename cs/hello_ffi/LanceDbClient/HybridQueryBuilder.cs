@@ -21,7 +21,6 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
 
     public override IEnumerable<RecordBatch> ToBatches(int batchSize)
     {
-        Console.WriteLine("Called HybridQueryBuilder.ToBatches");
         // A Hybrid query runs both a vector and a full-text query. We have to make sure that both are set.
         if (FullTextSearch == null || VectorData == null)
         {
@@ -53,7 +52,6 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
 
     public new async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)
     {
-        Console.WriteLine("Called HybridQueryBuilder.ToBatchesAsync");
         // A Hybrid query runs both a vector and a full-text query. We have to make sure that both are set.
         if (FullTextSearch == null || VectorData == null)
         {

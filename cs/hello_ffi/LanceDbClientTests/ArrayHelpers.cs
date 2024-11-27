@@ -87,8 +87,8 @@ public partial class Tests
         var result = ArrayHelpers.ArrowArrayDataToConcrete(stringArray);
 
         // Assert
-        Assert.IsInstanceOf<string>(result);
-        Assert.AreEqual("hello", result);
+        Assert.IsInstanceOf<List<string>>(result);
+        Assert.AreEqual("hello", ((List<string>)result)[0]);
     }
     
     [Test]
