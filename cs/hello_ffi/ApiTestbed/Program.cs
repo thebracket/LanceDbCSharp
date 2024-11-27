@@ -182,6 +182,7 @@ void PrintDictList(IEnumerable<IDictionary<string, object>> enumerable)
                 Console.WriteLine(keyValuePair.Value);
             }
         }
+        Console.WriteLine("________________");
     }
     Console.WriteLine("--------------------------------------------------------");
 }

@@ -182,12 +182,16 @@ public static class ArrayHelpers
         return null;
     }
 
+    // Helper type for the ConcreteToArrowTable method
     private struct FieldData
     {
         internal object builder;
         internal MethodInfo appendMethod;
         internal Type subType;
         internal bool isFixedSizeArray;
+        internal IArrowType typeForBuilder;
+        internal List<IArrowArray> fixedTypeArrays;
+        internal IArrowType parentType;
     }
     
     public static List<RecordBatch> ConcreteToArrowTable(IEnumerable<Dictionary<string, object>> data, Schema schema)
@@ -202,6 +206,7 @@ public static class ArrayHelpers
             // Construct the builder
             bool isFixedSizedArray = false;
             var typeForBuilder = field.Value.DataType;
+            var parentType = typeForBuilder;
             if (typeForBuilder.TypeId == ArrowTypeId.FixedSizeList)
             {
                 typeForBuilder = ((FixedSizeListType)typeForBuilder).ValueDataType;
@@ -250,7 +255,10 @@ public static class ArrayHelpers
                 builder = builder,
                 appendMethod = appendMethod,
                 subType = subType,
-                isFixedSizeArray = isFixedSizedArray
+                isFixedSizeArray = isFixedSizedArray,
+                typeForBuilder = typeForBuilder,
+                fixedTypeArrays = [],
+                parentType = parentType
             };
         }
         
@@ -276,14 +284,29 @@ public static class ArrayHelpers
                 {
                     foreach (var value in list)
                     {
-                        if (targetBuilder.subType == typeof(string))
+                        /*if (targetBuilder.isFixedSizeArray)
                         {
-                            targetBuilder.appendMethod.Invoke(targetBuilder.builder, [value, null]);
+                            // We've constructed a fixed sized array rather than what we actually want.
+                            // So we need to extract the array for further processing later, and then
+                            // reset the builder.
+                            var fixedArray = (IArrowArray)targetBuilder.builder.GetType().GetMethod("Build")!.Invoke(targetBuilder.builder, [null])!;
+                            targetBuilder.fixedTypeArrays.Add(fixedArray);
+                            
+                            // (We already checked for null when we constructed it)
+                            targetBuilder.builder = ArrayBuilderFactory(targetBuilder.typeForBuilder.TypeId)!;
                         }
                         else
-                        {
-                            targetBuilder.appendMethod.Invoke(targetBuilder.builder, [value]);
-                        }
+                        {*/
+                            // It's not a fixed size array, so just keep on appending
+                            if (targetBuilder.subType == typeof(string))
+                            {
+                                targetBuilder.appendMethod.Invoke(targetBuilder.builder, [value, null]);
+                            }
+                            else
+                            {
+                                targetBuilder.appendMethod.Invoke(targetBuilder.builder, [value]);
+                            }
+                        //}
                     }
                 }
                 else
@@ -298,8 +321,25 @@ public static class ArrayHelpers
         var allEntries = new List<IArrowArray>();
         foreach (var column in columns)
         {
-            var array = (IArrowArray)column.Value.builder.GetType().GetMethod("Build")!.Invoke(column.Value.builder, [null])!;
-            AddToArrayOrWrapInList(allEntries, schema.GetFieldByName(column.Key).DataType, array);
+            var array = (IArrowArray)column.Value.builder.GetType().GetMethod("Build")!.Invoke(column.Value.builder,
+                [null])!;
+            if (column.Value.isFixedSizeArray)
+            {
+                var total = data.Count();
+                var fixedSizeListType = (FixedSizeListType)column.Value.parentType;
+                var fixedSizeListArrayData = new ArrayData(
+                    fixedSizeListType,
+                    length: total,
+                    nullCount: 0,
+                    buffers: [ArrowBuffer.Empty], // No null bitmap buffer, assuming all are valid
+                    children: [array.Data]);
+                var fixedSizeListArray = new FixedSizeListArray(fixedSizeListArrayData);
+                allEntries.Add(fixedSizeListArray);
+            }
+            else
+            {
+                AddToArrayOrWrapInList(allEntries, schema.GetFieldByName(column.Key).DataType, array);
+            }
         }
         var recordBatch = new RecordBatch(schema, allEntries, length: data.Count());
         return [recordBatch];
