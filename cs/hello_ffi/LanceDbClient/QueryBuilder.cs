@@ -193,7 +193,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
         // then morphing into a PyList.
         // TODO: I'm not 100% sure about this?
         var table = ToArrow();
-        return ArrayHelpers.ArrowTableToListOfDicts(table);
+        return ArrayHelpers.ArrowTableToListOfDictionaries(table);
     }
 
     /// <summary>

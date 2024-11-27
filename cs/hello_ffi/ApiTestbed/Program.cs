@@ -67,7 +67,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     var arrow1 = table2.Search().Text("'12'").WithRowId(true).ToArrow();
     var arrow2 = table2.Search().Text("'7'").WithRowId(true).ToArrow();
     var merged = rrf.MergeResults(arrow1, arrow2);
-    var mergedTable = ArrayHelpers.ArrowTableToListOfDicts(merged);
+    var mergedTable = ArrayHelpers.ArrowTableToListOfDictionaries(merged);
     PrintDictList(mergedTable);
     
     // Reranking with RRF (This is broken out into steps for debugging)

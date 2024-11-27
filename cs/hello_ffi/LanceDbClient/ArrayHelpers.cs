@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Data.Common;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -107,33 +106,6 @@ public static class ArrayHelpers
         return val;
     }
 
-    private static bool DoesTypeMatchSchema(object? o, ArrowTypeId s)
-    {
-        if (o == null) return false;
-        // TODO: Check for completeness
-        if (o is List<int> && s == ArrowTypeId.Int32) return true;
-        if (o is List<float> && s == ArrowTypeId.Float) return true;
-        if (o is List<double> && s == ArrowTypeId.Double) return true;
-        if (o is List<string> && s == ArrowTypeId.String) return true;
-        if (o is List<bool> && s == ArrowTypeId.Boolean) return true;
-        if (o is List<sbyte> && s == ArrowTypeId.Int8) return true;
-        if (o is List<short> && s == ArrowTypeId.Int16) return true;
-        if (o is List<long> && s == ArrowTypeId.Int64) return true;
-        if (o is List<byte> && s == ArrowTypeId.UInt8) return true;
-        if (o is List<ushort> && s == ArrowTypeId.UInt16) return true;
-        if (o is List<uint> && s == ArrowTypeId.UInt32) return true;
-        if (o is List<ulong> && s == ArrowTypeId.UInt64) return true;
-        if (o is List<int> && s == ArrowTypeId.Date32) return true;
-        if (o is List<long> && s == ArrowTypeId.Date64) return true;
-        if (o is List<long> && s == ArrowTypeId.Timestamp) return true;
-        if (o is List<int> && s == ArrowTypeId.Time32) return true;
-        if (o is List<long> && s == ArrowTypeId.Time64) return true;
-        if (o is List<decimal> && s == ArrowTypeId.Decimal128) return true;
-        if (o is List<decimal> && s == ArrowTypeId.Decimal256) return true;
-        if (o is List<byte[]> && s == ArrowTypeId.Binary) return true;
-        return false;
-    }
-
     private static FixedSizeListArray ToFixedListArray(IArrowType type, ArrayData? data)
     {
         var fixedSizeListType = (FixedSizeListType)type;
@@ -185,27 +157,23 @@ public static class ArrayHelpers
     // Helper type for the ConcreteToArrowTable method
     private struct FieldData
     {
-        internal object builder;
-        internal MethodInfo appendMethod;
-        internal Type subType;
-        internal bool isFixedSizeArray;
-        internal IArrowType typeForBuilder;
-        internal List<IArrowArray> fixedTypeArrays;
-        internal IArrowType parentType;
+        internal object Builder;
+        internal MethodInfo AppendMethod;
+        internal Type SubType;
+        internal bool IsFixedSizeArray;
+        internal IArrowType ParentType;
     }
     
     public static List<RecordBatch> ConcreteToArrowTable(IEnumerable<Dictionary<string, object>> data, Schema schema)
     {
-        var result = new List<RecordBatch>();
-
         // Build a column-first dictionary. Every item contains a builder, so we end up with a big array
         // containing all rows of for that field.
         var columns = new Dictionary<string, FieldData>();
-        foreach (var field in schema.Fields)
+        foreach (var field in schema.FieldsList)
         {
             // Construct the builder
             bool isFixedSizedArray = false;
-            var typeForBuilder = field.Value.DataType;
+            var typeForBuilder = field.DataType;
             var parentType = typeForBuilder;
             if (typeForBuilder.TypeId == ArrowTypeId.FixedSizeList)
             {
@@ -217,9 +185,9 @@ public static class ArrayHelpers
 
             // Determine the enumerable subtype
             // Set val to the first value in the data
-            var val = data.FirstOrDefault()[field.Value.Name];
+            var val = data.FirstOrDefault()[field.Name];
             var dataType = val.GetType();
-            var subType = dataType;
+            Type? subType;
             if (dataType.GetGenericArguments().Length > 0)
             {
                 // It's a list
@@ -236,7 +204,7 @@ public static class ArrayHelpers
                     }
                     else
                     {
-                        throw new Exception("Could not determine subType for " + field.Key + ".");
+                        throw new Exception("Could not determine subType for " + field.Name + ".");
                     }
                 }
                 else
@@ -250,15 +218,13 @@ public static class ArrayHelpers
                 : [subType]);
             if (appendMethod == null) throw new NotImplementedException("Append method for " + subType + " not implemented.");
             
-            columns[field.Value.Name] = new FieldData()
+            columns[field.Name] = new FieldData()
             {
-                builder = builder,
-                appendMethod = appendMethod,
-                subType = subType,
-                isFixedSizeArray = isFixedSizedArray,
-                typeForBuilder = typeForBuilder,
-                fixedTypeArrays = [],
-                parentType = parentType
+                Builder = builder,
+                AppendMethod = appendMethod,
+                SubType = subType,
+                IsFixedSizeArray = isFixedSizedArray,
+                ParentType = parentType
             };
         }
         
@@ -284,29 +250,14 @@ public static class ArrayHelpers
                 {
                     foreach (var value in list)
                     {
-                        /*if (targetBuilder.isFixedSizeArray)
+                        if (targetBuilder.SubType == typeof(string))
                         {
-                            // We've constructed a fixed sized array rather than what we actually want.
-                            // So we need to extract the array for further processing later, and then
-                            // reset the builder.
-                            var fixedArray = (IArrowArray)targetBuilder.builder.GetType().GetMethod("Build")!.Invoke(targetBuilder.builder, [null])!;
-                            targetBuilder.fixedTypeArrays.Add(fixedArray);
-                            
-                            // (We already checked for null when we constructed it)
-                            targetBuilder.builder = ArrayBuilderFactory(targetBuilder.typeForBuilder.TypeId)!;
+                            targetBuilder.AppendMethod.Invoke(targetBuilder.Builder, [value, null]);
                         }
                         else
-                        {*/
-                            // It's not a fixed size array, so just keep on appending
-                            if (targetBuilder.subType == typeof(string))
-                            {
-                                targetBuilder.appendMethod.Invoke(targetBuilder.builder, [value, null]);
-                            }
-                            else
-                            {
-                                targetBuilder.appendMethod.Invoke(targetBuilder.builder, [value]);
-                            }
-                        //}
+                        {
+                            targetBuilder.AppendMethod.Invoke(targetBuilder.Builder, [value]);
+                        }
                     }
                 }
                 else
@@ -321,12 +272,12 @@ public static class ArrayHelpers
         var allEntries = new List<IArrowArray>();
         foreach (var column in columns)
         {
-            var array = (IArrowArray)column.Value.builder.GetType().GetMethod("Build")!.Invoke(column.Value.builder,
+            var array = (IArrowArray)column.Value.Builder.GetType().GetMethod("Build")!.Invoke(column.Value.Builder,
                 [null])!;
-            if (column.Value.isFixedSizeArray)
+            if (column.Value.IsFixedSizeArray)
             {
                 var total = data.Count();
-                var fixedSizeListType = (FixedSizeListType)column.Value.parentType;
+                var fixedSizeListType = (FixedSizeListType)column.Value.ParentType;
                 var fixedSizeListArrayData = new ArrayData(
                     fixedSizeListType,
                     length: total,
@@ -343,92 +294,6 @@ public static class ArrayHelpers
         }
         var recordBatch = new RecordBatch(schema, allEntries, length: data.Count());
         return [recordBatch];
-
-        /*
-        /// OLD CODE
-        foreach (var row in data)
-        {
-            List<IArrowArray> arrayRows = new List<IArrowArray>();
-
-            // Foreach item in the row dictionary
-            foreach (var item in row) {
-                // Get the field from the schema
-                var field = schema.GetFieldByName(item.Key);
-                if (field == null) throw new Exception("Field " + item.Key + " not found in schema.");
-
-                // Get the type from the schema
-                var type = field.DataType;
-                if (type == null) throw new Exception("Type not found in schema.");
-
-                // Check if the type matches the schema
-                if (type.TypeId == ArrowTypeId.FixedSizeList)
-                {
-                    // Get the inner type
-                    var innerType = ((FixedSizeListType)type).ValueDataType;
-                    //if (!DoesTypeMatchSchema(item.Value, innerType.TypeId)) throw new Exception("Type mismatch for " + item.Key + ". Expected " + innerType.TypeId + ", got " + item.Value.GetType() + ".");
-
-                } else if (item.Value is string[] || item.Value is System.Single[] || item.Value is UInt64[] )
-                {
-                    // String[] isn't a list
-                }
-                else if (!DoesTypeMatchSchema(item.Value, type.TypeId)) throw new Exception("Type mismatch for " + item.Key + ". Expected " + type.TypeId + ", got " + item.Value.GetType() + ".");
-
-                // Get the array builder
-                // TODO: Many more builders required
-                var val = item.Value;
-                if (val is string[] strings)
-                {
-                    val = strings.ToList();
-                } else if (val is float[] floats)
-                {
-                    val = floats.ToList();
-                } else if (val is ulong[] ulongs)
-                {
-                    val = ulongs.ToList();
-                }
-                var baseType = val.GetType();
-                var subType = baseType.GetGenericArguments()[0];
-                object? builder;
-                if (type.TypeId == ArrowTypeId.FixedSizeList)
-                {
-                    // Get the inner type from the schema
-                    var innerType = ((FixedSizeListType)type).ValueDataType;
-                    builder = ArrayBuilderFactory(innerType.TypeId);
-                }
-                else
-                {
-                    builder = ArrayBuilderFactory(type.TypeId);
-                }
-                if (builder == null) throw new NotImplementedException("Type builder for " + type.TypeId + " not implemented.");
-
-                MethodInfo? appendMethod = builder.GetType().GetMethod("Append", subType == typeof(string) ? [typeof(string), typeof(Encoding)]
-                    : [subType]);
-                if (appendMethod == null) throw new NotImplementedException("Append method for " + subType + " not implemented.");
-
-                var list = item.Value as IList;
-                if (list != null)
-                {
-                    foreach (var value in list)
-                    {
-                        if (subType == typeof(string))
-                        {
-                            appendMethod.Invoke(builder, [value, null]);
-                        }
-                        else
-                        {
-                            appendMethod.Invoke(builder, [value]);
-                        }
-                    }
-                }
-
-                var array = (IArrowArray)builder.GetType().GetMethod("Build")!.Invoke(builder, [null])!;
-                AddToArrayOrWrapInList(arrayRows, type, array);
-            }
-            var recordBatch = new RecordBatch(schema, arrayRows.ToArray(), length: 1);
-            result.Add(recordBatch);
-        }
-
-        return result;*/
     }
     
     public enum TypeIndex
@@ -541,7 +406,7 @@ public static class ArrayHelpers
         return concatenatedTable;
     }
 
-    public static IEnumerable<IDictionary<string, object>> ArrowTableToListOfDicts(Apache.Arrow.Table table)
+    public static IEnumerable<IDictionary<string, object>> ArrowTableToListOfDictionaries(Apache.Arrow.Table table)
     {
         var result = new List<IDictionary<string, object>>();
         
@@ -556,7 +421,7 @@ public static class ArrayHelpers
             var column = table.Column(j);
             for (var colIdx = 0 ; colIdx < column.Data.ArrayCount; colIdx++)
             {
-                var raw = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.Array(colIdx), rowCount:(int)column.Data.Array(colIdx).Length);
+                var raw = ArrayHelpers.ArrowArrayDataToConcrete(column.Data.Array(colIdx), rowCount: column.Data.Array(colIdx).Length);
                 if (raw is ArrayList chunked)
                 {
                     if (chunked[0] is IEnumerable inner)
@@ -686,7 +551,7 @@ public static class ArrayHelpers
         }
         
         // Extract the column. This gives us an array of arrays.
-        var native = ArrowTableToListOfDicts(table).ToList();
+        var native = ArrowTableToListOfDictionaries(table).ToList();
         var targetColumn = native.Select(row => row[column]).ToList();
         // Transform IList<Object> to IList<(Object, int)>. The (int) should be the enumerator.
         var withIndex = new List<(object, int)>();
