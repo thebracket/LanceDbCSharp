@@ -17,6 +17,7 @@ const int Dimension = 128;
 using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
 {
     System.Console.WriteLine("Connection Opened. There should be 0 tables.");
+    Console.WriteLine($"The URI is: {cnn.Uri.AbsoluteUri}");
     // It's expected that the database is empty
     await ListTables(cnn);
 
@@ -28,15 +29,19 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     await ListTables(cnn);
 
     int numEntries = 5;
-    System.Console.WriteLine($"{numEntries} records added.");
+    System.Console.WriteLine($"{numEntries} records added using Batches.");
     table1.Add(GetBatches(numEntries));
-    System.Console.WriteLine($"Table 1 row count (expect {numEntries}): {table1.CountRows()}" );
+    System.Console.WriteLine($"Table 1 row count (expected {numEntries}), actual {table1.CountRows()}" );
+
+    int dictionaryRows = 2;
+    table1.Add(GetDictionary(dictionaryRows, numEntries));
+    System.Console.WriteLine($"Table 1 row count (expected {numEntries + dictionaryRows}) actual {table1.CountRows()}" );
     
     string[] columns = new[] { "id" };    
     ILanceMergeInsertBuilder builder = table1.MergeInsert(columns);
     numEntries = 1000;
     builder.WhenMatchedUpdateAll().WhenNotMatchedInsertAll().Execute(GetBatches(numEntries));
-    System.Console.WriteLine($"Table 1 row count (expect {numEntries}): {table1.CountRows()}" );
+    System.Console.WriteLine($"Table 1 row count (expected {numEntries}) actual {table1.CountRows()}" );
     
     table1.CreateIndex("vector", Metric.Cosine, 256, 16);
     table1.CreateScalarIndex("id");
@@ -82,9 +87,26 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     var resultTable = table1.Search().Vector(vector1).Limit(3).WithRowId(true).ToArrow();
     PrintTable(resultTable);
 
+    System.Console.WriteLine("======  Search Vector<float> 0.3...., return List===============================");
     Vector<float> vectorValues = Vector<float>.Build.Dense(vector1.ToArray());
-    var vectorValuesResult = table1.Search(vector1, "vector").Limit(2).ToList();
+    var vectorValuesResult = table1.Search(vectorValues, "vector").Limit(2).ToList();
     PrintResults(vectorValuesResult);
+
+    System.Console.WriteLine("======  Search Matrix<float> 0.3...., return List===============================");
+    int rows = 2;
+    float[,] array2d = new float[rows, Dimension];
+    for (int i = 0; i < rows; i++)
+    {
+        for (int j = 0; j < Dimension; j++)
+        {
+            array2d[i, j] = 0.3f;
+        }
+    }
+
+    // we use matrix to query multiple vectors, the internal code seems to convert matrix to 1 dimensional array
+    // Matrix<float> matrixValues = Matrix<float>.Build.DenseOfArray(array2d);
+    // var matrixValuesResult = table1.Search(matrixValues, "vector").Limit(2).ToList();
+    // PrintResults(matrixValuesResult);
     
     /*
     Console.WriteLine("======hybrid, return batches =================");
@@ -212,6 +234,8 @@ Schema GetSchema()
     // Define the "id" field (Int32, not nullable)
     var idField = new Field("id", Int32Type.Default, nullable: false);
 
+    var textField = new Field("text", StringType.Default, nullable: false);
+
     // Define the "item" field for the FixedSizeList (Float32, nullable)
     var itemField = new Field("item", FloatType.Default, nullable: true);
 
@@ -221,8 +245,6 @@ Schema GetSchema()
     // Define the "vector" field (FixedSizeList, nullable)
     var vectorField = new Field("vector", vectorType, nullable: true);
     
-    var textField = new Field("text", StringType.Default, nullable: false);
-
     // Create the schema with the "id" and "vector" fields
     var fields = new List<Field> { idField, textField, vectorField };
     
@@ -287,6 +309,25 @@ IEnumerable<RecordBatch> GetBatches(int numEntries)
     RecordBatch[] batches = new[] { recordBatch };
 
     return batches;
+}
+
+IEnumerable<Dictionary<string, object>> GetDictionary(int numEntries, int indexStart)
+{
+    var data = new List<Dictionary<string, object>>();
+    for (int i = indexStart; i < indexStart+numEntries; i++)
+    {
+        List<int> idList = new List<int>() { i + 1};
+        List<string> textList = new List<string> { "item " + (i + 1) };
+        
+        var row = new Dictionary<string, object>
+        {
+            {"id",  idList},
+            {"text", textList},
+            {"vector", Enumerable.Repeat(0.7f, Dimension).ToList()}
+        };
+        data.Add(row);
+    }
+    return data;
 }
 
 void PrintDictList(IEnumerable<IDictionary<string, object>> enumerable)
