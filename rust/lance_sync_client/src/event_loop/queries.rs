@@ -296,7 +296,9 @@ pub(crate) async fn do_vector_query(
         }
     }
 
+    println!("Batch size: {}", batch_size);
     let options = if batch_size > 0 {
+        println!("Setting batch size to: {}", batch_size);
         let mut qo = QueryExecutionOptions::default();
         qo.max_batch_length = batch_size;
         qo
@@ -308,6 +310,7 @@ pub(crate) async fn do_vector_query(
         Ok(mut query) => {
             while let Ok(Some(record)) = query.try_next().await {
                 // Return results as a batch
+                println!("Received a record from the query");
                 if let Some(batch_callback) = batch_callback {
                     let schema = record.schema();
                     let Ok(bytes) = batch_to_bytes(&record, &schema) else {

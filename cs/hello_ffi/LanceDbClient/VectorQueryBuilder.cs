@@ -155,7 +155,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
         return result;
     }
 
-    public async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)
+    public new async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)
     {
         if (VectorData == null)
         {
