@@ -24,7 +24,7 @@ public partial class QueryBuilder
     public async Task<IEnumerable<IDictionary<string, object>>> ToListAsync(CancellationToken token = default)
     {
         var table = await ToArrowAsync(token);
-        var result = ArrayHelpers.ArrowTableToListOfDicts(table);
+        var result = ArrayHelpers.ArrowTableToListOfDictionaries(table);
         return result;
     }
     

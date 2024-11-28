@@ -400,7 +400,7 @@ public sealed partial class Table : ITable
                 .SelectColumns([vectorColumnName]);
             // Hybrid is requested
             case QueryType.Hybrid: return new HybridQueryBuilder(_connectionHandle, _tableHandle)
-                .Vector(vector)
+                .WithVectorData(ArrayHelpers.CastVectorList(vector))
                 .SelectColumns([vectorColumnName]);
             // FTS is requested - but we don't support embeddings currently
             case QueryType.Fts: throw new Exception("Cannot use FTS with a vector query unless an embedding system is provided. These aren't supported in C# yet.");

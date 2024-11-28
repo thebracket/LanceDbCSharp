@@ -7,7 +7,7 @@ namespace LanceDbClient;
 
 public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
 {
-    protected ArrayHelpers.VectorDataImpl? VectorData = null;
+    protected internal ArrayHelpers.VectorDataImpl? VectorData = null;
     protected Metric DistanceMetric;
     protected int NumProbes;
     protected int RefinementFactor;
@@ -155,7 +155,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
         return result;
     }
 
-    public async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)
+    public new async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)
     {
         if (VectorData == null)
         {

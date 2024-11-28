@@ -175,16 +175,19 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     var arrow1 = table2.Search().Text("'12'").WithRowId(true).ToArrow();
     var arrow2 = table2.Search().Text("'7'").WithRowId(true).ToArrow();
     var merged = rrf.MergeResults(arrow1, arrow2);
-    var mergedTable = ArrayHelpers.ArrowTableToListOfDicts(merged);
+    var mergedTable = ArrayHelpers.ArrowTableToListOfDictionaries(merged);
     PrintDictList(mergedTable);
     
-    // Reranking with RRF
+    // Reranking with RRF (This is broken out into steps for debugging)
     Console.WriteLine("Reranking '12' with RRF");
-    var testRrf = await table2.Search(vector, "vector", queryType: QueryType.Hybrid)
+    var testRrf = table2
+        .Search(vector, "vector", queryType: QueryType.Hybrid)
+        .SelectColumns(["id", "vector"]);
+    var testRrf2 = await testRrf
         .Text("'12'")
         .Rerank(new RrfReranker())
         .ToListAsync();
-    PrintDictList(testRrf);
+    PrintDictList(testRrf2);
 
     Console.WriteLine("Reranking '12' with RRF");
     var testRrfSync = table2.Search(vector, "vector", queryType: QueryType.Hybrid)
@@ -212,7 +215,8 @@ System.Console.WriteLine("Complete");
 
 async Task ListTables(Connection cnn)
 {
-    System.Console.Write("Tables: ");
+    Console.WriteLine("--------------------------------------------------------");
+    Console.Write("Tables: ");
     var tables = await cnn.TableNamesAsync();
     var count = 0;
     foreach (var table in tables)
@@ -225,6 +229,7 @@ async Task ListTables(Connection cnn)
         System.Console.Write("None");
     }
     System.Console.WriteLine();
+    Console.WriteLine("--------------------------------------------------------");
 }
 
 // Data generation functions
@@ -332,6 +337,7 @@ IEnumerable<Dictionary<string, object>> GetDictionary(int numEntries, int indexS
 
 void PrintDictList(IEnumerable<IDictionary<string, object>> enumerable)
 {
+    Console.WriteLine("--------------------------------------------------------");
     foreach (var row in enumerable)
     {
         // Print out each key and value
@@ -372,7 +378,9 @@ void PrintDictList(IEnumerable<IDictionary<string, object>> enumerable)
                 Console.WriteLine(keyValuePair.Value);
             }
         }
+        Console.WriteLine("________________");
     }
+    Console.WriteLine("--------------------------------------------------------");
 }
 
 void PrintResults(IEnumerable<IDictionary<string, object>> result)
