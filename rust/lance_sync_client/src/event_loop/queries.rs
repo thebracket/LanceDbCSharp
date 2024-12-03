@@ -313,17 +313,39 @@ pub(crate) async fn do_vector_query(
                 println!("Received a record from the query");
                 if let Some(batch_callback) = batch_callback {
                     let schema = record.schema();
-                    let Ok(bytes) = batch_to_bytes(&record, &schema) else {
-                        report_result(
-                            Err("Unable to convert result to bytes".to_string()),
-                            reply_tx,
-                            Some(completion_sender),
-                        ).await;
-                        return;
-                    };
-                    spawn_blocking(move || {
-                        batch_callback(bytes.as_ptr(), bytes.len() as u64);
-                    }).await.unwrap();
+
+                    if batch_size > 0 && record.num_rows() > batch_size as usize {
+                        // Split the record into batches and yield them one by one
+                        let n_slices = record.num_rows() / batch_size as usize;
+                        println!("Dividing result ({} rows) into {n_slices} slices for individual yielding", record.num_rows());
+                        for slice in 0..n_slices {
+                            let slice = record.slice(slice * batch_size as usize, batch_size as usize);
+                            let Ok(bytes) = batch_to_bytes(&slice, &schema) else {
+                                report_result(
+                                    Err("Unable to convert result to bytes".to_string()),
+                                    reply_tx,
+                                    Some(completion_sender),
+                                ).await;
+                                return;
+                            };
+                            spawn_blocking(move || {
+                                batch_callback(bytes.as_ptr(), bytes.len() as u64);
+                            }).await.unwrap();
+                        }
+                    } else {
+                        // Return the whole record
+                        let Ok(bytes) = batch_to_bytes(&record, &schema) else {
+                            report_result(
+                                Err("Unable to convert result to bytes".to_string()),
+                                reply_tx,
+                                Some(completion_sender),
+                            ).await;
+                            return;
+                        };
+                        spawn_blocking(move || {
+                            batch_callback(bytes.as_ptr(), bytes.len() as u64);
+                        }).await.unwrap();
+                    }
                 }
             }
 

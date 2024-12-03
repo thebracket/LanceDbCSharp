@@ -638,7 +638,7 @@ public partial class Tests
                 });
                 
                 var recordBatch = Helpers.CreateSampleRecordBatch(
-                    Helpers.GetSchema(), 8, 4096
+                    Helpers.GetSchema(), 4096, 128
                 );
                 // Note that the interface defines a list, so we'll use that
                 var array = new List<RecordBatch>();
@@ -648,7 +648,7 @@ public partial class Tests
                 var target = new List<float>();
                 for (var i=0; i<128; i++) target.Add(1.0f);
                 int batchCount = 0;
-                await foreach (var batch in table.Search().Vector(target).SelectColumns(["id"]).ToBatchesAsync(1))
+                await foreach (var batch in table.Search().Vector(target).Limit(4096).SelectColumns(["id"]).ToBatchesAsync(1))
                 {
                     batchCount++;
                 }
