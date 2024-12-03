@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using Apache.Arrow;
@@ -155,7 +156,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
         return result;
     }
 
-    public new async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)
+    public new async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, [EnumeratorCancellation] CancellationToken token = default)
     {
         if (VectorData == null)
         {
