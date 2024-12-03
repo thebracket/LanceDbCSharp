@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
 
     // Query the data
     let mut options = QueryExecutionOptions::default();
-    options.max_batch_length = 1024;
+    options.max_batch_length = 2;
     let mut stream = tbl
         .query()
         .execute_with_options(options)
@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
 
 // Taken from: https://github.com/lancedb/lancedb/issues/1153
 fn create_some_records() -> Result<impl IntoArrow> {
-    const TOTAL: usize = 8192;
+    const TOTAL: usize = 64;
     const DIM: usize = 128;
 
     let schema = Arc::new(Schema::new(vec![
