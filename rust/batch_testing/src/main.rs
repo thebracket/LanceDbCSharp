@@ -11,6 +11,8 @@ use std::sync::Arc;
 use futures::TryStreamExt;
 use lancedb::query::{ExecutableQuery, QueryBase, QueryExecutionOptions};
 
+const BATCH_LENGTH: u32 = 2;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Connect to the database
@@ -26,17 +28,36 @@ async fn main() -> Result<()> {
 
     // Query the data
     let mut options = QueryExecutionOptions::default();
-    options.max_batch_length = 2;
-    let mut stream = tbl
+    options.max_batch_length = BATCH_LENGTH;
+
+    let plan = tbl
         .query()
+        .limit(8192)
         .nearest_to(&[0.0; 128])?
-        .execute_with_options(options)
-        .await
-        .expect("Query creation failed");
+        .explain_plan(true)
+        .await?;
+    println!("{:?}", plan);
+
+    let mut stream = tbl
+         .query()
+         .nearest_to(&[0.0; 128])?
+         .limit(8192)
+         .execute()
+         .await
+         .expect("Query creation failed");
+
     let mut count = 0;
-    while let Some(_batch) = stream.try_next().await? {
-        println!("Received Batch {count}");
+    while let Some(batch) = stream.try_next().await? {
+        println!("Received Batch {count}, containing {}", batch.num_rows());
+
+        let n_slices = batch.num_rows() / BATCH_LENGTH as usize;
+        for i in 0..n_slices {
+            let slice = batch.slice(i * BATCH_LENGTH as usize, BATCH_LENGTH as usize);
+            println!("Slice {i}: {}", slice.num_rows());
+        }
+
         count += 1;
+        //println!("{batch:?}");
     }
 
     // Clean up
