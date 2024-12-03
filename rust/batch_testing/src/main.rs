@@ -29,6 +29,7 @@ async fn main() -> Result<()> {
     options.max_batch_length = 2;
     let mut stream = tbl
         .query()
+        .nearest_to(&[0.0; 128])?
         .execute_with_options(options)
         .await
         .expect("Query creation failed");
@@ -47,7 +48,7 @@ async fn main() -> Result<()> {
 
 // Taken from: https://github.com/lancedb/lancedb/issues/1153
 fn create_some_records() -> Result<impl IntoArrow> {
-    const TOTAL: usize = 64;
+    const TOTAL: usize = 65536;
     const DIM: usize = 128;
 
     let schema = Arc::new(Schema::new(vec![
