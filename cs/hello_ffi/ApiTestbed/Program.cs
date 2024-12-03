@@ -62,7 +62,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     
     table1.CreateFtsIndex(["text"], ["text"]);
     System.Console.WriteLine("======  Search Text(apple)================================");
-    PrintResults(table1.Search().Text("apple").Limit(5).ToList());
+    PrintResults(table1.Search().Text("apple").Limit(2).ToList());
     
     List<float> vector1 = new List<float>();
     for (int i = 0; i < Dimension; i++)
@@ -71,28 +71,28 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     }
 
     System.Console.WriteLine("======  Search vector 0.3....Return List===============================");
-    var resultList = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(3).WithRowId(true).ToList();
+    var resultList = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(2).WithRowId(true).ToList();
     PrintResults(resultList);
     
     System.Console.WriteLine("======  Search vector 0.3....Return Batches Sync ===============================");
-    var resultBatches = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(3).WithRowId(true).ToBatches(2);
+    var resultBatches = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(2).WithRowId(true).ToBatches(1);
     PrintBatches(resultBatches);
 
     System.Console.WriteLine("======  Search vector 0.3....Return Batches Async ===============================");
-    var resultBatchesAsync = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(5).WithRowId(true).ToBatchesAsync(4);
+    var resultBatchesAsync = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(2).WithRowId(true).ToBatchesAsync(1);
     // the result will be displayed together with the next query due to the nature of asynchronous
     PrintBatchesAsync(resultBatchesAsync);
 
-    System.Console.WriteLine("======  Search vector 0.3...., return Table===============================");
+    System.Console.WriteLine("======  Search vector 0.3...., return Table sync===============================");
     var resultTable = table1.Search().Vector(vector1).Limit(3).WithRowId(true).ToArrow();
     PrintTable(resultTable);
 
-    System.Console.WriteLine("======  Search Vector<float> 0.3...., return List===============================");
+    System.Console.WriteLine("======  Search Vector<float> 0.3...., return List sync===============================");
     Vector<float> vectorValues = Vector<float>.Build.Dense(vector1.ToArray());
     var vectorValuesResult = table1.Search(vectorValues, "vector").Limit(2).ToList();
     PrintResults(vectorValuesResult);
 
-    System.Console.WriteLine("======  Search Matrix<float> 0.3...., return List===============================");
+    System.Console.WriteLine("======  Search Matrix<float> 0.3...., return List sync===============================");
     int rows = 2;
     float[,] array2d = new float[rows, Dimension];
     for (int i = 0; i < rows; i++)
@@ -108,17 +108,17 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     // var matrixValuesResult = table1.Search(matrixValues, "vector").Limit(2).ToList();
     // PrintResults(matrixValuesResult);
     
-    /*
-    Console.WriteLine("======hybrid, return batches =================");
-    // the following search(...) will not create HybridQueryBuilder, it is VectorQueryBuilder
+    Console.WriteLine("======hybrid, reranker, return batches, sync =================");
     var testHybrid = ((HybridQueryBuilder)(table1.Search(vector1, "vector", queryType: QueryType.Hybrid)))
         .Metric(Metric.Cosine)
         .NProbes(10)
         .RefineFactor(10)
+        .SelectColumns(["id", "text", "vector" ])
+        .Text("apple")
+        .Rerank(new RrfReranker())
         .Limit(7)
         .ToBatches(3);
     PrintBatches(testHybrid);
-    */
 
     System.Console.WriteLine($"Rows before delete: {table1.CountRows()}");
     table1.Delete("id < 100");
@@ -183,18 +183,21 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     var testRrf = table2
         .Search(vector, "vector", queryType: QueryType.Hybrid)
         .SelectColumns(["id", "vector"]);
-    var testRrf2 = await testRrf
+    var testRrf2 = testRrf
         .Text("'12'")
         .Rerank(new RrfReranker())
-        .ToListAsync();
+        .ToList();
     PrintDictList(testRrf2);
 
-    Console.WriteLine("Reranking '12' with RRF");
+    /*
+    Console.WriteLine("Reranking '12' with RRF, sync version and return batches");
     var testRrfSync = table2.Search(vector, "vector", queryType: QueryType.Hybrid)
+        .Text("'12'")
         .Rerank(new RrfReranker())
         .ToBatches(2);
     PrintBatches(testRrfSync);
-
+*/
+    
     // Now we'll drop table2
     await cnn.DropTableAsync("table2");
     System.Console.WriteLine("Table 2 Dropped (Asynchronously)");
@@ -412,10 +415,10 @@ void PrintTable(Table table)
     for (int i = 0; i < table.ColumnCount; i++)
     {
         var column = table.Column(i);
-        Console.WriteLine($"Column {i}: {column.Name} {column.Type.Name}");
+        Console.WriteLine($"\nColumn {i}: {column.Name} {column.Type.Name}");
         for (int j = 0; j < column.Data.ArrayCount; j++)
         {
-            Console.WriteLine($"size: {column.Data.ArrayCount}");
+            Console.WriteLine($"table truncated array size: {column.Data.ArrayCount}");
             // it seems it usually has only 1 element in this ChunkedArray
             // the intention of ChunkedArray seems for scalability,
             // however, if we try to merge all chunks into one, will it break the scalability? unless now it is a single field so it doesn't matter?
@@ -427,12 +430,12 @@ void PrintTable(Table table)
             {
                 foreach (var item in list)
                 {
-                    Console.Write(item + " "); // Prints each integer in the list
+                    Console.Write(item + "-"); // Prints each integer in the list
                 }
             }
             else
             {
-                Console.Write(array + " ");
+                Console.Write(array + "-");
             }
             Console.WriteLine();
         }
@@ -442,10 +445,12 @@ void PrintTable(Table table)
 
 async void PrintBatchesAsync(IAsyncEnumerable<RecordBatch> recordBatches)
 {
+    Console.WriteLine("=====print async batch start ======");
     await foreach (var batch in recordBatches)
     {
         PrintBatch(batch);
     }
+    Console.WriteLine("=====print async batch end ======");
 }
 
 void PrintBatches(IEnumerable<RecordBatch> recordBatches)
@@ -475,6 +480,7 @@ void PrintBatch(RecordBatch batch)
                 k++;
                 if (k == fixedSizeListArray.Values.Length / fixedSizeListArray.Length)
                 {
+                    Console.WriteLine();
                     Console.WriteLine("total elements:" + k);
                     k = 0;
                     Console.WriteLine();

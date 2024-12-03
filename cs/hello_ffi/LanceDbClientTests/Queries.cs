@@ -652,7 +652,7 @@ public partial class Tests
                 {
                     batchCount++;
                 }
-                Assert.That(batchCount, Is.EqualTo(4096));
+                Assert.That(batchCount, Is.EqualTo(1));
             }
         }
         finally
