@@ -9,6 +9,9 @@ use crate::table_handler::TableHandle;
 use std::ffi::c_char;
 use crate::event_loop::command::{ScalarIndexType, WriteMode};
 
+/// Defines a function type for a "blob" callback: a bunch of bytes and a length.
+pub type BlobCallback = Option<extern "C" fn(bytes: *const u8, len: u64) -> bool>;
+
 /// Connect to a LanceDB database. This function will return a handle
 /// to the connection, which can be used in other functions.
 ///
@@ -109,7 +112,7 @@ pub extern "C" fn list_table_names(
 pub extern "C" fn open_table(
     name: *const c_char,
     connection_handle: i64,
-    schema_callback: Option<extern "C" fn(bytes: *const u8, len: u64)>,
+    schema_callback: BlobCallback,
     reply_tx: ErrorReportFn,
 ) {
     let name = unsafe { std::ffi::CStr::from_ptr(name).to_string_lossy().to_string() };
@@ -423,7 +426,7 @@ pub extern "C" fn optimize_table(
 pub extern "C" fn query(
     connection_handle: i64,
     table_handle: i64,
-    batch_callback: Option<extern "C" fn(*const u8, u64)>,
+    batch_callback: BlobCallback,
     reply_tx: ErrorReportFn,
     limit: u64,
     where_clause: *const c_char,
@@ -496,7 +499,7 @@ pub extern "C" fn query(
 pub extern "C" fn vector_query(
     connection_handle: i64,
     table_handle: i64,
-    batch_callback: Option<extern "C" fn(*const u8, u64)>,
+    batch_callback: BlobCallback,
     reply_tx: ErrorReportFn,
     limit: u64,
     where_clause: *const c_char,

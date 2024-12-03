@@ -6,6 +6,7 @@ use arrow_schema::SchemaRef;
 use lancedb::{Connection, Table};
 use std::ffi::c_char;
 use tokio::sync::mpsc::Sender;
+use crate::BlobCallback;
 
 pub(crate) async fn get_connection(
     connections: Sender<ConnectionCommand>,
@@ -149,7 +150,7 @@ pub(crate) async fn do_open_table(
     connection_handle: ConnectionHandle,
     reply_sender: ErrorReportFn,
     completion_sender: CompletionSender,
-    schema_callback: Option<extern "C" fn(bytes: *const u8, len: u64)>,
+    schema_callback: BlobCallback,
 ) {
     let (tx, rx) = tokio::sync::oneshot::channel();
     tables

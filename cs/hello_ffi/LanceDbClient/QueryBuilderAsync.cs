@@ -28,7 +28,7 @@ public partial class QueryBuilder
         return result;
     }
     
-    public async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)
+    public async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, [EnumeratorCancellation] CancellationToken token = default)
     {
         string[]? selectColumns = null;
         if (SelectColumnsList.Count > 0)
@@ -58,6 +58,7 @@ public partial class QueryBuilder
                     Marshal.Copy((IntPtr)bytes, schemaBytes, 0, (int)len);
                     var batch = Ffi.DeserializeRecordBatch(schemaBytes);
                     channel.Writer.TryWrite(batch);
+                    return !token.IsCancellationRequested;
                 };
 
                 Ffi.query(ConnectionId, TableId, blobCallback, resultCallback, LimitCount, WhereSql, WithRowIdent,

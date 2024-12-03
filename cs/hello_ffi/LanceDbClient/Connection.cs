@@ -109,6 +109,7 @@ public sealed partial class Connection : IConnection
                     var schemaBytes = new byte[len];
                     Marshal.Copy((IntPtr)bytes, schemaBytes, 0, (int)len);
                     schema = Ffi.DeserializeSchema(schemaBytes);
+                    return true;
                 }
                 , (code, message) =>
                 {

@@ -89,6 +89,7 @@ public sealed partial class Connection
                     var schemaBytes = new byte[len];
                     Marshal.Copy((IntPtr)bytes, schemaBytes, 0, (int)len);
                     schema = Ffi.DeserializeSchema(schemaBytes);
+                    return !cancellationToken.IsCancellationRequested;
                 };
                 Ffi.open_table(name, _connectionId, schemaBlob, callback);
             });

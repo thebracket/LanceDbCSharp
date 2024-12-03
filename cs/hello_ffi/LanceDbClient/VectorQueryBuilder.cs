@@ -140,6 +140,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
                     Marshal.Copy((IntPtr)bytes, schemaBytes, 0, (int)len);
                     var batch = Ffi.DeserializeRecordBatch(schemaBytes);
                     result.Add(batch);
+                    return true;
                 }, (code, message) =>
                 {
                     // If an error occurred, turn it into an exception
@@ -193,6 +194,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
                     Marshal.Copy((IntPtr)bytes, schemaBytes, 0, (int)len);
                     var batch = Ffi.DeserializeRecordBatch(schemaBytes);
                     channel.Writer.TryWrite(batch);
+                    return !token.IsCancellationRequested;
                 };
 
                 fixed (byte* b = VectorData.Data)

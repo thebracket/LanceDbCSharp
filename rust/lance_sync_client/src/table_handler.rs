@@ -6,6 +6,7 @@ use lancedb::Table;
 use std::collections::HashMap;
 use tokio::sync::mpsc::Sender;
 use tokio::task::spawn_blocking;
+use crate::BlobCallback;
 
 /// Strongly typed table handle (to disambiguate from the other handles).
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -30,7 +31,7 @@ pub enum TableCommand {
         connection_handle: ConnectionHandle,
         connections: Sender<ConnectionCommand>,
         reply_sender: tokio::sync::oneshot::Sender<Result<TableHandle, String>>,
-        schema_callback: Option<extern "C" fn(bytes: *const u8, len: u64)>,
+        schema_callback: BlobCallback,
     },
     DropTable {
         name: String,

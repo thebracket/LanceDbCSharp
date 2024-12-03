@@ -13,6 +13,7 @@ use std::ffi::c_char;
 use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 use tokio::task::spawn_blocking;
+use crate::BlobCallback;
 
 // Vector search data type. Holds types that accept implement VectorQuery
 #[derive(Debug)]
@@ -104,7 +105,7 @@ pub(crate) async fn do_query(
     table_handle: TableHandle,
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
-    batch_callback: Option<extern "C" fn(*const u8, u64)>,
+    batch_callback: BlobCallback,
     limit: Option<usize>,
     where_clause: Option<String>,
     with_row_id: bool,
@@ -188,9 +189,12 @@ pub(crate) async fn do_query(
                         ).await;
                         return;
                     };
-                    spawn_blocking(move || {
-                        batch_callback(bytes.as_ptr(), bytes.len() as u64);
+                    let proceed = spawn_blocking(move || {
+                        batch_callback(bytes.as_ptr(), bytes.len() as u64)
                     }).await.unwrap();
+                    if !proceed {
+                        break;
+                    }
                 }
             }
 
@@ -210,7 +214,7 @@ pub(crate) async fn do_vector_query(
     table_handle: TableHandle,
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
-    batch_callback: Option<extern "C" fn(*const u8, u64)>,
+    batch_callback: BlobCallback,
     limit: Option<usize>,
     where_clause: Option<String>,
     with_row_id: bool,
@@ -311,6 +315,7 @@ pub(crate) async fn do_vector_query(
             while let Ok(Some(record)) = query.try_next().await {
                 // Return results as a batch
                 println!("Received a record from the query");
+                let mut cancel = false;
                 if let Some(batch_callback) = batch_callback {
                     let schema = record.schema();
 
@@ -328,9 +333,13 @@ pub(crate) async fn do_vector_query(
                                 ).await;
                                 return;
                             };
-                            spawn_blocking(move || {
-                                batch_callback(bytes.as_ptr(), bytes.len() as u64);
+                            let proceed = spawn_blocking(move || {
+                                batch_callback(bytes.as_ptr(), bytes.len() as u64)
                             }).await.unwrap();
+                            if !proceed {
+                                cancel = true;
+                                break;
+                            }
                         }
                     } else {
                         // Return the whole record
@@ -342,12 +351,18 @@ pub(crate) async fn do_vector_query(
                             ).await;
                             return;
                         };
-                        spawn_blocking(move || {
-                            batch_callback(bytes.as_ptr(), bytes.len() as u64);
+                        let proceed = spawn_blocking(move || {
+                            batch_callback(bytes.as_ptr(), bytes.len() as u64)
                         }).await.unwrap();
+                        if !proceed {
+                            break;
+                        }
                     }
                 }
-            }
+                if cancel {
+                    break;
+                }
+            } // end of while loop
 
             // Announce that we're done
             report_result(Ok(0), reply_tx, Some(completion_sender)).await;
