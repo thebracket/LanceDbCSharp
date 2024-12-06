@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using Apache.Arrow;
@@ -139,6 +140,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
                     Marshal.Copy((IntPtr)bytes, schemaBytes, 0, (int)len);
                     var batch = Ffi.DeserializeRecordBatch(schemaBytes);
                     result.Add(batch);
+                    return true;
                 }, (code, message) =>
                 {
                     // If an error occurred, turn it into an exception
@@ -155,7 +157,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
         return result;
     }
 
-    public new async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)
+    public new async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, [EnumeratorCancellation] CancellationToken token = default)
     {
         if (VectorData == null)
         {
@@ -192,6 +194,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
                     Marshal.Copy((IntPtr)bytes, schemaBytes, 0, (int)len);
                     var batch = Ffi.DeserializeRecordBatch(schemaBytes);
                     channel.Writer.TryWrite(batch);
+                    return !token.IsCancellationRequested;
                 };
 
                 fixed (byte* b = VectorData.Data)

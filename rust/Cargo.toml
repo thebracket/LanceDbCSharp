@@ -13,6 +13,7 @@ codegen-units = 1
 [workspace]
 members = [
     "lance_sync_client", # Quick Rust test to make sure that LanceDb itself is working.
+    "batch_testing",
 ]
 
 [workspace.dependencies]

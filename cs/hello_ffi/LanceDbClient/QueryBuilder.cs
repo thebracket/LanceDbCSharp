@@ -31,6 +31,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
     
     /// <summary>
     /// Sets a limit to how many records can be returned.
+    /// Note that vector queries ALWAYS have a limit, defaulting to 10.
     /// </summary>
     /// <param name="limit">The limit (or 0 for none)</param>
     /// <returns>The query builder to continue building.</returns>
@@ -220,6 +221,7 @@ public partial class QueryBuilder : ILanceQueryBuilder
             Marshal.Copy((IntPtr)bytes, schemaBytes, 0, (int)len);
             var batch = Ffi.DeserializeRecordBatch(schemaBytes);
             result.Add(batch);
+            return true;
         }, (code, message) =>
         {
             // If an error occurred, turn it into an exception

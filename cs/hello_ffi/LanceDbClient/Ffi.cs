@@ -13,8 +13,10 @@ static partial class Ffi
     private const string DllName = "liblance_sync_client.so";
     
     /* Delegate types */
+    
+    // This function returns TRUE to request the next batch, or FALSE to stop
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    internal unsafe delegate void BlobCallback(byte* schema, ulong schemaLength);
+    internal unsafe delegate bool BlobCallback(byte* data, ulong dataLength);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void ResultCallback(long code, string? message);

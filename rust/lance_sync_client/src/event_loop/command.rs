@@ -7,6 +7,7 @@ use lancedb::table::AddDataMode;
 use lancedb::DistanceType;
 use std::ffi::c_char;
 use strum::FromRepr;
+use crate::BlobCallback;
 
 /// Used to synchronize timings - make sure that the function
 /// does not return until all async processing is complete.
@@ -37,7 +38,7 @@ pub(crate) enum LanceDbCommand {
     OpenTable {
         name: String,
         connection_handle: ConnectionHandle,
-        schema_callback: Option<extern "C" fn(bytes: *const u8, len: u64)>,
+        schema_callback: BlobCallback,
     },
 
     ListTableNames {
@@ -153,7 +154,7 @@ pub(crate) enum LanceDbCommand {
     Query {
         connection_handle: ConnectionHandle,
         table_handle: TableHandle,
-        batch_callback: Option<extern "C" fn(*const u8, u64)>,
+        batch_callback: BlobCallback,
         limit: Option<usize>,
         where_clause: Option<String>,
         with_row_id: bool,
@@ -166,7 +167,7 @@ pub(crate) enum LanceDbCommand {
     VectorQuery {
         connection_handle: ConnectionHandle,
         table_handle: TableHandle,
-        batch_callback: Option<extern "C" fn(*const u8, u64)>,
+        batch_callback: BlobCallback,
         limit: Option<usize>,
         where_clause: Option<String>,
         with_row_id: bool,

@@ -638,7 +638,7 @@ public partial class Tests
                 });
                 
                 var recordBatch = Helpers.CreateSampleRecordBatch(
-                    Helpers.GetSchema(), 8, 4096
+                    Helpers.GetSchema(), 4096, 128
                 );
                 // Note that the interface defines a list, so we'll use that
                 var array = new List<RecordBatch>();
@@ -648,11 +648,69 @@ public partial class Tests
                 var target = new List<float>();
                 for (var i=0; i<128; i++) target.Add(1.0f);
                 int batchCount = 0;
-                await foreach (var batch in table.Search().Vector(target).SelectColumns(["id"]).ToBatchesAsync(1))
+                await foreach (var batch in table.Search().Vector(target).Limit(4096).SelectColumns(["id"]).ToBatchesAsync(1))
                 {
                     batchCount++;
                 }
                 Assert.That(batchCount, Is.EqualTo(1));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
+    
+    [Test]
+    public async Task BatchSizeVectorQueryCancel()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_vec_query_select_batchsize");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.Multiple(() =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(cnn.TableNames(), Does.Contain("table1"));
+                });
+                
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 4096, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+
+                var target = new List<float>();
+                for (var i=0; i<128; i++) target.Add(1.0f);
+                int batchCount = 0;
+                var cts = new CancellationTokenSource();
+                try
+                {
+                    await foreach (var batch in table.Search().Vector(target).Limit(4096).SelectColumns(["id"])
+                                       .ToBatchesAsync(1, cts.Token))
+                    {
+                        if (batchCount == 10)
+                        {
+                            await cts.CancelAsync();
+                        }
+
+                        batchCount++;
+                    }
+                }
+                catch (Exception e)
+                {
+                    Assert.That(e, Is.TypeOf<TaskCanceledException>());
+                }
+
+                // 11 because we increment even after the cancel
+                Assert.That(batchCount, Is.EqualTo(11));
             }
         }
         finally
