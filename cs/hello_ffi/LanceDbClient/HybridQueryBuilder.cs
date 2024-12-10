@@ -63,8 +63,15 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
         }
         
         // Run the vector query and FTS query
-        var vectorQuery = await new VectorQueryBuilder(this).WithVectorData(VectorData).ToArrowAsync();
-        var ftsQuery = await new QueryBuilder(ConnectionId, TableId).Text(FullTextSearch).ToArrowAsync();
+        var vectorQuery = await new VectorQueryBuilder(this)
+            .WithVectorData(VectorData)
+            .SelectColumns(SelectColumnsList)
+            .WithRowId(true)
+            .ToArrowAsync();
+        var ftsQuery = await new QueryBuilder(ConnectionId, TableId)
+            .Text(FullTextSearch)
+            .WithRowId(true)
+            .ToArrowAsync();
         
         // Perform the re-ranking
         var reranked = Reranker.RerankHybrid(FullTextSearch, vectorQuery, ftsQuery);
