@@ -569,7 +569,7 @@ public static class ArrayHelpers
                     // Compare the first element of the list
                     if (listA[0] is IComparable comparableA && listB[0] is IComparable comparableB)
                     {
-                        return descending ? comparableB.CompareTo(comparableA) : comparableA.CompareTo(comparableB);
+                        return descending ? comparableA.CompareTo(comparableB) : comparableB.CompareTo(comparableA);
                     }
                 }
             }
