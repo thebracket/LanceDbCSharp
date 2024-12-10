@@ -50,7 +50,7 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
         return batches;
     }
 
-    public new async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)
+    public override async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)
     {
         // A Hybrid query runs both a vector and a full-text query. We have to make sure that both are set.
         if (FullTextSearch == null || VectorData == null)
@@ -67,11 +67,11 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
             .WithVectorData(VectorData)
             .SelectColumns(SelectColumnsList)
             .WithRowId(true)
-            .ToArrowAsync();
+            .ToArrowAsync(token);
         var ftsQuery = await new QueryBuilder(ConnectionId, TableId)
             .Text(FullTextSearch)
             .WithRowId(true)
-            .ToArrowAsync();
+            .ToArrowAsync(token);
         
         // Perform the re-ranking
         var reranked = Reranker.RerankHybrid(FullTextSearch, vectorQuery, ftsQuery);
