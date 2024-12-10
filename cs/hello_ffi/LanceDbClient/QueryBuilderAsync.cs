@@ -28,7 +28,7 @@ public partial class QueryBuilder
         return result;
     }
     
-    public async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, [EnumeratorCancellation] CancellationToken token = default)
+    public virtual async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, [EnumeratorCancellation] CancellationToken token = default)
     {
         string[]? selectColumns = null;
         if (SelectColumnsList.Count > 0)
