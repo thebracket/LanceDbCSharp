@@ -77,7 +77,8 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
         .SelectColumns(["id", "vector"]);
     var testRrf2 = testRrf
         .Text("'12'")
-        .Rerank(new RrfReranker());
+        .Rerank(new RrfReranker())
+        .Limit(2);
     var testRrf3 = testRrf2.ToList();
     PrintDictList(testRrf3);
     

@@ -36,10 +36,12 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
             .WithVectorData(VectorData)
             .SelectColumns(SelectColumnsList)
             .WithRowId(true)
+            .Limit(LimitCount > 1 ? (int)LimitCount : 0)
             .ToArrow();
         var ftsQuery = new QueryBuilder(ConnectionId, TableId)
             .WithRowId(true)
             .Text(FullTextSearch)
+            .Limit(LimitCount > 1 ? (int)LimitCount : 0)
             .ToArrow();
         
         // Perform the re-ranking
@@ -67,10 +69,12 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
             .WithVectorData(VectorData)
             .SelectColumns(SelectColumnsList)
             .WithRowId(true)
+            .Limit(LimitCount > 1 ? (int)LimitCount : 0)
             .ToArrowAsync(token);
         var ftsQuery = await new QueryBuilder(ConnectionId, TableId)
             .Text(FullTextSearch)
             .WithRowId(true)
+            .Limit(LimitCount > 1 ? (int)LimitCount : 0)
             .ToArrowAsync(token);
         
         // Perform the re-ranking
