@@ -112,4 +112,55 @@ public partial class Tests
 
         Assert.Pass();
     }
+    
+    [Test]
+    public void RerankFieldOrder()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_vec_query_select");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.Multiple(() =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(cnn.TableNames(), Does.Contain("table1"));
+                });
+                
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                table.CreateFtsIndex(["id"], ["id"]);
+                var stats = table.Optimize();
+
+                var vector = new List<float>();
+                for (var i = 0; i < 128; i++)
+                {
+                    vector.Add(1.0f);
+                }
+
+                var testHybrid = ((HybridQueryBuilder)(table.Search(vector, "vector", queryType: QueryType.Hybrid)))
+                    .Metric(Metric.Dot)
+                    .NProbes(10)
+                    .RefineFactor(10)
+                    .SelectColumns(["vector", "id" ])
+                    .Text("'1'")
+                    .Rerank(new RrfReranker())
+                    .Limit(7)
+                    .ToBatches(3);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
 }
