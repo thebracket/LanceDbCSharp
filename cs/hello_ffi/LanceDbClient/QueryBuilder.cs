@@ -142,11 +142,17 @@ public partial class QueryBuilder : ILanceQueryBuilder
     /// <returns>A VectorQueryBuilder</returns>
     public ILanceVectorQueryBuilder Vector<T>(Matrix<T> vector) where T : struct, IEquatable<T>, IFormattable
     {
-        // Is column-major the correct choice?
-        var asArray = vector.ToColumnMajorArray();
-        var vectorData = ArrayHelpers.CastVectorList(asArray.ToList());
-        return new VectorQueryBuilder(this)
-            .WithVectorData(vectorData);
+        // Please refer to: https://github.com/lancedb/lancedb/issues/1887
+        //
+        // The intent is to search for multiple vectors at once. The current LanceDB system
+        // does not support this.
+
+        // Treat the matrix as an array of vectors.
+        var asMultiDimensionalArray = vector.ToArray();
+        throw new NotImplementedException();
+        
+        //return new VectorQueryBuilder(this)
+        //    .WithVectorData(asMultiDimensionalArray);
     }
 
     /// <summary>
