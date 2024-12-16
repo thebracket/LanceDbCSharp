@@ -12,7 +12,7 @@ using MathNet.Numerics.LinearAlgebra;
 using Array = Apache.Arrow.Array;
 using Table = Apache.Arrow.Table;
 
-const int Dimension = 128;
+const int Dimension = 4;
 
 using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
 {
@@ -42,8 +42,9 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     numEntries = 1000;
     builder.WhenMatchedUpdateAll().WhenNotMatchedInsertAll().Execute(GetBatches(numEntries));
     System.Console.WriteLine($"Table 1 row count (expected {numEntries}) actual {table1.CountRows()}" );
-    
-    table1.CreateIndex("vector", Metric.Cosine, 256, 16);
+
+    Metric metric = Metric.Dot;
+    table1.CreateIndex("vector", metric, 33, 2);
     table1.CreateScalarIndex("id");
 
     var indexes = table1.ListIndices();
@@ -71,17 +72,12 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     }
 
     System.Console.WriteLine("======  Search vector 0.3....Return List===============================");
-    var resultList = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(2).WithRowId(true).ToList();
+    var resultList = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(metric).NProbes(10).RefineFactor(10).Limit(2).WithRowId(true).ToList();
     PrintResults(resultList);
     
     System.Console.WriteLine("======  Search vector 0.3....Return Batches Sync ===============================");
-    var resultBatches = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(2).WithRowId(true).ToBatches(1);
+    var resultBatches = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(metric).NProbes(10).RefineFactor(10).Limit(2).WithRowId(true).ToBatches(1);
     PrintBatches(resultBatches);
-
-    System.Console.WriteLine("======  Search vector 0.3....Return Batches Async ===============================");
-    var resultBatchesAsync = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(Metric.Cosine).NProbes(10).RefineFactor(10).Limit(2).WithRowId(true).ToBatchesAsync(1);
-    // the result will be displayed together with the next query due to the nature of asynchronous
-    PrintBatchesAsync(resultBatchesAsync);
 
     System.Console.WriteLine("======  Search vector 0.3...., return Table sync===============================");
     var resultTable = table1.Search().Vector(vector1).Limit(3).WithRowId(true).ToArrow();
@@ -93,6 +89,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     PrintResults(vectorValuesResult);
 
     System.Console.WriteLine("======  Search Matrix<float> 0.3...., return List sync===============================");
+    /*
     int rows = 2;
     float[,] array2d = new float[rows, Dimension];
     for (int i = 0; i < rows; i++)
@@ -102,15 +99,22 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
             array2d[i, j] = 0.3f;
         }
     }
-
     // we use matrix to query multiple vectors, the internal code seems to convert matrix to 1 dimensional array
-    // Matrix<float> matrixValues = Matrix<float>.Build.DenseOfArray(array2d);
-    // var matrixValuesResult = table1.Search(matrixValues, "vector").Limit(2).ToList();
-    // PrintResults(matrixValuesResult);
+    Matrix<float> matrixValues = Matrix<float>.Build.DenseOfArray(array2d);
+    var matrixValuesResult = table1.Search(matrixValues, "vector").Limit(2).ToList();
+    PrintResults(matrixValuesResult);
+    */
+    
+    System.Console.WriteLine("======  Search vector 0.3....Return Batches Async ===============================");
+    var resultBatchesAsync = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(metric).NProbes(10).RefineFactor(10).Limit(2).WithRowId(true).ToBatchesAsync(1);
+    //the result will be displayed together with the next query due to the nature of asynchronous
+    PrintBatchesAsync(resultBatchesAsync);
+
     
     Console.WriteLine("======hybrid, reranker, return batches, sync =================");
+    // The limit is not respected.================
     var testHybrid = ((HybridQueryBuilder)(table1.Search(vector1, "vector", queryType: QueryType.Hybrid)))
-        .Metric(Metric.Cosine)
+        .Metric(metric)
         .NProbes(10)
         .RefineFactor(10)
         .SelectColumns(["id", "text", "vector" ])
@@ -157,7 +161,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
         12, 12.125f, 12.25f, 12.375f, 12.5f, 12.625f, 12.75f, 12.875f,
     };
     Console.WriteLine("Searching for vector: " + vector);
-    var vectorSearch = await table2.Search().Vector(vector).Metric(Metric.Cosine).Limit(4).ToListAsync();
+    var vectorSearch = await table2.Search().Vector(vector).Metric(metric).Limit(4).ToListAsync();
     PrintDictList(vectorSearch);
 
     // Sync vs Async Comparison
@@ -185,18 +189,19 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
         .SelectColumns(["id", "vector"]);
     var testRrf2 = testRrf
         .Text("'12'")
+        .Limit((15))
         .Rerank(new RrfReranker())
         .ToList();
     PrintDictList(testRrf2);
 
-    /*
+    
     Console.WriteLine("Reranking '12' with RRF, sync version and return batches");
     var testRrfSync = table2.Search(vector, "vector", queryType: QueryType.Hybrid)
         .Text("'12'")
+        .SelectColumns(["id", "vector"])
         .Rerank(new RrfReranker())
         .ToBatches(2);
     PrintBatches(testRrfSync);
-*/
     
     // Now we'll drop table2
     await cnn.DropTableAsync("table2");
@@ -277,25 +282,11 @@ IEnumerable<RecordBatch> GetBatches(int numEntries)
     }
     var textArray = textBuilder.Build();
     
-    Random random = new Random();
     float[] randomFloatArray = new float[Dimension * numEntries];
-    float step = 0f;
-    int dimensionIndex = 0;
-    // generate array like this:
-    // 0.01, 0.01, ..... 0.01,
-    // 0.02, 0.02, ..... 0.02,
-    // and so on...
-    // until we have filled up the array with numEntries * Dimension floats.
+    Random random = new Random();
     for (int i = 0; i < randomFloatArray.Length; i++)
     {
-        if (dimensionIndex == Dimension)
-        {
-            step += 1/(float)numEntries;
-            dimensionIndex = 0;  
-        }
-        else
-            dimensionIndex++; 
-        randomFloatArray[i] = step; 
+        randomFloatArray[i] = random.NextSingle(); 
     }
     
     var floatBuffer = new ArrowBuffer.Builder<float>()
@@ -335,7 +326,23 @@ IEnumerable<Dictionary<string, object>> GetDictionary(int numEntries, int indexS
         };
         data.Add(row);
     }
+    /*
+     This will not work
+        int i = 0;
+        List<int> idList = new List<int>() { i + 1, i+2};
+        List<string> textList = new List<string> { "item " + (i + 1), "item " + (i + 2) };
+        List<List<float>> vectorList = new List<List<float>>
+            { Enumerable.Repeat(0.7f, Dimension).ToList(), Enumerable.Repeat(0.7f, Dimension).ToList() };
+        var row = new Dictionary<string, object>
+        {
+            {"id",  idList},
+            {"text", textList},
+            {"vector", vectorList}
+        };
+     */
+    
     return data;
+
 }
 
 void PrintDictList(IEnumerable<IDictionary<string, object>> enumerable)
@@ -397,12 +404,12 @@ void PrintResults(IEnumerable<IDictionary<string, object>> result)
             {
                 foreach (var item in (IList)row[key])
                 {
-                    Console.Write(item + " "); // Prints each integer in the list
+                    Console.Write(item + ", "); // Prints each integer in the list
                 }
             }
             else
             {
-                Console.Write(row[key] + " ");
+                Console.Write(row[key] + ", ");
             }
             Console.WriteLine();    
         }
@@ -476,7 +483,7 @@ void PrintBatch(RecordBatch batch)
             int k = 0;
             foreach (var value in (IEnumerable)(fixedSizeListArray.Values))
             {
-                Console.Write(value + " ");
+                Console.Write(value + ", ");
                 k++;
                 if (k == fixedSizeListArray.Values.Length / fixedSizeListArray.Length)
                 {
