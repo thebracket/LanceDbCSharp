@@ -383,27 +383,70 @@ public static class ArrayHelpers
         {
             throw new ArgumentException("Concat requires input of at least one table.");
         }
-        else if (tables.Count == 1)
+        if (tables.Count == 1)
         {
             return tables[0];
         }
-
-        var schema = tables[0].Schema;
-        /*if (!SchemaMatch(schema, tables[1].Schema))
+        
+        // Remove distance and score
+        var workingSchema = tables[0].Schema;
+        
+        // Convert the field names into a set of strings
+        var fieldNames = new HashSet<string>();
+        for (var i = 0; i < workingSchema.FieldsList.Count; i++)
         {
-            throw new ArgumentException("Schema mismatch between tables.");
-        }*/
+            fieldNames.Add(workingSchema.GetFieldByIndex(i).Name);
+        }
+        
+        // Iterate all the schemas, removing fields that are not common to all tables
+        for (var i = 1; i < tables.Count; i++)
+        {
+            var schema = tables[i].Schema;
+            for (var j = 0; j < schema.FieldsList.Count; j++)
+            {
+                var field = schema.GetFieldByIndex(j);
+                if (!fieldNames.Contains(field.Name))
+                {
+                    workingSchema = workingSchema.RemoveField(j);
+                }
+            }
+        }
+        
+        // Merge all entries into a single dictionary list, preserving only the columns that are common to all tables
+        var mergedRows = new List<IDictionary<string, object>>();
+        foreach (var table in tables)
+        {
+            var rows = ArrowTableToListOfDictionaries(table);
+            foreach (var row in rows)
+            {
+                var newRow = new Dictionary<string, object>();
+                foreach (var key in row.Keys)
+                {
+                    if (workingSchema.GetFieldByName(key) != null)
+                    {
+                        newRow[key] = row[key];
+                    }
+                }
+                mergedRows.Add(newRow);
+            }
+        }
+        var convertedItems = mergedRows
+            .Select(dict => dict.ToDictionary(entry => entry.Key, entry => entry.Value))
+            .ToList();
+        
+        var result = ConcreteToArrowTable(convertedItems, workingSchema);
+        return Apache.Arrow.Table.TableFromRecordBatches(workingSchema, result);
 
+        /*
+        // This only works if all schema are exactly the same
+        var schema = tables[0].Schema;
         List<RecordBatch> combinedRecordBatches = new List<RecordBatch>();
-
         foreach (var table in tables)
         {
             combinedRecordBatches.AddRange(ArrowTableToRecordBatch(table));
         }
-
         var concatenatedTable = Apache.Arrow.Table.TableFromRecordBatches(schema, combinedRecordBatches);
-
-        return concatenatedTable;
+        return concatenatedTable;*/
     }
 
     public static IEnumerable<IDictionary<string, object>> ArrowTableToListOfDictionaries(Apache.Arrow.Table table)
@@ -569,7 +612,7 @@ public static class ArrayHelpers
                     // Compare the first element of the list
                     if (listA[0] is IComparable comparableA && listB[0] is IComparable comparableB)
                     {
-                        return descending ? comparableB.CompareTo(comparableA) : comparableA.CompareTo(comparableB);
+                        return descending ? comparableA.CompareTo(comparableB) : comparableB.CompareTo(comparableA);
                     }
                 }
             }

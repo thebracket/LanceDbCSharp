@@ -36,10 +36,12 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
             .WithVectorData(VectorData)
             .SelectColumns(SelectColumnsList)
             .WithRowId(true)
+            .Limit(LimitCount > 1 ? (int)LimitCount : 0)
             .ToArrow();
         var ftsQuery = new QueryBuilder(ConnectionId, TableId)
             .WithRowId(true)
             .Text(FullTextSearch)
+            .Limit(LimitCount > 1 ? (int)LimitCount : 0)
             .ToArrow();
         
         // Perform the re-ranking
@@ -50,7 +52,7 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
         return batches;
     }
 
-    public new async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)
+    public override async IAsyncEnumerable<RecordBatch> ToBatchesAsync(int batchSize, CancellationToken token = default)
     {
         // A Hybrid query runs both a vector and a full-text query. We have to make sure that both are set.
         if (FullTextSearch == null || VectorData == null)
@@ -63,8 +65,17 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
         }
         
         // Run the vector query and FTS query
-        var vectorQuery = await new VectorQueryBuilder(this).WithVectorData(VectorData).ToArrowAsync();
-        var ftsQuery = await new QueryBuilder(ConnectionId, TableId).Text(FullTextSearch).ToArrowAsync();
+        var vectorQuery = await new VectorQueryBuilder(this)
+            .WithVectorData(VectorData)
+            .SelectColumns(SelectColumnsList)
+            .WithRowId(true)
+            .Limit(LimitCount > 1 ? (int)LimitCount : 0)
+            .ToArrowAsync(token);
+        var ftsQuery = await new QueryBuilder(ConnectionId, TableId)
+            .Text(FullTextSearch)
+            .WithRowId(true)
+            .Limit(LimitCount > 1 ? (int)LimitCount : 0)
+            .ToArrowAsync(token);
         
         // Perform the re-ranking
         var reranked = Reranker.RerankHybrid(FullTextSearch, vectorQuery, ftsQuery);

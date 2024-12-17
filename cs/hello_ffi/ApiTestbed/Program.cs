@@ -202,7 +202,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
         .Rerank(new RrfReranker())
         .ToBatches(2);
     PrintBatches(testRrfSync);
-    
+
     // Now we'll drop table2
     await cnn.DropTableAsync("table2");
     System.Console.WriteLine("Table 2 Dropped (Asynchronously)");
