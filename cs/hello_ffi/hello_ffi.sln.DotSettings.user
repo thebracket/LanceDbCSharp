@@ -41,7 +41,5 @@
   &lt;/TestAncestor&gt;
 &lt;/SessionState&gt;</s:String>
 	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=bfdd8fd3_002D3b6b_002D442b_002D9fce_002D3f64c38aa695/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="RerankFieldOrder" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;
-  &lt;TestAncestor&gt;
-    &lt;TestId&gt;NUnit3x::8EBD6D2C-11FC-44D9-9DB4-ED9095674B7E::net8.0::LanceDbClientTests.Tests.RerankFieldOrder&lt;/TestId&gt;
-  &lt;/TestAncestor&gt;
+  &lt;Project Location="/home/herbert/Rust/lancedb_csharp/cs/hello_ffi/LanceDbClientTests" Presentation="&amp;lt;LanceDbClientTests&amp;gt;" /&gt;
 &lt;/SessionState&gt;</s:String></wpf:ResourceDictionary>

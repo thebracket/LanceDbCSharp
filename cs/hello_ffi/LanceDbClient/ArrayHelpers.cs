@@ -588,7 +588,7 @@ public static class ArrayHelpers
         return newTable;
     }
     
-    internal static Apache.Arrow.Table SortBy(Apache.Arrow.Table table, string column, bool descending)
+    internal static Apache.Arrow.Table SortBy(Apache.Arrow.Table table, string column, bool descending, int limit = 0)
     {
         // Find the column
         if (!TableContainsColumn(table, column))
@@ -633,9 +633,12 @@ public static class ArrayHelpers
         
         // Reorder the table
         var reordered = new List<IDictionary<string, object>>();
+        var count = 0;
         foreach (var index in sortedIndices)
         {
+            if (limit > 0 && count >= limit) break;
             reordered.Add(native[index]);
+            count++;
         }
         
         // Convert back to Arrow Table

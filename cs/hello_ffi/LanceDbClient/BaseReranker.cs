@@ -19,7 +19,7 @@ public abstract class BaseReranker : IReranker
     }
 
     public abstract Apache.Arrow.Table RerankHybrid(string query, Apache.Arrow.Table vectorResults,
-        Apache.Arrow.Table ftsResults);
+        Apache.Arrow.Table ftsResults, int limit = 0);
 
     /// <summary>
     /// Merge the results from the vector and FTS search. This is a vanilla merging
