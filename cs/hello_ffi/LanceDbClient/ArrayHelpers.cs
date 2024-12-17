@@ -377,7 +377,7 @@ public static class ArrayHelpers
         return recordBatches;
     }
     
-    internal static Apache.Arrow.Table ConcatTables(IList<Apache.Arrow.Table> tables)
+    internal static Apache.Arrow.Table ConcatTables(IList<Apache.Arrow.Table> tables, bool deduplicate = false)
     {
         if (tables == null || tables.Count == 0)
         {
@@ -414,20 +414,34 @@ public static class ArrayHelpers
         
         // Merge all entries into a single dictionary list, preserving only the columns that are common to all tables
         var mergedRows = new List<IDictionary<string, object>>();
+        var seenRowIds = new HashSet<ulong>();
         foreach (var table in tables)
         {
             var rows = ArrowTableToListOfDictionaries(table);
             foreach (var row in rows)
             {
+                var performAdd = true;
                 var newRow = new Dictionary<string, object>();
                 foreach (var key in row.Keys)
                 {
+                    if (deduplicate && key == "_rowid")
+                    {
+                        object rowId = row[key];
+                        if (rowId is IList<ulong> id)
+                        {
+                            if (seenRowIds.Contains(id[0]))
+                            {
+                                performAdd = false;
+                            }
+                            seenRowIds.Add(id[0]);
+                        }
+                    }
                     if (workingSchema.GetFieldByName(key) != null)
                     {
                         newRow[key] = row[key];
                     }
                 }
-                mergedRows.Add(newRow);
+                if (performAdd) mergedRows.Add(newRow);
             }
         }
         var convertedItems = mergedRows
@@ -436,17 +450,6 @@ public static class ArrayHelpers
         
         var result = ConcreteToArrowTable(convertedItems, workingSchema);
         return Apache.Arrow.Table.TableFromRecordBatches(workingSchema, result);
-
-        /*
-        // This only works if all schema are exactly the same
-        var schema = tables[0].Schema;
-        List<RecordBatch> combinedRecordBatches = new List<RecordBatch>();
-        foreach (var table in tables)
-        {
-            combinedRecordBatches.AddRange(ArrowTableToRecordBatch(table));
-        }
-        var concatenatedTable = Apache.Arrow.Table.TableFromRecordBatches(schema, combinedRecordBatches);
-        return concatenatedTable;*/
     }
 
     public static IEnumerable<IDictionary<string, object>> ArrowTableToListOfDictionaries(Apache.Arrow.Table table)

@@ -43,8 +43,7 @@ public abstract class BaseReranker : IReranker
         }*/
         
         // The original code uses a Concatenation type that isn't implemented in C#. It then calls a de-duplicator that isn't in C# either.
-        var combined = ArrayHelpers.ConcatTables([vectorResults, ftsResults]);
-        // TODO: De-duplicate by RowId
+        var combined = ArrayHelpers.ConcatTables([vectorResults, ftsResults], true);
 
         return combined;
     }
