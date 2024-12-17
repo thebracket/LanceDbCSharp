@@ -231,9 +231,16 @@ public partial class Tests
                 }
                 // Convert to a mathnet Matrix type
                 Matrix<float> matrix = new DenseMatrix(1, 128, target.ToArray());
-                var result = table.Search(matrix, "vector").ToBatches(0);
-                Assert.That(result, Is.Not.Null);
-                Assert.That(result, Is.Not.Empty);
+                
+                // This is deliberately throwing a NotImplementedException
+                // because the current LanceDB system does not support
+                // searching for multiple vectors at once.
+                Assert.Throws<NotImplementedException>(() =>
+                {
+                    var result = table.Search(matrix, "vector").ToBatches(0);
+                });
+                //Assert.That(result, Is.Not.Null);
+                //Assert.That(result, Is.Not.Empty);
             }
         }
         finally
