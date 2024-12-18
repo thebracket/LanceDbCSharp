@@ -48,9 +48,9 @@ public partial class Tests
                 var testRrf2 = testRrf
                     .Rerank(new RrfReranker())
                     .Text("'1'")
-                    .Limit(3);
+                    .Limit(5);
                 var testRrf3 = testRrf2.ToList();
-                Assert.That(testRrf3.Count(), Is.EqualTo(3));
+                Assert.That(testRrf3.Count(), Is.EqualTo(5));
             }
         }
         finally

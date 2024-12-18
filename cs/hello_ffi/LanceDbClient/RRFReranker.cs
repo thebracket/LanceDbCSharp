@@ -13,7 +13,7 @@ public class RrfReranker : BaseReranker
         this._score = score;
     }
     
-    public override Apache.Arrow.Table RerankHybrid(string query, Apache.Arrow.Table vectorResults, Apache.Arrow.Table ftsResults)
+    public override Apache.Arrow.Table RerankHybrid(string query, Apache.Arrow.Table vectorResults, Apache.Arrow.Table ftsResults, int limit = 0)
     {
         var vectorIds = ArrayHelpers.ArrowTableUint64ColumnToList(vectorResults, "_rowid") ?? [];
         var ftsIds = ArrayHelpers.ArrowTableUint64ColumnToList(ftsResults, "_rowid") ?? [];
@@ -49,7 +49,7 @@ public class RrfReranker : BaseReranker
         combinedResults = ArrayHelpers.AppendFloatColumn(combinedResults, "_relevance_score", relevanceScores, Apache.Arrow.Types.FloatType.Default);
 
         // Sort the combined results by relevance score in descending order
-        combinedResults = ArrayHelpers.SortBy(combinedResults, "_relevance_score", descending: true);
+        combinedResults = ArrayHelpers.SortBy(combinedResults, "_relevance_score", descending: true, limit);
 
         // Optionally, keep only the relevance score if specified by the score type
         if (_score == "relevance")

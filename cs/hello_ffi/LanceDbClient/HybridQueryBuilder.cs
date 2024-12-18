@@ -45,7 +45,7 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
             .ToArrow();
         
         // Perform the re-ranking
-        var reranked = Reranker.RerankHybrid(FullTextSearch, vectorQuery, ftsQuery);
+        var reranked = Reranker.RerankHybrid(FullTextSearch, vectorQuery, ftsQuery, (int)LimitCount);
         
         // Convert reranked into a RecordBatch
         var batches = ArrayHelpers.ArrowTableToRecordBatch(reranked);
