@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  dotnetconsoleapp:
+    build: .
+    container_name: lance_test
+    environment:
+      - DEBUG=1
+    volumes:
+      - .:/app
+    ports:
+      - "5005:5005" # Optional: Expose ports for debugger
+    stdin_open: true
+    tty: true
