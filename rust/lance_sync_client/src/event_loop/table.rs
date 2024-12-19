@@ -9,7 +9,7 @@ use arrow_schema::ArrowError;
 use lancedb::index::scalar::{
     BTreeIndexBuilder, BitmapIndexBuilder, FtsIndexBuilder, LabelListIndexBuilder,
 };
-use lancedb::index::{Index, IndexConfig};
+use lancedb::index::Index;
 use lancedb::table::OptimizeAction;
 use lancedb::DistanceType;
 use tokio::sync::mpsc::Sender;
