@@ -1,6 +1,6 @@
 use std::ffi::{c_char, CString};
 use crate::connection_handler::{ConnectionCommand, ConnectionHandle};
-use crate::event_loop::command::{BadVectorHandling, IndexType, ScalarIndexType, WriteMode};
+use crate::event_loop::command::{IndexType, ScalarIndexType, WriteMode};
 use crate::event_loop::connection::get_table;
 use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorReportFn, MetricType};
 use crate::table_handler::{TableCommand, TableHandle};
@@ -9,7 +9,7 @@ use arrow_schema::ArrowError;
 use lancedb::index::scalar::{
     BTreeIndexBuilder, BitmapIndexBuilder, FtsIndexBuilder, LabelListIndexBuilder,
 };
-use lancedb::index::{Index, IndexConfig};
+use lancedb::index::Index;
 use lancedb::table::OptimizeAction;
 use lancedb::DistanceType;
 use tokio::sync::mpsc::Sender;
@@ -52,8 +52,6 @@ pub(crate) async fn do_add_record_batch(
     table_handle: TableHandle,
     write_mode: WriteMode,
     batch: Vec<Result<RecordBatch, ArrowError>>,
-    bad_vector_handling: BadVectorHandling,
-    fill_value: f32,
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
 ) {
@@ -252,17 +250,49 @@ pub(crate) async fn do_optimize_table(
         return;
     };
 
-    let future = if prune_older_than.is_some() || delete_unverified {
-        table.optimize(OptimizeAction::Prune {
+    if prune_older_than.is_some() || delete_unverified {
+        let optimize = table.optimize(OptimizeAction::Prune {
             older_than: prune_older_than,
             delete_unverified: Some(delete_unverified),
             error_if_tagged_old_versions: None,
-        })
-    } else {
-        table.optimize(OptimizeAction::All)
-    };
+        }).await;
 
-    match future.await {
+        // Run this as a two-step process, optimize and then compact
+        if let Err(e) = optimize {
+            let err = format!("Error pruning table: {:?}", e);
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
+            return;
+        }
+        let compact = table.optimize(OptimizeAction::Compact { options: Default::default(), remap_options: None }).await;
+        if let Err(e) = compact {
+            let err = format!("Error compacting table: {:?}", e);
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
+            return;
+        }
+
+        // We know they are good, so unwrap is ok
+        let optimize_stats = optimize.unwrap();
+        let compact_stats = compact.unwrap();
+
+        if let Some(stats) = optimize_stats.prune {
+            prune_callback(stats.bytes_removed, stats.old_versions);
+        }
+        if let Some(stats) = compact_stats.compaction {
+            compaction_callback(
+                stats.files_added as u64,
+                stats.files_removed as u64,
+                stats.fragments_added as u64,
+                stats.fragments_removed as u64,
+            );
+        }
+
+        // Complete
+        report_result(Ok(0), reply_tx, Some(completion_sender)).await;
+        return;
+    }
+
+    // No options - do it all
+    match table.optimize(OptimizeAction::All).await {
         Ok(stats) => {
             if let Some(stats) = stats.compaction {
                 compaction_callback(

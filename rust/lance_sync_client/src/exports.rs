@@ -199,8 +199,6 @@ pub extern "C" fn add_record_batch(
     data: *const u8,
     len: usize,
     write_mode: u32,
-    bad_vector_handling: u32,
-    fill_value: f32,
     reply_tx: ErrorReportFn,
 ) {
     let data = unsafe { std::slice::from_raw_parts(data, len) };
@@ -223,8 +221,6 @@ pub extern "C" fn add_record_batch(
             table_handle: TableHandle(table_handle),
             write_mode,
             batch: batch.unwrap(),
-            bad_vector_handling: bad_vector_handling.into(),
-            fill_value,
         },
         "AddRecordBatch",
         reply_tx

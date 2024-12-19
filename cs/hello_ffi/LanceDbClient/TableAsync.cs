@@ -211,7 +211,7 @@ public sealed partial class Table
 
     public Task CloseAsync(CancellationToken cancellationToken = default)
     {
-        if (!IsOpen) throw new Exception("Table is not open.");
+        if (!IsOpen) return Task.CompletedTask;
         var tcs = new TaskCompletionSource();
         Ffi.ResultCallback callback = (code, message) =>
         {
@@ -346,6 +346,11 @@ public sealed partial class Table
         CancellationToken token = default)
     {
         // Convert the dictionary into a record batch
+        data = ArrayHelpers.SanitizeVectorAdd(this.Schema, data, badVectorHandling, fillValue);
+        if (!data.Any())
+        {
+            return Task.CompletedTask;
+        }
         var batch = ArrayHelpers.ConcreteToArrowTable(data, Schema);
         return AddAsync(batch, mode, badVectorHandling, fillValue, token);
     }
@@ -365,7 +370,7 @@ public sealed partial class Table
                     fixed (byte* p = batch)
                     {
                         Ffi.add_record_batch(_connectionHandle, _tableHandle, p, (ulong)batch.Length, (uint)mode,
-                            (uint)badVectorHandling, fillValue, (code, message) =>
+                            (code, message) =>
                             {
                                 if (code < 0)
                                 {

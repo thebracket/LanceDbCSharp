@@ -287,7 +287,7 @@ public sealed partial class Table : ITable
     /// <exception cref="Exception">If the table is open, or the operation fails</exception>
     public void Close()
     {
-        if (!IsOpen) throw new Exception("Table is not open.");
+        if (!IsOpen) return;
         Exception? exception = null;
         Ffi.close_table(_connectionHandle, _tableHandle, (code, message) =>
         {
@@ -525,6 +525,8 @@ public sealed partial class Table : ITable
         BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0)
     {
         // Convert the dictionary into a record batch
+        data = ArrayHelpers.SanitizeVectorAdd(this.Schema, data, badVectorHandling, fillValue);
+        if (!data.Any()) return;
         var batch = ArrayHelpers.ConcreteToArrowTable(data, Schema);
         Add(batch, mode, badVectorHandling, fillValue);
     }
@@ -550,7 +552,7 @@ public sealed partial class Table : ITable
             var batch = Ffi.SerializeRecordBatch(recordBatch);
             fixed (byte* p = batch)
             {
-                Ffi.add_record_batch(_connectionHandle, _tableHandle, p, (ulong)batch.Length, (uint)mode, (uint)badVectorHandling, fillValue, (code, message) =>
+                Ffi.add_record_batch(_connectionHandle, _tableHandle, p, (ulong)batch.Length, (uint)mode, (code, message) =>
                 {
                     if (code < 0 && message != null)
                     {

@@ -74,8 +74,6 @@ pub(crate) enum LanceDbCommand {
         connection_handle: ConnectionHandle,
         table_handle: TableHandle,
         write_mode: WriteMode,
-        bad_vector_handling: BadVectorHandling,
-        fill_value: f32,
         batch: Vec<Result<RecordBatch, ArrowError>>,
     },
 
@@ -251,25 +249,6 @@ impl From<WriteMode> for AddDataMode {
         match value {
             WriteMode::Append => Self::Append,
             WriteMode::Overwrite => Self::Overwrite,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-#[repr(u32)]
-pub(crate) enum BadVectorHandling {
-    Error = 1,
-    Drop = 2,
-    Fill = 3,
-}
-
-impl From<u32> for BadVectorHandling {
-    fn from(value: u32) -> Self {
-        match value {
-            1 => Self::Error,
-            2 => Self::Drop,
-            3 => Self::Fill,
-            _ => panic!("Invalid bad vector handling: {}", value),
         }
     }
 }

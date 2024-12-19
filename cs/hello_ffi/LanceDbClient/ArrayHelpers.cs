@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Apache.Arrow;
 using Apache.Arrow.Types;
+using LanceDbInterface;
 using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;
@@ -664,5 +665,54 @@ public static class ArrayHelpers
             if (a.GetFieldByIndex(i).DataType.TypeId != b.GetFieldByIndex(i).DataType.TypeId) return false;
         }
         return true;
+    }
+
+    internal static IEnumerable<Dictionary<string, object>> SanitizeVectorAdd(Schema tableSchema, IEnumerable<Dictionary<string, object>> rowsToAdd, BadVectorHandling mode, float fillValue)
+    {
+        // "Error" is the default LanceDb behavior - it will throw an error when a bad vector is encountered
+        if (mode == BadVectorHandling.Error) return rowsToAdd;
+
+        var result = new List<Dictionary<string, object>>();
+        
+        foreach (var row in rowsToAdd)
+        {
+            var dropped = false;
+            foreach (var keyValuePair in row)
+            {
+                var fieldName = keyValuePair.Key;
+                Field? schemaField = tableSchema.GetFieldByName(fieldName);
+                if (schemaField == null) continue;
+                var fieldType = schemaField.DataType;
+                if (fieldType is FixedSizeListType arr)
+                {
+                    var desiredLength = arr.ListSize;
+                    if (keyValuePair.Value is IList list)
+                    {
+                        if (list.Count != desiredLength)
+                        {
+                            if (mode == BadVectorHandling.Fill)
+                            {
+                                var fillList = new List<float>();
+                                for (var i = 0; i < desiredLength; i++)
+                                {
+                                    fillList.Add(fillValue);
+                                }
+                                row[fieldName] = fillList;
+                            } else if (mode == BadVectorHandling.Drop)
+                            {
+                                dropped = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!dropped)
+            {
+                result.Add(row);
+            }
+        }
+
+        return result;
     }
 }

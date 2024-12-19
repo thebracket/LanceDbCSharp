@@ -59,4 +59,59 @@ public partial class Tests
             Cleanup(uri);
         }
     }
+    
+    [Test]
+    public async Task SimpleMergeInsertAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_mi_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 6, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                
+                await (await table.MergeInsertAsync(["id"]))
+                    .WhenMatchedUpdateAll()
+                    .WhenNotMatchedInsertAll()
+                    .ExecuteAsync(array);
+                var rowCount = await table.CountRowsAsync();
+                Assert.That(rowCount, Is.GreaterThan(0));
+                Assert.That(rowCount, Is.EqualTo(6));
+                
+                // Make sure that nothing happens when we insert the same again
+                await (await table.MergeInsertAsync(["id"]))
+                    .WhenMatchedUpdateAll()
+                    .WhenNotMatchedInsertAll()
+                    .ExecuteAsync(array);
+                var rowCount2 = await table.CountRowsAsync();
+                Assert.That(rowCount2, Is.EqualTo(rowCount));
+                
+                // Now add a few and make sure it only added the new ones
+                var recordBatch2 = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 10, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array2 = new List<RecordBatch>();
+                array2.Add(recordBatch2);
+                await (await table.MergeInsertAsync(["id"]))
+                    .WhenMatchedUpdateAll()
+                    .WhenNotMatchedInsertAll()
+                    .ExecuteAsync(array2);
+                var rowCount3 = await table.CountRowsAsync();
+                Assert.That(rowCount3, Is.EqualTo(rowCount + 4));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
 }

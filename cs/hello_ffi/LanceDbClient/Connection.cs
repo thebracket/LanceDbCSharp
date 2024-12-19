@@ -194,7 +194,7 @@ public sealed partial class Connection : IConnection
     /// <exception cref="Exception">If the disconnect FFI call returns an error.</exception>
     public void Close()
     {
-        if (!IsOpen) throw new Exception("Connection is not open");
+        if (!IsOpen) return;
         Exception? exception = null;
         Ffi.disconnect(this._connectionId, (code, message) =>
         {

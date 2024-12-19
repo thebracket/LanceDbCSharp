@@ -69,7 +69,7 @@ static partial class Ffi
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
-    internal static extern unsafe void add_record_batch(long connectionId, long TableId, byte* data, ulong len, uint write_mode, uint bad_vector_handling, float fill_value, ResultCallback onResult);
+    internal static extern unsafe void add_record_batch(long connectionId, long TableId, byte* data, ulong len, uint write_mode, ResultCallback onResult);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void count_rows(long connectionHandle, long tableHandle, string? filter, ResultCallback onResult);

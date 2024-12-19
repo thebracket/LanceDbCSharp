@@ -7,7 +7,7 @@ namespace LanceDbClientTests;
 
 internal static class Helpers
 {
-    internal static Schema GetSchema()
+    internal static Schema GetSchema(int listSize = 128)
     {
         // Define the "id" field (Int32, not nullable)
         var idField = new Field("id", StringType.Default, nullable: false);
@@ -16,7 +16,7 @@ internal static class Helpers
         var itemField = new Field("item", FloatType.Default, nullable: true);
 
         // Define the FixedSizeListType with the "item" field and a fixed size of 128
-        var vectorType = new FixedSizeListType(itemField, listSize: 128);
+        var vectorType = new FixedSizeListType(itemField, listSize: listSize);
 
         // Define the "vector" field (FixedSizeList, nullable)
         var vectorField = new Field("vector", vectorType, nullable: true);

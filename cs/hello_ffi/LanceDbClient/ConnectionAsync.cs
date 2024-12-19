@@ -129,19 +129,20 @@ public sealed partial class Connection
             }
             else
             {
+                IsOpen = false;
                 tcs.SetResult();
             }
         };
         Task.Run(() =>
         {
             Ffi.drop_database(_connectionId, callback);
-            IsOpen = false;
         }, cancellationToken);
         return tcs.Task;
     }
 
     public Task CloseAsync(CancellationToken cancellationToken = default)
     {
+        if (!IsOpen) return Task.CompletedTask;
         var tcs = new TaskCompletionSource();
         Ffi.ResultCallback callback = (code, message) =>
         {
@@ -151,6 +152,7 @@ public sealed partial class Connection
             }
             else
             {
+                IsOpen = false;
                 tcs.SetResult();
             }
         };
