@@ -82,7 +82,9 @@ static partial class Ffi
     internal static extern void delete_rows(long connectionHandle, long tableHandle, string? filter, ResultCallback onResult);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern void optimize_table(long connectionHandle, long tableHandle, ResultCallback onResult, CompactCallback compactCallback, PruneCallback pruneCallback);
+    internal static extern void optimize_table(long connectionHandle, long tableHandle,
+        long olderThanSeconds, bool deleteUnverified,
+        ResultCallback onResult, CompactCallback compactCallback, PruneCallback pruneCallback);
     
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void query(long connectionHandle, long tableHandle, BlobCallback onRecBatch, 

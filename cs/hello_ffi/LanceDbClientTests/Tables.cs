@@ -549,4 +549,64 @@ public partial class Tests
         
         Assert.Pass();
     }
+
+    [Test]
+    public void TestOptimizeRows()
+    {
+        var uri = new Uri("file:///tmp/test_table_optimize");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                table.CreateScalarIndex("id");
+                var stats = table.Optimize(TimeSpan.FromDays(0));
+                Assert.That(stats.Compaction, Is.Null);
+                Assert.That(stats.Prune, Is.Not.Null);
+                Assert.That(stats.Prune.OldVersionsRemoved, Is.EqualTo(2));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }        
+    }
+    
+    [Test]
+    public async Task TestOptimizeRowsAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_optimize");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                await table.CreateScalarIndexAsync("id");
+                var stats = await table.OptimizeAsync(TimeSpan.FromDays(0));
+                Assert.That(stats.Compaction, Is.Null);
+                Assert.That(stats.Prune, Is.Not.Null);
+                Assert.That(stats.Prune.OldVersionsRemoved, Is.EqualTo(2));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }        
+    }
 }

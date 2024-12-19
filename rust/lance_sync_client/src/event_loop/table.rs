@@ -243,6 +243,8 @@ pub(crate) async fn do_optimize_table(
     connection_handle: ConnectionHandle,
     tables: Sender<TableCommand>,
     table_handle: TableHandle,
+    prune_older_than: Option<chrono::Duration>,
+    delete_unverified: bool,
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
     compaction_callback: extern "C" fn(u64, u64, u64, u64),
@@ -253,7 +255,18 @@ pub(crate) async fn do_optimize_table(
         report_result(Err(err), reply_tx, Some(completion_sender)).await;
         return;
     };
-    match table.optimize(OptimizeAction::All).await {
+
+    let future = if prune_older_than.is_some() || delete_unverified {
+        table.optimize(OptimizeAction::Prune {
+            older_than: prune_older_than,
+            delete_unverified: Some(delete_unverified),
+            error_if_tagged_old_versions: None,
+        })
+    } else {
+        table.optimize(OptimizeAction::All)
+    };
+
+    match future.await {
         Ok(stats) => {
             if let Some(stats) = stats.compaction {
                 compaction_callback(

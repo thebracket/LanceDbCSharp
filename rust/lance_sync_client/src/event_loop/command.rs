@@ -147,6 +147,8 @@ pub(crate) enum LanceDbCommand {
     OptimizeTable {
         connection_handle: ConnectionHandle,
         table_handle: TableHandle,
+        prune_older_than: Option<chrono::Duration>,
+        delete_unverified: bool,
         compaction_callback: extern "C" fn(u64, u64, u64, u64),
         prune_callback: extern "C" fn(u64, u64),
     },

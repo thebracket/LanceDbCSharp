@@ -405,6 +405,8 @@ pub extern "C" fn count_rows(
 pub extern "C" fn optimize_table(
     connection_handle: i64,
     table_handle: i64,
+    prune_older_than_seconds: i64, // negative means "none"
+    delete_unverified: bool,
     reply_tx: ErrorReportFn,
     compaction_callback: extern "C" fn(u64, u64, u64, u64),
     prune_callback: extern "C" fn(u64, u64),
@@ -413,6 +415,12 @@ pub extern "C" fn optimize_table(
         LanceDbCommand::OptimizeTable {
             connection_handle: ConnectionHandle(connection_handle),
             table_handle: TableHandle(table_handle),
+            prune_older_than: if prune_older_than_seconds < 0 {
+                None
+            } else {
+                Some(chrono::Duration::from_std(std::time::Duration::from_secs(prune_older_than_seconds as u64)).unwrap())
+            },
+            delete_unverified,
             compaction_callback,
             prune_callback,
         },

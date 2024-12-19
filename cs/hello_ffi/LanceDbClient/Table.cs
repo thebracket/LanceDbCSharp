@@ -145,7 +145,7 @@ public sealed partial class Table : ITable
         if (!IsOpen) throw new Exception("Table is not open.");
         Exception? exception = null;
         var columnNamesList = columnNames.ToArray();
-        Ffi.create_full_text_index(_connectionHandle, _tableHandle, columnNamesList, (ulong)columnNamesList.Count(), withPosition, replace, tokenizerName, (code, message) =>
+        Ffi.create_full_text_index(_connectionHandle, _tableHandle, columnNamesList, (ulong)columnNamesList.Length, withPosition, replace, tokenizerName, (code, message) =>
         {
             if (code < 0 && message != null)
             {
@@ -315,7 +315,9 @@ public sealed partial class Table : ITable
         RemovalStats? prune = null;
         
         Exception? exception = null;
-        Ffi.optimize_table(_connectionHandle, _tableHandle, (code, message) =>
+        
+        var cleanup = cleanupOlderThan?.TotalSeconds ?? 0;
+        Ffi.optimize_table(_connectionHandle, _tableHandle, (long)cleanup, deleteUnverified, (code, message) =>
         {
             if (code < 0 && message != null)
             {

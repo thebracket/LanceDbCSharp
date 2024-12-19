@@ -17,3 +17,4 @@ futures = { workspace = true }
 once_cell = { workspace = true }
 half = { workspace = true }
 strum = "0.26.3"
+chrono = "0.4.39"
