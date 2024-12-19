@@ -220,6 +220,7 @@ public sealed partial class Table
             }
             else
             {
+                IsOpen = false;
                 tcs.SetResult();
             }
         };

@@ -26,6 +26,27 @@ public partial class Tests
             Cleanup(uri);
         }
     }
+    
+    [Test]
+    public async Task CloseTableAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_close_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                await table.CloseAsync();
+                Assert.That(table.IsOpen, Is.False);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
 
     [Test]
     public void CloseTableAlreadyClosed()
@@ -583,7 +604,7 @@ public partial class Tests
     [Test]
     public async Task TestOptimizeRowsAsync()
     {
-        var uri = new Uri("file:///tmp/test_table_optimize");
+        var uri = new Uri("file:///tmp/test_table_optimize_async");
         try
         {
             using (var cnn = new Connection(uri))
