@@ -120,6 +120,33 @@ public partial class Tests
     }
     
     [Test]
+    public async Task AddRowsAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_add_rows");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 1, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+                Assert.That(await table.CountRowsAsync(), Is.GreaterThan(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
     public void AddRowsObjectDictionary()
     {
         var uri = new Uri("file:///tmp/test_table_add_rows_obj");
@@ -144,6 +171,39 @@ public partial class Tests
                 table.Add(data);
                 
                 Assert.That(table.CountRows(), Is.GreaterThan(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public async Task AddRowsObjectDictionaryAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_add_rows_obj_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                
+                var data = new List<Dictionary<string, object>>();
+                var rowDict = new Dictionary<string, object>();
+                rowDict.Add("id", new List<string>() { "0" });
+                var rowList = new List<float>();
+                for (int i = 0; i < 128; i++)
+                {
+                    rowList.Add(1.0f);
+                }
+                rowDict.Add("vector", rowList);
+                data.Add(rowDict);
+                await table.AddAsync(data);
+                
+                Assert.That(await table.CountRowsAsync(), Is.GreaterThan(0));
             }
         }
         finally
@@ -179,6 +239,32 @@ public partial class Tests
     }
     
     [Test]
+    public async Task AddRowsBadDimAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_add_rows_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 1, 1
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                Assert.ThrowsAsync<Exception>(async () => await table.AddAsync(array));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
     public void CountRowsEmpty()
     {
         var uri = new Uri("file:///tmp/test_table_empty_count");
@@ -189,6 +275,27 @@ public partial class Tests
                 Assert.That(cnn.IsOpen, Is.True);
                 var table = cnn.CreateTable("table1", Helpers.GetSchema());
                 Assert.That(table.CountRows(), Is.Zero);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+        
+        Assert.Pass();
+    }
+    
+    [Test]
+    public async Task CountRowsEmptyAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_empty_count_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(await table.CountRowsAsync(), Is.Zero);
             }
         }
         finally
@@ -218,6 +325,33 @@ public partial class Tests
                 array.Add(recordBatch);
                 table.Add(array);
                 Assert.That(table.CountRows(), Is.GreaterThan(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public async Task CountRowsAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_count_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 1, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+                Assert.That(await table.CountRowsAsync(), Is.GreaterThan(0));
             }
         }
         finally
@@ -283,6 +417,35 @@ public partial class Tests
     }
     
     [Test]
+    public async Task DeleteRowsWithFilterAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_deleterows_filter_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+                Assert.That(await table.CountRowsAsync("id = '0'"), Is.EqualTo(1));
+                await table.DeleteAsync("id = '0'");
+                Assert.That(await table.CountRowsAsync("id = '0'"), Is.EqualTo(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
     public void DeleteRowsWithoutFilter()
     {
         var uri = new Uri("file:///tmp/test_table_deleterows_nofilter");
@@ -312,6 +475,35 @@ public partial class Tests
     }
     
     [Test]
+    public async Task DeleteRowsWithoutFilterAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_deleterows_nofilter_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+                Assert.That(await table.CountRowsAsync(), Is.GreaterThan(0));
+                await table.DeleteAsync("0 = 0");
+                Assert.That(await table.CountRowsAsync("id = '0'"), Is.EqualTo(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
     public void UpdateRows()
     {
         var uri = new Uri("file:///tmp/test_table_updaterows_nofilter");
@@ -332,6 +524,36 @@ public partial class Tests
                 var updates = new Dictionary<string, object> { { "id", "test" } };
                 var updatedCount = table.Update(updates, "id = '0'");
                 Assert.That(table.CountRows("id = 'test'"), Is.EqualTo(1));
+                Assert.That(updatedCount, Is.EqualTo(1));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public async Task UpdateRowsAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_updaterows_nofilter_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch> { recordBatch };
+                await table.AddAsync(array);
+                Assert.That(await table.CountRowsAsync(), Is.GreaterThan(0));
+                var updates = new Dictionary<string, object> { { "id", "test" } };
+                var updatedCount = await table.UpdateAsync(updates, "id = '0'");
+                Assert.That(await table.CountRowsAsync("id = 'test'"), Is.EqualTo(1));
                 Assert.That(updatedCount, Is.EqualTo(1));
             }
         }
@@ -372,6 +594,36 @@ public partial class Tests
     }
     
     [Test]
+    public async Task UpdateRowsSqlAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_updaterowssql_nofilter_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch> { recordBatch };
+                await table.AddAsync(array);
+                Assert.That(await table.CountRowsAsync(), Is.GreaterThan(0));
+                var updates = new Dictionary<string, string> { { "id", "'test'" } };
+                var updatedCount = await table.UpdateSqlAsync(updates, "id = '0'");
+                Assert.That(await table.CountRowsAsync("id = 'test'"), Is.EqualTo(1));
+                Assert.That(updatedCount, Is.EqualTo(1));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
     public void CreateDefaultScalarIndexFailsOnEmpty()
     {
         var uri = new Uri("file:///tmp/test_table_empty_try_index");
@@ -382,6 +634,27 @@ public partial class Tests
                 Assert.That(cnn.IsOpen, Is.True);
                 var table = cnn.CreateTable("table1", Helpers.GetSchema());
                 Assert.Throws<Exception>(() => table.CreateScalarIndex("id"));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
+    
+    [Test]
+    public async Task CreateDefaultScalarIndexFailsOnEmptyAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_empty_try_index_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.ThrowsAsync<Exception>(async () => await table.CreateScalarIndexAsync("id"));
             }
         }
         finally
@@ -419,6 +692,32 @@ public partial class Tests
     }
     
     [Test]
+    public async Task CreateDefaultScalarIndexAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_try_index_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+                await table.CreateScalarIndexAsync("id");
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
     public void ListIndices()
     {
         var uri = new Uri("file:///tmp/test_table_try_index_list");
@@ -438,6 +737,39 @@ public partial class Tests
                 table.CreateScalarIndex("id");
                 table.Optimize();
                 var indices = table.ListIndices();
+                Assert.That(indices.Count, Is.GreaterThan(0));
+                Assert.That(indices.First().Name, Is.EqualTo("id_idx"));
+                Assert.That(indices.First().IndexType, Is.EqualTo(IndexType.BTree));
+                Assert.That(indices.First().Columns.Count(), Is.EqualTo(1));
+                Assert.That(indices.First().Columns.First(), Is.EqualTo("id"));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public async Task ListIndicesAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_try_index_list_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+                await table.CreateScalarIndexAsync("id");
+                await table.OptimizeAsync();
+                var indices = await table.ListIndicesAsync();
                 Assert.That(indices.Count, Is.GreaterThan(0));
                 Assert.That(indices.First().Name, Is.EqualTo("id_idx"));
                 Assert.That(indices.First().IndexType, Is.EqualTo(IndexType.BTree));
@@ -665,6 +997,33 @@ public partial class Tests
     }
     
     [Test]
+    public async Task CreateDefaultVectorIndexAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_try_vec_index_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 256, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+                await table.CreateIndexAsync("vector", Metric.L2, 8, 8);
+                var stats = await table.OptimizeAsync();
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
     public void Compact()
     {
         var uri = new Uri("file:///tmp/test_table_compact");
@@ -692,6 +1051,35 @@ public partial class Tests
             Cleanup(uri);
         }
     }
+    
+    [Test]
+    public async Task CompactAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_compact_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 1, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+                Assert.That(await table.CountRowsAsync(), Is.GreaterThan(0));
+                var results = await table.OptimizeAsync();
+                Assert.That(await table.CountRowsAsync(), Is.GreaterThan(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
 
     [Test]
     public void AddRowsFromArrowTable()
@@ -712,6 +1100,36 @@ public partial class Tests
                 var array = new List<RecordBatch>() { recordBatch };;
                 var arrowTable = Apache.Arrow.Table.TableFromRecordBatches(Helpers.GetSchema(), array);
                 table.Add(arrowTable);
+                Assert.That(table.CountRows(), Is.GreaterThan(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+        
+        Assert.Pass();
+    }
+    
+    [Test]
+    public async Task AddRowsFromArrowTableAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_arrow_table_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 1, 128
+                );
+
+                // Put recordBatch into a list
+                var array = new List<RecordBatch>() { recordBatch };;
+                var arrowTable = Apache.Arrow.Table.TableFromRecordBatches(Helpers.GetSchema(), array);
+                await table.AddAsync(arrowTable);
                 Assert.That(table.CountRows(), Is.GreaterThan(0));
             }
         }
