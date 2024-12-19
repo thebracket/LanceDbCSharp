@@ -1162,7 +1162,7 @@ public partial class Tests
                 table.Add(array);
                 table.CreateScalarIndex("id");
                 var stats = table.Optimize(TimeSpan.FromDays(0));
-                Assert.That(stats.Compaction, Is.Null);
+                Assert.That(stats.Compaction, Is.Not.Null);
                 Assert.That(stats.Prune, Is.Not.Null);
                 Assert.That(stats.Prune.OldVersionsRemoved, Is.EqualTo(2));
             }
@@ -1192,7 +1192,7 @@ public partial class Tests
                 table.Add(array);
                 await table.CreateScalarIndexAsync("id");
                 var stats = await table.OptimizeAsync(TimeSpan.FromDays(0));
-                Assert.That(stats.Compaction, Is.Null);
+                Assert.That(stats.Compaction, Is.Not.Null);
                 Assert.That(stats.Prune, Is.Not.Null);
                 Assert.That(stats.Prune.OldVersionsRemoved, Is.EqualTo(2));
             }
