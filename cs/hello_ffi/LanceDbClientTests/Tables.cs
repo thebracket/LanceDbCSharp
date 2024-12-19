@@ -481,6 +481,35 @@ public partial class Tests
     }
     
     [Test]
+    public async Task IndexStatsAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_try_index_stats_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 4096, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                await table.CreateScalarIndexAsync("id");
+                var stats = await table.GetIndexStatisticsAsync("id_idx");
+                Assert.That(stats.NumIndexedRows, Is.EqualTo(4096));
+                Assert.That(stats.NumUnIndexedRows, Is.EqualTo(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
     public void CreateDefaultFullTextSearchIndex()
     {
         var uri = new Uri("file:///tmp/test_table_try_fts_index");
