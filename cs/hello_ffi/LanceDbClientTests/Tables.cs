@@ -527,7 +527,108 @@ public partial class Tests
                 array.Add(recordBatch);
                 table.Add(array);
                 table.CreateFtsIndex(["id"], ["id"]);
-                var stats = table.Optimize();
+                table.Optimize();
+                var indices = table.ListIndices();
+                Assert.That(indices.Count, Is.GreaterThan(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public async Task CreateDefaultFullTextSearchIndexAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_try_fts_index_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+                await table.CreateFtsIndexAsync(["id"], ["id"]);
+                await table.OptimizeAsync();
+                var indices = await table.ListIndicesAsync();
+                Assert.That(indices.Count, Is.GreaterThan(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public void FullTextSearchIndexStats()
+    {
+        var uri = new Uri("file:///tmp/test_table_try_fts_index_stats");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                table.CreateFtsIndex(["id"], ["id"]);
+                table.Optimize();
+                var indices = table.ListIndices();
+                Assert.That(indices.Count, Is.GreaterThan(0));
+                foreach (var indexConfig in indices)
+                {
+                    var indexStats = table.GetIndexStatistics(indexConfig.Name);
+                    Assert.That(indexStats.NumIndexedRows, Is.EqualTo(8));
+                    Assert.That(indexStats.IndexType, Is.EqualTo(IndexType.Fts));
+                }
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public async Task FullTextSearchIndexStatsAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_try_fts_index_stats_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+                await table.CreateFtsIndexAsync(["id"], ["id"]);
+                await table.OptimizeAsync();
+                var indices = await table.ListIndicesAsync();
+                Assert.That(indices.Count, Is.GreaterThan(0));
+                foreach (var indexConfig in indices)
+                {
+                    var indexStats = await table.GetIndexStatisticsAsync(indexConfig.Name);
+                    Assert.That(indexStats.NumIndexedRows, Is.EqualTo(8));
+                    Assert.That(indexStats.IndexType, Is.EqualTo(IndexType.Fts));
+                }
             }
         }
         finally
