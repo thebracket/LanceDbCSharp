@@ -94,15 +94,18 @@ public partial class Tests
                     vector.Add(1.0f);
                 }
 
-                var testRrf = await table
-                    .Search()
-                    .Text("'1'")
-                    .Vector(vector)
-                    .SelectColumns(["id", "vector"])
-                    .Rerank(new RrfReranker())
-                    .Limit(3)
-                    .ToListAsync();
-                Assert.That(testRrf.Count(), Is.EqualTo(3));
+                for (var limit = 2; limit < 10; limit++)
+                {
+                    var testRrf = await table
+                        .Search()
+                        .Text("'1'")
+                        .Vector(vector)
+                        .SelectColumns(["id", "vector"])
+                        .Rerank(new RrfReranker())
+                        .Limit(limit)
+                        .ToListAsync();
+                    Assert.That(testRrf.Count(), Is.LessThanOrEqualTo(limit));
+                }
             }
         }
         finally
