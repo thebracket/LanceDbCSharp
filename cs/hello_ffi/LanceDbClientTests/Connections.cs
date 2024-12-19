@@ -369,4 +369,48 @@ public partial class Tests
         Assert.Pass();
         return Task.CompletedTask;
     }
+    
+    [Test]
+    public void TestCloseConnectionTwice()
+    {
+        var uri = new Uri("file:///tmp/test_close_twice");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                cnn.Close();
+                Assert.That(cnn.IsOpen, Is.False);
+                cnn.Close();
+                Assert.That(cnn.IsOpen, Is.False);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+        Assert.Pass();
+    }
+    
+    [Test]
+    public async Task TestCloseConnectionTwiceAsync()
+    {
+        var uri = new Uri("file:///tmp/test_close_twice_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                await cnn.CloseAsync();
+                Assert.That(cnn.IsOpen, Is.False);
+                await cnn.CloseAsync();
+                Assert.That(cnn.IsOpen, Is.False);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+        Assert.Pass();
+    }
 }

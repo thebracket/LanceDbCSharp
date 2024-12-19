@@ -142,6 +142,7 @@ public sealed partial class Connection
 
     public Task CloseAsync(CancellationToken cancellationToken = default)
     {
+        if (!IsOpen) return Task.CompletedTask;
         var tcs = new TaskCompletionSource();
         Ffi.ResultCallback callback = (code, message) =>
         {
@@ -151,6 +152,7 @@ public sealed partial class Connection
             }
             else
             {
+                IsOpen = false;
                 tcs.SetResult();
             }
         };
