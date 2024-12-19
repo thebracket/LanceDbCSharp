@@ -211,6 +211,7 @@ public sealed partial class Table
 
     public Task CloseAsync(CancellationToken cancellationToken = default)
     {
+        if (!IsOpen) throw new Exception("Table is not open.");
         var tcs = new TaskCompletionSource();
         Ffi.ResultCallback callback = (code, message) =>
         {
@@ -220,6 +221,7 @@ public sealed partial class Table
             }
             else
             {
+                IsOpen = false;
                 tcs.SetResult();
             }
         };
@@ -269,9 +271,10 @@ public sealed partial class Table
                 });
             }
         };
+        var cleanup = cleanupOlderThan?.TotalSeconds ?? 0;
         Task.Run(() =>
         {
-            Ffi.optimize_table(_connectionHandle, _tableHandle, callback, compactCallback, pruneCallback);
+            Ffi.optimize_table(_connectionHandle, _tableHandle, (long)cleanup, deleteUnverified, callback, compactCallback, pruneCallback);
         }, token);
         return tcs.Task;
     }

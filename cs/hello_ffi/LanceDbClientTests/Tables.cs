@@ -26,6 +26,27 @@ public partial class Tests
             Cleanup(uri);
         }
     }
+    
+    [Test]
+    public async Task CloseTableAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_close_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                await table.CloseAsync();
+                Assert.That(table.IsOpen, Is.False);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
 
     [Test]
     public void CloseTableAlreadyClosed()
@@ -41,6 +62,28 @@ public partial class Tests
                 table.Close();
                 Assert.That(table.IsOpen, Is.False);
                 Assert.Throws<Exception>(() => table.Close());
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public async Task CloseTableAlreadyClosedAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_close_already_closed_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                await table.CloseAsync();
+                Assert.That(table.IsOpen, Is.False);
+                Assert.ThrowsAsync<Exception>(async () => await table.CloseAsync());
             }
         }
         finally
@@ -438,6 +481,35 @@ public partial class Tests
     }
     
     [Test]
+    public async Task IndexStatsAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_try_index_stats_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 4096, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                await table.CreateScalarIndexAsync("id");
+                var stats = await table.GetIndexStatisticsAsync("id_idx");
+                Assert.That(stats.NumIndexedRows, Is.EqualTo(4096));
+                Assert.That(stats.NumUnIndexedRows, Is.EqualTo(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
     public void CreateDefaultFullTextSearchIndex()
     {
         var uri = new Uri("file:///tmp/test_table_try_fts_index");
@@ -455,7 +527,108 @@ public partial class Tests
                 array.Add(recordBatch);
                 table.Add(array);
                 table.CreateFtsIndex(["id"], ["id"]);
-                var stats = table.Optimize();
+                table.Optimize();
+                var indices = table.ListIndices();
+                Assert.That(indices.Count, Is.GreaterThan(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public async Task CreateDefaultFullTextSearchIndexAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_try_fts_index_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+                await table.CreateFtsIndexAsync(["id"], ["id"]);
+                await table.OptimizeAsync();
+                var indices = await table.ListIndicesAsync();
+                Assert.That(indices.Count, Is.GreaterThan(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public void FullTextSearchIndexStats()
+    {
+        var uri = new Uri("file:///tmp/test_table_try_fts_index_stats");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                table.CreateFtsIndex(["id"], ["id"]);
+                table.Optimize();
+                var indices = table.ListIndices();
+                Assert.That(indices.Count, Is.GreaterThan(0));
+                foreach (var indexConfig in indices)
+                {
+                    var indexStats = table.GetIndexStatistics(indexConfig.Name);
+                    Assert.That(indexStats.NumIndexedRows, Is.EqualTo(8));
+                    Assert.That(indexStats.IndexType, Is.EqualTo(IndexType.Fts));
+                }
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public async Task FullTextSearchIndexStatsAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_try_fts_index_stats_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+                await table.CreateFtsIndexAsync(["id"], ["id"]);
+                await table.OptimizeAsync();
+                var indices = await table.ListIndicesAsync();
+                Assert.That(indices.Count, Is.GreaterThan(0));
+                foreach (var indexConfig in indices)
+                {
+                    var indexStats = await table.GetIndexStatisticsAsync(indexConfig.Name);
+                    Assert.That(indexStats.NumIndexedRows, Is.EqualTo(8));
+                    Assert.That(indexStats.IndexType, Is.EqualTo(IndexType.Fts));
+                }
             }
         }
         finally
@@ -548,5 +721,65 @@ public partial class Tests
         }
         
         Assert.Pass();
+    }
+
+    [Test]
+    public void TestOptimizeRows()
+    {
+        var uri = new Uri("file:///tmp/test_table_optimize");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                table.CreateScalarIndex("id");
+                var stats = table.Optimize(TimeSpan.FromDays(0));
+                Assert.That(stats.Compaction, Is.Null);
+                Assert.That(stats.Prune, Is.Not.Null);
+                Assert.That(stats.Prune.OldVersionsRemoved, Is.EqualTo(2));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }        
+    }
+    
+    [Test]
+    public async Task TestOptimizeRowsAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_optimize_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+                await table.CreateScalarIndexAsync("id");
+                var stats = await table.OptimizeAsync(TimeSpan.FromDays(0));
+                Assert.That(stats.Compaction, Is.Null);
+                Assert.That(stats.Prune, Is.Not.Null);
+                Assert.That(stats.Prune.OldVersionsRemoved, Is.EqualTo(2));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }        
     }
 }

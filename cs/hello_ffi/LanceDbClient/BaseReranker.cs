@@ -10,11 +10,13 @@ public abstract class BaseReranker : IReranker
     
     public Apache.Arrow.Table RerankVector(string query, Apache.Arrow.Table vectorResults)
     {
+        // See rerankers.base.py - the base does not implement this method.
         throw new NotImplementedException();
     }
 
     public Apache.Arrow.Table RerankFts(string query, Apache.Arrow.Table ftsResults)
     {
+        // See rerankers.base.py - the base does not implement this method.
         throw new NotImplementedException();
     }
 
@@ -59,9 +61,22 @@ public abstract class BaseReranker : IReranker
     /// <returns></returns>
     public Apache.Arrow.Table RerankMultiVector(IEnumerable<Apache.Arrow.Table> vectorResults, string? query = null, bool deduplicate = false)
     {
-        var merged = ArrayHelpers.ConcatTables(vectorResults.ToList());
+        // Avoid multiple enumeration
+        var vectorResultsList = vectorResults.ToList();
+        
+        // Check if deduplication is requested and is possible
+        if (deduplicate)
+        {
+            var hasRowId = vectorResultsList.All(vectorResult => vectorResult.Schema.GetFieldByName("_rowid") != null);
+            if (!hasRowId)
+            {
+                throw new Exception("Deduplication requires a '_rowid' column in all vector results.");
+            }
+        }
+        
+        var merged = ArrayHelpers.ConcatTables(vectorResultsList.ToList(), deduplicate);
+        
         var reranked = this.RerankVector(query, merged);
-        // TODO: Deduplication
         return reranked;
     }
 

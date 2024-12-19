@@ -216,13 +216,9 @@ pub(crate) async fn do_add_fts_index(
     fts_builder = fts_builder.with_position(with_position);
 
     // Now the hard part: filling the tokenizer configs
-    // TODO: Is this right? It looks like "simple" is actually the default
-    let tokenizer_name = if tokenizer_name.is_empty() || tokenizer_name == "default" {
-        "simple".to_string()
-    } else {
-        tokenizer_name
-    };
-    fts_builder.tokenizer_configs = fts_builder.tokenizer_configs.base_tokenizer(tokenizer_name);
+    if !(tokenizer_name.is_empty() || tokenizer_name == "default") {
+        fts_builder.tokenizer_configs = fts_builder.tokenizer_configs.base_tokenizer(tokenizer_name);
+    }
 
     let columns = columns.iter().map(|c| c.as_str()).collect::<Vec<&str>>();
     let mut index_builder = table.create_index(&columns, Index::FTS(fts_builder));
@@ -243,6 +239,8 @@ pub(crate) async fn do_optimize_table(
     connection_handle: ConnectionHandle,
     tables: Sender<TableCommand>,
     table_handle: TableHandle,
+    prune_older_than: Option<chrono::Duration>,
+    delete_unverified: bool,
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
     compaction_callback: extern "C" fn(u64, u64, u64, u64),
@@ -253,7 +251,18 @@ pub(crate) async fn do_optimize_table(
         report_result(Err(err), reply_tx, Some(completion_sender)).await;
         return;
     };
-    match table.optimize(OptimizeAction::All).await {
+
+    let future = if prune_older_than.is_some() || delete_unverified {
+        table.optimize(OptimizeAction::Prune {
+            older_than: prune_older_than,
+            delete_unverified: Some(delete_unverified),
+            error_if_tagged_old_versions: None,
+        })
+    } else {
+        table.optimize(OptimizeAction::All)
+    };
+
+    match future.await {
         Ok(stats) => {
             if let Some(stats) = stats.compaction {
                 compaction_callback(
@@ -375,34 +384,36 @@ pub(crate) async fn do_get_index_stats(
         return;
     };
 
-    let Ok(stats) = table.index_stats(&index_name).await else {
-        report_result(
-            Err("Error getting index stats".to_string()),
-            reply_tx,
-            Some(completion_sender),
-        ).await;
-        return;
-    };
-    if let Some(stats) = stats {
-        // Send the stats
-        let index_type_ffi: IndexType = stats.index_type.into();
-        let index_index:u32 = index_type_ffi as u32;
-        let metric_type_ffi: MetricType = if let Some(metric) = stats.distance_type {
-            metric.into()
-        } else {
-            MetricType::None
-        };
-        let metric_index:u32 = metric_type_ffi as u32;
-        let num_indexed_rows = stats.num_indexed_rows as u64;
-        let num_indices = stats.num_indices.unwrap_or(0) as u64;
-        let num_unindex_rows = stats.num_unindexed_rows as u64;
-        if let Some(callback) = callback {
-            callback(index_index, metric_index, num_indexed_rows, num_indices, num_unindex_rows);
+    match table.index_stats(&index_name).await {
+        Ok(Some(stats)) => {
+            let index_type_ffi: IndexType = stats.index_type.into();
+            let index_index:u32 = index_type_ffi as u32;
+            let metric_type_ffi: MetricType = if let Some(metric) = stats.distance_type {
+                metric.into()
+            } else {
+                MetricType::None
+            };
+            let metric_index:u32 = metric_type_ffi as u32;
+            let num_indexed_rows = stats.num_indexed_rows as u64;
+            let num_indices = stats.num_indices.unwrap_or(0) as u64;
+            let num_unindex_rows = stats.num_unindexed_rows as u64;
+            if let Some(callback) = callback {
+                callback(index_index, metric_index, num_indexed_rows, num_indices, num_unindex_rows);
+            }
         }
-    } else {
-        // Send a no-stats result
-        if let Some(callback) = callback {
-            callback(0, 0, 0, 0, 0);
+        Ok(None) => {
+            if let Some(callback) = callback {
+                callback(0, 0, 0, 0, 0);
+            }
+        }
+        Err(e) => {
+            let err = format!("Error getting index stats: {:?}", e);
+            report_result(
+                Err(err),
+                reply_tx,
+                Some(completion_sender),
+            ).await;
+            return;
         }
     }
 

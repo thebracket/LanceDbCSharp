@@ -376,6 +376,8 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<Handle>) {
             LanceDbCommand::OptimizeTable {
                 connection_handle,
                 table_handle,
+                prune_older_than,
+                delete_unverified,
                 compaction_callback,
                 prune_callback,
             } => {
@@ -383,6 +385,8 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<Handle>) {
                     connection_handle,
                     tables.clone(),
                     table_handle,
+                    prune_older_than,
+                    delete_unverified,
                     reply_tx,
                     completion_sender,
                     compaction_callback,

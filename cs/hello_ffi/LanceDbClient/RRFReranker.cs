@@ -82,4 +82,23 @@ public class RrfReranker : BaseReranker
 
         return combinedResults;
     }
+
+    public Apache.Arrow.Table RerankMultiVector(IEnumerable<Apache.Arrow.Table> vectorResults, string? query = null,
+        bool deduplicate = false)
+    {
+        // Avoid multiple enumeration
+        var vectorResultsList = vectorResults.ToList();
+        
+        // Multi-Vector reranking requires a '_rowid' column in all vector results
+        var hasRowId = vectorResultsList.All(vectorResult => vectorResult.Schema.GetFieldByName("_rowid") != null);
+        if (!hasRowId)
+        {
+            throw new Exception("Multi-Vector ReRanking requires a '_rowid' column in all vector results.");
+        }
+        
+        var merged = ArrayHelpers.ConcatTables(vectorResultsList.ToList(), deduplicate);
+        var emptyTable = new Apache.Arrow.Table(merged.Schema, []);
+        var reranked = this.RerankHybrid(query, merged, emptyTable);
+        return reranked;
+    }
 }
