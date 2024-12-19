@@ -545,6 +545,8 @@ public sealed partial class Table : ITable
         if (!IsOpen) throw new Exception("Table is not open.");
         Exception? exception = null;
         
+        data = ArrayHelpers.SanitizeVectorAdd(this.Schema, data, badVectorHandling, fillValue);
+        
         foreach (var recordBatch in data)
         {
             var batch = Ffi.SerializeRecordBatch(recordBatch);

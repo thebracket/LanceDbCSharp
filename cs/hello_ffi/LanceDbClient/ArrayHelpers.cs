@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Apache.Arrow;
 using Apache.Arrow.Types;
+using LanceDbInterface;
 using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;
@@ -664,5 +665,67 @@ public static class ArrayHelpers
             if (a.GetFieldByIndex(i).DataType.TypeId != b.GetFieldByIndex(i).DataType.TypeId) return false;
         }
         return true;
+    }
+
+    internal static IEnumerable<RecordBatch> SanitizeVectorAdd(Schema tableSchema, IEnumerable<RecordBatch> rowsToAdd, BadVectorHandling mode, float fillValue)
+    {
+        // "Error" is the default LanceDb behavior - it will throw an error when a bad vector is encountered
+        if (mode == BadVectorHandling.Error) return rowsToAdd;
+
+        var result = new List<RecordBatch>();
+        
+        foreach (var recordBatch in rowsToAdd)
+        {
+            var arrowTable = Apache.Arrow.Table.TableFromRecordBatches(recordBatch.Schema, [recordBatch]);
+            var listOfDicts = ArrowTableToListOfDictionaries(arrowTable).ToList();
+            
+            foreach (var row in listOfDicts)
+            {
+                var changed = false;
+                foreach (var keyValuePair in row)
+                {
+                    var fieldName = keyValuePair.Key;
+                    Field? schemaField = tableSchema.GetFieldByName(fieldName);
+                    if (schemaField == null) continue;
+                    var fieldType = schemaField.DataType;
+                    if (fieldType is FixedSizeListType arr)
+                    {
+                        var desiredLength = arr.ListSize;
+                        if (keyValuePair.Value is IList list)
+                        {
+                            if (list.Count != desiredLength)
+                            {
+                                if (mode == BadVectorHandling.Fill)
+                                {
+                                    var fillList = new List<float>();
+                                    for (var i = 0; i < desiredLength; i++)
+                                    {
+                                        fillList.Add(fillValue);
+                                    }
+                                    row[fieldName] = fillList;
+                                    changed = true;
+                                } else if (mode == BadVectorHandling.Drop)
+                                {
+                                    row.Remove(fieldName);
+                                    changed = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (changed)
+                {
+                    var convertedItems = listOfDicts
+                        .Select(dict => dict.ToDictionary(entry => entry.Key, entry => entry.Value))
+                        .ToList();
+                    var newRecordBatch = ConcreteToArrowTable(convertedItems, tableSchema);
+                    result.Add(newRecordBatch[0]);
+                } else {
+                    result.Add(recordBatch);
+                }
+            }
+        }
+
+        return result;
     }
 }

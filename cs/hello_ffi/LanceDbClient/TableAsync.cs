@@ -359,6 +359,8 @@ public sealed partial class Table
         {
             unsafe
             {
+                data = ArrayHelpers.SanitizeVectorAdd(this.Schema, data, badVectorHandling, fillValue);
+                
                 foreach (var recordBatch in data)
                 {
                     var batch = Ffi.SerializeRecordBatch(recordBatch);
