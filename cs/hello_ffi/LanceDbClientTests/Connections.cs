@@ -37,6 +37,27 @@ public partial class Tests
     }
     
     [Test]
+    public async Task TestNewDatabaseCreationAndDroppingAsync()
+    {
+        var uri = new Uri("file:///tmp/test_new_db_async");
+        using (var cnn = new Connection(uri))
+        {
+            Assert.That(cnn.IsOpen, Is.True);
+            Assert.That(cnn.Uri, Is.EqualTo(uri));
+        }
+        Assert.That(Directory.Exists(uri.LocalPath), Is.True);
+        using (var cnn = new Connection(uri))
+        {
+            Assert.That(cnn.IsOpen, Is.True);
+            await cnn.DropDatabaseAsync();
+            Assert.That(cnn.IsOpen, Is.False);
+        }
+        
+        Assert.That(Directory.Exists(uri.LocalPath), Is.False);
+        Assert.Pass();
+    }
+    
+    [Test]
     public void TestCreateEmptyTable()
     {
         var uri = new Uri("file:///tmp/test_empty_table");

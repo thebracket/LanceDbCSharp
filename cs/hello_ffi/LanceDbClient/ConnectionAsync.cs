@@ -129,13 +129,13 @@ public sealed partial class Connection
             }
             else
             {
+                IsOpen = false;
                 tcs.SetResult();
             }
         };
         Task.Run(() =>
         {
             Ffi.drop_database(_connectionId, callback);
-            IsOpen = false;
         }, cancellationToken);
         return tcs.Task;
     }
