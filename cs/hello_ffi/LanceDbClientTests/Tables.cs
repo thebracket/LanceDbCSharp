@@ -61,7 +61,8 @@ public partial class Tests
                 Assert.That(table.IsOpen, Is.True);
                 table.Close();
                 Assert.That(table.IsOpen, Is.False);
-                Assert.Throws<Exception>(() => table.Close());
+                table.Close();
+                Assert.That(table.IsOpen, Is.False);
             }
         }
         finally
@@ -83,7 +84,8 @@ public partial class Tests
                 Assert.That(table.IsOpen, Is.True);
                 await table.CloseAsync();
                 Assert.That(table.IsOpen, Is.False);
-                Assert.ThrowsAsync<Exception>(async () => await table.CloseAsync());
+                await table.CloseAsync();
+                Assert.That(table.IsOpen, Is.False);
             }
         }
         finally
