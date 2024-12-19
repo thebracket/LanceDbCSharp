@@ -1,6 +1,6 @@
 use std::ffi::{c_char, CString};
 use crate::connection_handler::{ConnectionCommand, ConnectionHandle};
-use crate::event_loop::command::{BadVectorHandling, IndexType, ScalarIndexType, WriteMode};
+use crate::event_loop::command::{IndexType, ScalarIndexType, WriteMode};
 use crate::event_loop::connection::get_table;
 use crate::event_loop::{get_connection, report_result, CompletionSender, ErrorReportFn, MetricType};
 use crate::table_handler::{TableCommand, TableHandle};
@@ -52,8 +52,6 @@ pub(crate) async fn do_add_record_batch(
     table_handle: TableHandle,
     write_mode: WriteMode,
     batch: Vec<Result<RecordBatch, ArrowError>>,
-    bad_vector_handling: BadVectorHandling,
-    fill_value: f32,
     reply_tx: ErrorReportFn,
     completion_sender: CompletionSender,
 ) {

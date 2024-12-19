@@ -365,7 +365,7 @@ public sealed partial class Table
                     fixed (byte* p = batch)
                     {
                         Ffi.add_record_batch(_connectionHandle, _tableHandle, p, (ulong)batch.Length, (uint)mode,
-                            (uint)badVectorHandling, fillValue, (code, message) =>
+                            (code, message) =>
                             {
                                 if (code < 0)
                                 {

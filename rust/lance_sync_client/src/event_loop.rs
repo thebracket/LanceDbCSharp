@@ -184,8 +184,6 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<Handle>) {
                 connection_handle,
                 table_handle,
                 write_mode,
-                bad_vector_handling,
-                fill_value,
                 batch,
             } => {
                 tokio::spawn(table::do_add_record_batch(
@@ -194,8 +192,6 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<Handle>) {
                     table_handle,
                     write_mode,
                     batch,
-                    bad_vector_handling,
-                    fill_value,
                     reply_tx,
                     completion_sender,
                 ));
