@@ -525,6 +525,8 @@ public sealed partial class Table : ITable
         BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0)
     {
         // Convert the dictionary into a record batch
+        data = ArrayHelpers.SanitizeVectorAdd(this.Schema, data, badVectorHandling, fillValue);
+        if (!data.Any()) return;
         var batch = ArrayHelpers.ConcreteToArrowTable(data, Schema);
         Add(batch, mode, badVectorHandling, fillValue);
     }
@@ -544,8 +546,6 @@ public sealed partial class Table : ITable
         if (data == null) throw new ArgumentNullException(nameof(data));
         if (!IsOpen) throw new Exception("Table is not open.");
         Exception? exception = null;
-        
-        data = ArrayHelpers.SanitizeVectorAdd(this.Schema, data, badVectorHandling, fillValue);
         
         foreach (var recordBatch in data)
         {

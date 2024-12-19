@@ -1200,4 +1200,224 @@ public partial class Tests
             Cleanup(uri);
         }        
     }
+    
+    [Test]
+    public void AddRowsBadVectorDrop()
+    {
+        var uri = new Uri("file:///tmp/test_table_add_rows_bad_vec_drop");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+
+                var array = new List<Dictionary<string, object>>();
+                var recordBatch = new Dictionary<string, object>();
+                recordBatch.Add("id", new List<string>() { "0" });
+                var rowList = new List<float>();
+                for (int i = 0; i < 64; i++)
+                {
+                    rowList.Add(1.0f);
+                }
+                recordBatch.Add("vector", rowList);
+                array.Add(recordBatch);
+                table.Add(array, badVectorHandling: BadVectorHandling.Drop);
+                Assert.That(table.CountRows(), Is.EqualTo(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public void AddRowsBadVectorDropMixed()
+    {
+        var uri = new Uri("file:///tmp/test_table_add_rows_bad_vec_drop_mix");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+
+                var array = new List<Dictionary<string, object>>();
+                
+                // First Batch is bad
+                var recordBatch = new Dictionary<string, object>();
+                recordBatch.Add("id", new List<string>() { "0" });
+                var rowList = new List<float>();
+                for (int i = 0; i < 64; i++)
+                {
+                    rowList.Add(1.0f);
+                }
+                recordBatch.Add("vector", rowList);
+                
+                // Second Batch is bad
+                var recordBatch2 = new Dictionary<string, object>();
+                recordBatch2.Add("id", new List<string>() { "1" });
+                var rowList2 = new List<float>();
+                for (int i = 0; i < 128; i++)
+                {
+                    rowList2.Add(1.0f);
+                }
+                recordBatch2.Add("vector", rowList2);
+                
+                array.Add(recordBatch);
+                array.Add(recordBatch2);
+                table.Add(array, badVectorHandling: BadVectorHandling.Drop);
+                Assert.That(table.CountRows(), Is.EqualTo(1));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public async Task AddRowsBadVectorDropMixedAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_add_rows_bad_vec_drop_mix_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+
+                var array = new List<Dictionary<string, object>>();
+                
+                // First Batch is bad
+                var recordBatch = new Dictionary<string, object>();
+                recordBatch.Add("id", new List<string>() { "0" });
+                var rowList = new List<float>();
+                for (int i = 0; i < 64; i++)
+                {
+                    rowList.Add(1.0f);
+                }
+                recordBatch.Add("vector", rowList);
+                
+                // Second Batch is bad
+                var recordBatch2 = new Dictionary<string, object>();
+                recordBatch2.Add("id", new List<string>() { "1" });
+                var rowList2 = new List<float>();
+                for (int i = 0; i < 128; i++)
+                {
+                    rowList2.Add(1.0f);
+                }
+                recordBatch2.Add("vector", rowList2);
+                
+                array.Add(recordBatch);
+                array.Add(recordBatch2);
+                await table.AddAsync(array, badVectorHandling: BadVectorHandling.Drop);
+                Assert.That(await table.CountRowsAsync(), Is.EqualTo(1));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public async Task AddRowsBadVectorDropAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_add_rows_bad_vec_drop_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+
+                var array = new List<Dictionary<string, object>>();
+                var recordBatch = new Dictionary<string, object>();
+                recordBatch.Add("id", new List<string>() { "0" });
+                var rowList = new List<float>();
+                for (int i = 0; i < 64; i++)
+                {
+                    rowList.Add(1.0f);
+                }
+                recordBatch.Add("vector", rowList);
+                array.Add(recordBatch);
+                await table.AddAsync(array, badVectorHandling: BadVectorHandling.Drop);
+                Assert.That(await table.CountRowsAsync(), Is.EqualTo(0));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public void AddRowsBadVectorFill()
+    {
+        var uri = new Uri("file:///tmp/test_table_add_rows_bad_vec_drop");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+
+                var array = new List<Dictionary<string, object>>();
+                var recordBatch = new Dictionary<string, object>();
+                recordBatch.Add("id", new List<string>() { "0" });
+                var rowList = new List<float>();
+                for (int i = 0; i < 64; i++)
+                {
+                    rowList.Add(1.0f);
+                }
+                recordBatch.Add("vector", rowList);
+                array.Add(recordBatch);
+                table.Add(array, badVectorHandling: BadVectorHandling.Fill, fillValue: 0.0f);
+                Assert.That(table.CountRows(), Is.EqualTo(1));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
+    
+    [Test]
+    public async Task AddRowsBadVectorFillAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_add_rows_bad_vec_drop_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+
+                var array = new List<Dictionary<string, object>>();
+                var recordBatch = new Dictionary<string, object>();
+                recordBatch.Add("id", new List<string>() { "0" });
+                var rowList = new List<float>();
+                for (int i = 0; i < 64; i++)
+                {
+                    rowList.Add(1.0f);
+                }
+                recordBatch.Add("vector", rowList);
+                array.Add(recordBatch);
+                await table.AddAsync(array, badVectorHandling: BadVectorHandling.Fill, fillValue: 0.0f);
+                Assert.That(await table.CountRowsAsync(), Is.EqualTo(1));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
 }

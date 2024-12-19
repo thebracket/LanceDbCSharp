@@ -667,62 +667,49 @@ public static class ArrayHelpers
         return true;
     }
 
-    internal static IEnumerable<RecordBatch> SanitizeVectorAdd(Schema tableSchema, IEnumerable<RecordBatch> rowsToAdd, BadVectorHandling mode, float fillValue)
+    internal static IEnumerable<Dictionary<string, object>> SanitizeVectorAdd(Schema tableSchema, IEnumerable<Dictionary<string, object>> rowsToAdd, BadVectorHandling mode, float fillValue)
     {
         // "Error" is the default LanceDb behavior - it will throw an error when a bad vector is encountered
         if (mode == BadVectorHandling.Error) return rowsToAdd;
 
-        var result = new List<RecordBatch>();
+        var result = new List<Dictionary<string, object>>();
         
-        foreach (var recordBatch in rowsToAdd)
+        foreach (var row in rowsToAdd)
         {
-            var arrowTable = Apache.Arrow.Table.TableFromRecordBatches(recordBatch.Schema, [recordBatch]);
-            var listOfDicts = ArrowTableToListOfDictionaries(arrowTable).ToList();
-            
-            foreach (var row in listOfDicts)
+            var dropped = false;
+            foreach (var keyValuePair in row)
             {
-                var changed = false;
-                foreach (var keyValuePair in row)
+                var fieldName = keyValuePair.Key;
+                Field? schemaField = tableSchema.GetFieldByName(fieldName);
+                if (schemaField == null) continue;
+                var fieldType = schemaField.DataType;
+                if (fieldType is FixedSizeListType arr)
                 {
-                    var fieldName = keyValuePair.Key;
-                    Field? schemaField = tableSchema.GetFieldByName(fieldName);
-                    if (schemaField == null) continue;
-                    var fieldType = schemaField.DataType;
-                    if (fieldType is FixedSizeListType arr)
+                    var desiredLength = arr.ListSize;
+                    if (keyValuePair.Value is IList list)
                     {
-                        var desiredLength = arr.ListSize;
-                        if (keyValuePair.Value is IList list)
+                        if (list.Count != desiredLength)
                         {
-                            if (list.Count != desiredLength)
+                            if (mode == BadVectorHandling.Fill)
                             {
-                                if (mode == BadVectorHandling.Fill)
+                                var fillList = new List<float>();
+                                for (var i = 0; i < desiredLength; i++)
                                 {
-                                    var fillList = new List<float>();
-                                    for (var i = 0; i < desiredLength; i++)
-                                    {
-                                        fillList.Add(fillValue);
-                                    }
-                                    row[fieldName] = fillList;
-                                    changed = true;
-                                } else if (mode == BadVectorHandling.Drop)
-                                {
-                                    row.Remove(fieldName);
-                                    changed = true;
+                                    fillList.Add(fillValue);
                                 }
+                                row[fieldName] = fillList;
+                            } else if (mode == BadVectorHandling.Drop)
+                            {
+                                dropped = true;
                             }
                         }
                     }
                 }
-                if (changed)
-                {
-                    var convertedItems = listOfDicts
-                        .Select(dict => dict.ToDictionary(entry => entry.Key, entry => entry.Value))
-                        .ToList();
-                    var newRecordBatch = ConcreteToArrowTable(convertedItems, tableSchema);
-                    result.Add(newRecordBatch[0]);
-                } else {
-                    result.Add(recordBatch);
-                }
+            }
+
+            if (!dropped)
+            {
+                result.Add(row);
             }
         }
 

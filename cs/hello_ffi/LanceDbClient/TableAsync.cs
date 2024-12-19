@@ -346,6 +346,11 @@ public sealed partial class Table
         CancellationToken token = default)
     {
         // Convert the dictionary into a record batch
+        data = ArrayHelpers.SanitizeVectorAdd(this.Schema, data, badVectorHandling, fillValue);
+        if (!data.Any())
+        {
+            return Task.CompletedTask;
+        }
         var batch = ArrayHelpers.ConcreteToArrowTable(data, Schema);
         return AddAsync(batch, mode, badVectorHandling, fillValue, token);
     }
@@ -359,8 +364,6 @@ public sealed partial class Table
         {
             unsafe
             {
-                data = ArrayHelpers.SanitizeVectorAdd(this.Schema, data, badVectorHandling, fillValue);
-                
                 foreach (var recordBatch in data)
                 {
                     var batch = Ffi.SerializeRecordBatch(recordBatch);
