@@ -69,6 +69,28 @@ public partial class Tests
             Cleanup(uri);
         }
     }
+    
+    [Test]
+    public async Task CloseTableAlreadyClosedAsync()
+    {
+        var uri = new Uri("file:///tmp/test_table_close_already_closed_async");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.That(table.IsOpen, Is.True);
+                await table.CloseAsync();
+                Assert.That(table.IsOpen, Is.False);
+                Assert.ThrowsAsync<Exception>(async () => await table.CloseAsync());
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+    }
 
     [Test]
     public void AddRows()

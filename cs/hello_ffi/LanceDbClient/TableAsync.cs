@@ -211,6 +211,7 @@ public sealed partial class Table
 
     public Task CloseAsync(CancellationToken cancellationToken = default)
     {
+        if (!IsOpen) throw new Exception("Table is not open.");
         var tcs = new TaskCompletionSource();
         Ffi.ResultCallback callback = (code, message) =>
         {
