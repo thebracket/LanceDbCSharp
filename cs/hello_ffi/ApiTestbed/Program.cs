@@ -69,8 +69,17 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     
     //table1.CreateFtsIndex(["text"], ["text"]);
     await table1.CreateFtsIndexAsync(["text"], ["text"]);
+    /*
+    // GetIndexStatistics doesn't work with fts indexes
+    indexes = await table1.ListIndicesAsync();
+    foreach (var index in indexes)
+    {
+        var statistics = table1.GetIndexStatistics(index.Name);
+        Console.WriteLine($"Index: {index.Name}, Type: {index.IndexType}, Statistics: {statistics}");
+    }
     System.Console.WriteLine("======  Search Text(apple)================================");
     PrintResults(table1.Search().Text("apple").Limit(2).ToList());
+    */
     
     List<float> vector1 = new List<float>();
     for (int i = 0; i < Dimension; i++)
@@ -83,7 +92,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     PrintResults(resultList);
     
     System.Console.WriteLine("======  Search vector 0.3....Return Batches Sync ===============================");
-    var resultBatches = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(metric).NProbes(10).RefineFactor(10).Limit(2).WithRowId(true).ToBatches(1);
+    var resultBatches = ((VectorQueryBuilder)table1.Search().Vector(vector1)).Metric(metric).NProbes(10).RefineFactor(10).Limit(4).WithRowId(true).ToBatches(2);
     PrintBatches(resultBatches);
 
     System.Console.WriteLine("======  Search vector 0.3...., return Table sync===============================");
@@ -95,8 +104,8 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     var vectorValuesResult = await table1.Search(vectorValues, "vector").Limit(2).ToListAsync();
     PrintResults(vectorValuesResult);
 
-    System.Console.WriteLine("======  Search Matrix<float> 0.3...., return List sync===============================");
     /*
+    System.Console.WriteLine("======  Search Matrix<float> 0.3...., return List sync===============================");
     int rows = 2;
     float[,] array2d = new float[rows, Dimension];
     for (int i = 0; i < rows; i++)
