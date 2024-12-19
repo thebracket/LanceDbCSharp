@@ -30,22 +30,28 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
 
     int numEntries = 5;
     System.Console.WriteLine($"{numEntries} records added using Batches.");
-    table1.Add(GetBatches(numEntries));
+    await table1.AddAsync(GetBatches(numEntries));
     System.Console.WriteLine($"Table 1 row count (expected {numEntries}), actual {table1.CountRows()}" );
 
     int dictionaryRows = 2;
-    table1.Add(GetDictionary(dictionaryRows, numEntries));
+    await table1.AddAsync(GetDictionary(dictionaryRows, numEntries));
     System.Console.WriteLine($"Table 1 row count (expected {numEntries + dictionaryRows}) actual {table1.CountRows()}" );
     
     string[] columns = new[] { "id" };    
-    ILanceMergeInsertBuilder builder = table1.MergeInsert(columns);
-    numEntries = 1000;
-    builder.WhenMatchedUpdateAll().WhenNotMatchedInsertAll().Execute(GetBatches(numEntries));
-    System.Console.WriteLine($"Table 1 row count (expected {numEntries}) actual {table1.CountRows()}" );
+    ILanceMergeInsertBuilder builder = await table1.MergeInsertAsync(columns);
+    numEntries = 100000;
+    for (int i = 0; i < 10; i++)
+    {
+        IEnumerable<RecordBatch> records = GetBatches(numEntries, i * numEntries);
+        await builder.WhenMatchedUpdateAll().WhenNotMatchedInsertAll().ExecuteAsync(records);
+        System.Console.WriteLine($"Table 1 row count (expected {numEntries * (i+1)}) actual {table1.CountRows()}" );
+    }
 
     Metric metric = Metric.Dot;
-    table1.CreateIndex("vector", metric, 33, 2);
-    table1.CreateScalarIndex("id");
+    //table1.CreateIndex("vector", metric, 33, 2);
+    //table1.CreateScalarIndex("id");
+    await table1.CreateIndexAsync("vector", metric, 33, 2);
+    await table1.CreateScalarIndexAsync("id");
 
     var indexes = table1.ListIndices();
     foreach (var index in indexes)
@@ -61,7 +67,8 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     var resultWithWhere = queryBuilder.Limit(2).WhereClause("id < 4").WithRowId(true).ToList();
     PrintResults(resultWithWhere);
     
-    table1.CreateFtsIndex(["text"], ["text"]);
+    //table1.CreateFtsIndex(["text"], ["text"]);
+    await table1.CreateFtsIndexAsync(["text"], ["text"]);
     System.Console.WriteLine("======  Search Text(apple)================================");
     PrintResults(table1.Search().Text("apple").Limit(2).ToList());
     
@@ -85,7 +92,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
 
     System.Console.WriteLine("======  Search Vector<float> 0.3...., return List sync===============================");
     Vector<float> vectorValues = Vector<float>.Build.Dense(vector1.ToArray());
-    var vectorValuesResult = table1.Search(vectorValues, "vector").Limit(2).ToList();
+    var vectorValuesResult = await table1.Search(vectorValues, "vector").Limit(2).ToListAsync();
     PrintResults(vectorValuesResult);
 
     System.Console.WriteLine("======  Search Matrix<float> 0.3...., return List sync===============================");
@@ -125,14 +132,18 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     PrintBatches(testHybrid);
 
     System.Console.WriteLine($"Rows before delete: {table1.CountRows()}");
-    table1.Delete("id < 100");
+    await table1.DeleteAsync("id < 100");
     System.Console.WriteLine($"Rows after delete: {table1.CountRows()}");
     
-    var optimizeResult = table1.Optimize();
+    //cleanup_older_than=timedelta(days=0
+    var optimizeResult = await table1.OptimizeAsync(TimeSpan.FromDays(0));
     System.Console.WriteLine("Optimize Result: " + optimizeResult.Compaction + optimizeResult.Prune);
     System.Console.WriteLine($"Rows after optimize(): {table1.CountRows()}");
 
     // Now we'll drop table1
+    await table1.CloseAsync();
+    var isTableOpen = table1.IsOpen;
+    
     await cnn.DropTableAsync("table1");
     System.Console.WriteLine("Table 1 Dropped (Asynchronously)");
     
@@ -209,11 +220,11 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     await ListTables(cnn);
     
     // Now we'll drop the database
-    await cnn.DropDatabaseAsync();
+    //await cnn.DropDatabaseAsync();
     //cnn.DropDatabase();
     System.Console.WriteLine("Database Dropped (Asynchronously)");
     //System.Console.WriteLine("Database Dropped");
-    // cnn.Close();
+    await cnn.CloseAsync();
     var open = cnn.IsOpen ? "open" : "closed";
     System.Console.WriteLine($"connection is: {open}");
 }
@@ -269,10 +280,10 @@ Schema GetSchema()
     return schema;
 }
 
-IEnumerable<RecordBatch> GetBatches(int numEntries)
+IEnumerable<RecordBatch> GetBatches(int numEntries, int startIndex = 0)
 {
     
-    var idArray = new Int32Array.Builder().AppendRange(Enumerable.Range(1, numEntries)).Build();
+    var idArray = new Int32Array.Builder().AppendRange(Enumerable.Range(startIndex + 1, numEntries)).Build();
 
     var textBuilder = new StringArray.Builder();
     string[] stringValues = new string[5] { "orange", "apple", "pear", "peach", "avocado" };
