@@ -151,6 +151,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
 
     // Now we'll drop table1
     await table1.CloseAsync();
+    await table1.CloseAsync();
     //table1.Close();
     var isTableOpen = table1.IsOpen;
     
