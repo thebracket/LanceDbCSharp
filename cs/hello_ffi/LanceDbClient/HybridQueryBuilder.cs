@@ -76,6 +76,7 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
             .ToArrowAsync(token);
         var ftsQuery = await new QueryBuilder(ConnectionId, TableId)
             .Text(FullTextSearch)
+            .SelectColumns(SelectColumnsList)
             .WithRowId(true)
             .Limit(LimitCount > 1 ? (int)LimitCount : 0)
             .ToArrowAsync(token);
