@@ -1183,18 +1183,35 @@ public partial class Tests
             {
                 Assert.That(cnn.IsOpen, Is.True);
                 var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
-                var recordBatch = Helpers.CreateSampleRecordBatch(
-                    Helpers.GetSchema(), 8, 128
-                );
-                // Note that the interface defines a list, so we'll use that
-                var array = new List<RecordBatch>();
-                array.Add(recordBatch);
-                table.Add(array);
-                await table.CreateScalarIndexAsync("id");
-                var stats = await table.OptimizeAsync(TimeSpan.FromDays(0));
+
+                // Count the files recursively underneath /tmp/test_table_optimize_async
+                var countFilesAtStart = Directory.GetFiles("/tmp/test_table_optimize_async", "*.*", SearchOption.AllDirectories).Length;
+                Assert.That(countFilesAtStart, Is.EqualTo(2));
+                
+                // Insert 10 batches of 8 rows each
+                string[] columns = new[] { "id" };
+                var numEntries = 8;
+                for (int i = 0; i < 10; i++)
+                {
+                    var builder = await table.MergeInsertAsync(columns);
+                    var rb = Helpers.CreateSampleRecordBatch(
+                        Helpers.GetSchema(), numEntries * (i+1), 128
+                    );
+                    // Note that the interface defines a list, so we'll use that
+                    var tmp = new List<RecordBatch>();
+                    tmp.Add(rb);
+                    await builder.WhenMatchedUpdateAll().WhenNotMatchedInsertAll().ExecuteAsync(tmp);
+                    System.Console.WriteLine($"Table 1 row count (expected {numEntries * (i+1)}) actual {await table.CountRowsAsync()}" );
+                    Assert.That(await table.CountRowsAsync(), Is.EqualTo(numEntries * (i+1)));
+                }
+                
+                var countFilesPreOptimize = Directory.GetFiles("/tmp/test_table_optimize_async", "*.*", SearchOption.AllDirectories).Length;
+                var stats = await table.OptimizeAsync(TimeSpan.FromSeconds(0));
                 Assert.That(stats.Compaction, Is.Not.Null);
                 Assert.That(stats.Prune, Is.Not.Null);
-                Assert.That(stats.Prune.OldVersionsRemoved, Is.EqualTo(2));
+                Assert.That(stats.Prune.OldVersionsRemoved, Is.EqualTo(10));
+                var countFilesPostOptimize = Directory.GetFiles("/tmp/test_table_optimize_async", "*.*", SearchOption.AllDirectories).Length;
+                Assert.That(countFilesPostOptimize, Is.LessThan(countFilesPreOptimize));
             }
         }
         finally
