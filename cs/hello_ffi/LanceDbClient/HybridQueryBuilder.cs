@@ -90,4 +90,22 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
             yield return batch;
         }
     }
+
+    public new ILanceHybridQueryBuilder Metric(Metric metric = LanceDbInterface.Metric.L2)
+    {
+        DistanceMetric = metric;
+        return this;
+    }
+
+    public new ILanceHybridQueryBuilder NProbes(int nProbes)
+    {
+        NumProbes = nProbes;
+        return this;
+    }
+
+    public new ILanceHybridQueryBuilder RefineFactor(int refineFactor)
+    {
+        RefinementFactor = refineFactor;
+        return this;
+    }
 }
