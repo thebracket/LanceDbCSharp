@@ -1,0 +1,65 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        { 
+            "label": ".NET Core Test with debugger", 
+            "type": "process", 
+            "isBackground": true, 
+            "command": "dotnet", 
+            "args": [ "test", "${workspaceFolder}/cs/hello_ffi/LanceDbClientTests/LanceDbClientTests.csproj" ], 
+            "options": 
+                { 
+                    "cwd": "${workspaceFolder}/cs/hello_ffi/LanceDbClientTests", 
+                    "env": 
+                    { 
+                        "VSTEST_HOST_DEBUG": "1" 
+                    }, 
+                }, 
+            "group": "test", 
+            "presentation": 
+                { 
+                    "echo": true,
+                    "reveal": "always",
+                    "focus": false,
+                    "panel": "shared"
+                },
+            "problemMatcher": [] 
+        },
+        {
+            "label": "build",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "${workspaceFolder}/cs/hello_ffi/hello_ffi.sln",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "publish",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "publish",
+                "${workspaceFolder}/cs/hello_ffi/hello_ffi.sln",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary;ForceNoAlign"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "watch",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "watch",
+                "run",
+                "--project",
+                "${workspaceFolder}/cs/hello_ffi/hello_ffi.sln"
+            ],
+            "problemMatcher": "$msCompile"
+        }
+    ]
+}
