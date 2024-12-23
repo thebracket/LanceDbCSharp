@@ -67,12 +67,16 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
         // Run the vector query and FTS query
         var vectorQuery = await new VectorQueryBuilder(this)
             .WithVectorData(VectorData)
+            .NProbes(NumProbes)
+            .RefineFactor(RefinementFactor)
+            .Metric(DistanceMetric)
             .SelectColumns(SelectColumnsList)
             .WithRowId(true)
             .Limit(LimitCount > 1 ? (int)LimitCount : 0)
             .ToArrowAsync(token);
         var ftsQuery = await new QueryBuilder(ConnectionId, TableId)
             .Text(FullTextSearch)
+            .SelectColumns(SelectColumnsList)
             .WithRowId(true)
             .Limit(LimitCount > 1 ? (int)LimitCount : 0)
             .ToArrowAsync(token);
@@ -86,5 +90,23 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
         {
             yield return batch;
         }
+    }
+
+    public new ILanceHybridQueryBuilder Metric(Metric metric = LanceDbInterface.Metric.L2)
+    {
+        DistanceMetric = metric;
+        return this;
+    }
+
+    public new ILanceHybridQueryBuilder NProbes(int nProbes)
+    {
+        NumProbes = nProbes;
+        return this;
+    }
+
+    public new ILanceHybridQueryBuilder RefineFactor(int refineFactor)
+    {
+        RefinementFactor = refineFactor;
+        return this;
     }
 }

@@ -102,6 +102,9 @@ impl TableActor {
                         reply_sender,
                     } => {
                         if let Some(table) = tables.get(&(connection_handle, table_handle)) {
+                            if let Err(e) = table.checkout_latest().await {
+                                println!("Error checking out table: {e:?}");
+                            }
                             let _ = reply_sender.send(Some(table.clone()));
                         } else {
                             let _ = reply_sender.send(None);

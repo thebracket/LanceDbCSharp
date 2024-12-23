@@ -271,7 +271,7 @@ public sealed partial class Table
                 });
             }
         };
-        var cleanup = cleanupOlderThan?.TotalSeconds ?? 0;
+        var cleanup = cleanupOlderThan?.TotalSeconds ?? -1.0;
         Task.Run(() =>
         {
             Ffi.optimize_table(_connectionHandle, _tableHandle, (long)cleanup, deleteUnverified, callback, compactCallback, pruneCallback);

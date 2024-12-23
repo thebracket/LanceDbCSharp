@@ -316,7 +316,7 @@ public sealed partial class Table : ITable
         
         Exception? exception = null;
         
-        var cleanup = cleanupOlderThan?.TotalSeconds ?? 0;
+        var cleanup = cleanupOlderThan?.TotalSeconds ?? -1.0;
         Ffi.optimize_table(_connectionHandle, _tableHandle, (long)cleanup, deleteUnverified, (code, message) =>
         {
             if (code < 0 && message != null)
