@@ -40,7 +40,9 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     string[] columns = new[] { "id" };    
     ILanceMergeInsertBuilder builder = await table1.MergeInsertAsync(columns);
     numEntries = 100000;
-    for (int i = 0; i < 10; i++)
+    // generate multiple files so that we can test optimize later.
+    int numFiles = 5;
+    for (int i = 0; i < numFiles; i++)
     {
         IEnumerable<RecordBatch> records = GetBatches(numEntries, i * numEntries);
         await builder.WhenMatchedUpdateAll().WhenNotMatchedInsertAll().ExecuteAsync(records);
@@ -69,7 +71,6 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     
     //table1.CreateFtsIndex(["text"], ["text"]);
     await table1.CreateFtsIndexAsync(["text"], ["text"]);
-    /*
     // GetIndexStatistics doesn't work with fts indexes
     indexes = await table1.ListIndicesAsync();
     foreach (var index in indexes)
@@ -79,7 +80,6 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     }
     System.Console.WriteLine("======  Search Text(apple)================================");
     PrintResults(table1.Search().Text("apple").Limit(2).ToList());
-    */
     
     List<float> vector1 = new List<float>();
     for (int i = 0; i < Dimension; i++)
@@ -133,12 +133,13 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
         .Metric(metric)
         .NProbes(10)
         .RefineFactor(10)
-        .SelectColumns(["id", "text", "vector" ])
+        .SelectColumns(["id", "text"])
         .Text("apple")
         .Rerank(new RrfReranker())
-        .Limit(7)
+        .Limit(7);
+    var testHybridResult = testHybrid
         .ToBatches(3);
-    PrintBatches(testHybrid);
+    PrintBatches(testHybridResult);
 
     System.Console.WriteLine($"Rows before delete: {table1.CountRows()}");
     await table1.DeleteAsync("id < 100");
@@ -206,24 +207,28 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     
     // Reranking with RRF (This is broken out into steps for debugging)
     Console.WriteLine("Reranking '12' with RRF");
-    var testRrf = table2
+    var testRrfBuilder = table2
         .Search(vector, "vector", queryType: QueryType.Hybrid)
         .SelectColumns(["id", "vector"]);
-    var testRrf2 = testRrf
+    testRrfBuilder = testRrfBuilder
         .Text("'12'")
         .Limit((15))
-        .Rerank(new RrfReranker())
+        .Rerank(new RrfReranker());
+        
+    var testRrfResult = testRrfBuilder    
         .ToList();
-    PrintDictList(testRrf2);
+    PrintDictList(testRrfResult);
 
     
     Console.WriteLine("Reranking '12' with RRF, sync version and return batches");
     var testRrfSync = table2.Search(vector, "vector", queryType: QueryType.Hybrid)
         .Text("'12'")
         .SelectColumns(["id", "vector"])
-        .Rerank(new RrfReranker())
+        .Rerank(new RrfReranker());
+        
+    var testRrfSyncResult = testRrfSync    
         .ToBatches(2);
-    PrintBatches(testRrfSync);
+    PrintBatches(testRrfSyncResult);
 
     // Now we'll drop table2
     await cnn.DropTableAsync("table2");
