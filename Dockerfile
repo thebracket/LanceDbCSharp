@@ -19,12 +19,29 @@ RUN cargo build --release --package lance_sync_client
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS dotnet_builder
 WORKDIR /usr/src
 COPY cs .
+RUN dotnet restore hello_ffi/LanceDbClientTests/LanceDbClientTests.csproj
 
-RUN dotnet build -c Release -o demo hello_ffi/ApiTestbed/ApiTestbed.csproj
+COPY --from=rust_builder /usr/src/target/release/liblance_sync_client.so /usr/share/dotnet/shared/Microsoft.NETCore.App/8.0.11/
+
+RUN dotnet build -c Debug -o demo hello_ffi/LanceDbClientTests/LanceDbClientTests.csproj
+RUN dotnet test hello_ffi/hello_ffi.sln --collect:"XPlat Code Coverage" --results-directory /usr/src/demo
+RUN dotnet build -c Debug -o demo hello_ffi/ApiTestbed/ApiTestbed.csproj
+
+#EXPOSE 5005
+#CMD ["dotnet", "test", "hello_ffi/LanceDbClientTests/LanceDbClientTests.csproj", "--logger:trx", "--blame", "--results-directory", "/usr/src/TestResults"]
+#CMD ["sleep", "200"]
+
 
 ### Final layer
-FROM mcr.microsoft.com/dotnet/runtime:8.0
+FROM mcr.microsoft.com/dotnet/sdk:8.0
 WORKDIR /app
+EXPOSE 5005 
 COPY --from=rust_builder /usr/src/target/release/liblance_sync_client.so .
 COPY --from=dotnet_builder /usr/src/demo .
-CMD ["/app/ApiTestbed"]
+COPY --from=rust_builder /usr/src/target/release/liblance_sync_client.so /usr/share/dotnet/shared/Microsoft.NETCore.App/8.0.11/liblance_sync_client.so
+#CMD ["/app/ApiTestbed"]
+
+#CMD ["sleep", "200"]
+CMD ["dotnet", "ApiTestbed.dll", "--no-build", "--no-restore", "--launch-profile", "Docker", "--", "--dotnet-tool", "debug", "--server", "--port", "5005"]
+#CMD ["dotnet", "test", "/workspaces/LanceDbCSharp/cs/hello_ffi/LanceDbClientTests/LanceDbClientTests.csproj", "--logger:trx", "--blame", "--results-directory", "/usr/src/TestResults"]
+
