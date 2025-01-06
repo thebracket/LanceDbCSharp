@@ -10,7 +10,7 @@ use lancedb::index::scalar::{
     BTreeIndexBuilder, BitmapIndexBuilder, FtsIndexBuilder, LabelListIndexBuilder,
 };
 use lancedb::index::Index;
-use lancedb::table::OptimizeAction;
+use lancedb::table::{OptimizeAction, OptimizeOptions};
 use lancedb::DistanceType;
 use tokio::sync::mpsc::Sender;
 
@@ -284,6 +284,13 @@ pub(crate) async fn do_optimize_table(
                 stats.fragments_added as u64,
                 stats.fragments_removed as u64,
             );
+        }
+
+        // Index Optimization
+        if let Err(e) = table.optimize(OptimizeAction::Index(OptimizeOptions::default())).await {
+            let err = format!("Error optimizing indices: {:?}", e);
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
+            return;
         }
 
         // Complete
