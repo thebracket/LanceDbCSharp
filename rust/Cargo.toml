@@ -17,7 +17,7 @@ members = [
 ]
 
 [workspace.dependencies]
-lancedb = { version = "0.14.0" } # Pinned to a released version to avoid breaking changes.
+lancedb = { version = "=0.14.0" } # Pinned to a released version to avoid breaking changes.
 tokio = { version = "1", features = ["full"] }
 futures = "0.3.31"
 anyhow = "1"
