@@ -133,7 +133,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
         .Metric(metric)
         .NProbes(10)
         .RefineFactor(10)
-        .SelectColumns(["id", "text", "vector"])
+        .SelectColumns(["id", "text"])
         .Text("apple")
         .Rerank(new RrfReranker())
         .Limit(7);
