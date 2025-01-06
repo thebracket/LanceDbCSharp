@@ -41,7 +41,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     ILanceMergeInsertBuilder builder = await table1.MergeInsertAsync(columns);
     numEntries = 100000;
     // generate multiple files so that we can test optimize later.
-    int numFiles = 10;
+    int numFiles = 5;
     for (int i = 0; i < numFiles; i++)
     {
         IEnumerable<RecordBatch> records = GetBatches(numEntries, i * numEntries);
@@ -133,10 +133,11 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
         .Metric(metric)
         .NProbes(10)
         .RefineFactor(10)
-        .SelectColumns(["id", "text"])
+        .SelectColumns(["id", "text", "vector"])
+        //.SelectColumns(["id", "text"])    // need to test this
         .Text("apple")
         .Rerank(new RrfReranker())
-        .Limit(7);
+        .Limit(6);
     var testHybridResult = testHybrid
         .ToBatches(3);
     PrintBatches(testHybridResult);
