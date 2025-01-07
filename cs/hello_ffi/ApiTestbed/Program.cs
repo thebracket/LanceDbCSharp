@@ -14,7 +14,17 @@ using Table = Apache.Arrow.Table;
 
 const int Dimension = 4;
 
-using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
+string tableName1 = "table1";
+string tableName2 = "table2";
+
+Dictionary<string, string> options = new Dictionary<string, string>();
+options["allow_http"] = "true";
+options["access_key_id"] = "Jsgc7wrCdlNANf8Qlh4x";
+options["secret_access_key"] = "acnjThAidTAJGJ8AgrWCSEGGx2XEO0pp8eRetyni";
+options["endpoint"] = "http://10.43.135.1:9000";
+using (var cnn = new Connection(new Uri("s3://lancedb-bucket"), options))
+    
+//using (var cnn = new Connection(new Uri("file:///tmp/test_lance"))) 
 {
     System.Console.WriteLine("Connection Opened. There should be 0 tables.");
     Console.WriteLine($"The URI is: {cnn.Uri.AbsoluteUri}");
@@ -22,8 +32,8 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     await ListTables(cnn);
 
     // We create an empty table
-    var table1 = await cnn.CreateTableAsync("table1", GetSchema());
-    var table2 = await cnn.CreateTableAsync("table2", Helpers.GetSchema());
+    var table1 = await cnn.CreateTableAsync(tableName1, GetSchema());
+    var table2 = await cnn.CreateTableAsync(tableName2, Helpers.GetSchema());
     System.Console.WriteLine("Tables Created: " + table1 + ", " + table2);
     // So its now expected to see 2 tables
     await ListTables(cnn);
@@ -133,8 +143,8 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
         .Metric(metric)
         .NProbes(10)
         .RefineFactor(10)
-        .SelectColumns(["id", "text", "vector"])
-        //.SelectColumns(["id", "text"])    // need to test this
+        //.SelectColumns(["id", "text", "vector"])
+        .SelectColumns(["id", "text"])    // need to test this
         .Text("apple")
         .Rerank(new RrfReranker())
         .Limit(6);
@@ -157,11 +167,11 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     //table1.Close();
     var isTableOpen = table1.IsOpen;
     
-    await cnn.DropTableAsync("table1");
+    await cnn.DropTableAsync(tableName1);
     System.Console.WriteLine("Table 1 Dropped (Asynchronously)");
     
     // Now we'll open table2
-    var table2Opened = await cnn.OpenTableAsync("table2");
+    var table2Opened = await cnn.OpenTableAsync(tableName2);
     System.Console.WriteLine("Table 2 Opened (Async): " + table2Opened);
     System.Console.WriteLine("Table 2 row count (expect 0): " + await table2Opened.CountRowsAsync());
 
@@ -232,7 +242,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     PrintBatches(testRrfSyncResult);
 
     // Now we'll drop table2
-    await cnn.DropTableAsync("table2");
+    await cnn.DropTableAsync(tableName2);
     System.Console.WriteLine("Table 2 Dropped (Asynchronously)");
     await ListTables(cnn);
     
