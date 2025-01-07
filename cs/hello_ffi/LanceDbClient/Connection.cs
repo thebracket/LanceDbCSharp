@@ -16,7 +16,38 @@ public sealed partial class Connection : IConnection
         if (IsOpen) throw new Exception("Connection is already open");
         _connectionId = -1L;
         Exception? exception = null;
-        Ffi.connect(uri.AbsolutePath, ((result, message) =>
+        Ffi.connect(uri.AbsolutePath, 0, null, ((result, message) =>
+        {
+            _connectionId = result;
+            if (result < 0 && message != null)
+            {
+                exception = new Exception(message);
+            }
+        }));
+        if (exception != null) throw exception;
+        Uri = uri;
+        IsOpen = true;
+    }
+    
+    // <summary>
+    // Creates a new connection to the database.
+    // </summary>
+    // <param name="uri">The URI of the database to connect to.</param>
+    // <param name="options">Connection options</param>
+    // <exception cref="Exception">If the connection fails, or is already open.</exception>
+    public Connection(Uri uri, IDictionary<string, string> options)
+    {
+        if (IsOpen) throw new Exception("Connection is already open");
+        // Convert options to a string[] of key, value, key, value, ...
+        var optionStrings = new List<string>();
+        foreach (var (key, value) in options)
+        {
+            optionStrings.Add(key);
+            optionStrings.Add(value);
+        }
+        _connectionId = -1L;
+        Exception? exception = null;
+        Ffi.connect(uri.AbsolutePath, (ulong)optionStrings.Count, optionStrings.ToArray(), ((result, message) =>
         {
             _connectionId = result;
             if (result < 0 && message != null)

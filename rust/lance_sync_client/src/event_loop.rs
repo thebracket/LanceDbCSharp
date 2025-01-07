@@ -72,12 +72,13 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<Handle>) {
 
         // Match on the command itself
         match command {
-            LanceDbCommand::ConnectionRequest { uri } => {
+            LanceDbCommand::ConnectionRequest { uri, storage_options } => {
                 tokio::spawn(do_connection_request(
                     connections.clone(),
                     uri,
                     reply_tx,
                     completion_sender,
+                    storage_options,
                 ));
             }
             LanceDbCommand::Disconnect { handle } => {

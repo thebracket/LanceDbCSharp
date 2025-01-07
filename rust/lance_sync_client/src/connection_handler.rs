@@ -12,6 +12,7 @@ pub(crate) enum ConnectionCommand {
         uri: String,
         reply_sender: ErrorReportFn,
         completion_sender: CompletionSender,
+        storage_options: Option<Vec<(String, String)>>,
     },
     Disconnect {
         handle: ConnectionHandle,
@@ -40,8 +41,17 @@ impl ConnectionActor {
                         uri,
                         reply_sender,
                         completion_sender,
+                        storage_options,
                     } => {
-                        let connection = connect(&uri).execute().await;
+                        let mut connection = connect(&uri);
+                        if let Some(storage_options) = storage_options {
+                            for (key, value) in storage_options {
+                                connection = connection.storage_option(key, value);
+                            }
+                        }
+                        let connection = connection
+                            .execute()
+                            .await;
                         match connection {
                             Ok(cnn) => {
                                 let new_handle_id = next_handle;
