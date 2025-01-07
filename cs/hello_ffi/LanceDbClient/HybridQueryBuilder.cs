@@ -42,8 +42,9 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
             .Limit(LimitCount > 1 ? (int)LimitCount : 0)
             .ToArrow();
         var ftsQuery = new QueryBuilder(ConnectionId, TableId)
-            .WithRowId(true)
             .Text(FullTextSearch)
+            .SelectColumns(SelectColumnsList)
+            .WithRowId(true)
             .Limit(LimitCount > 1 ? (int)LimitCount : 0)
             .ToArrow();
         
