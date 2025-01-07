@@ -34,13 +34,17 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
         // Run the vector query and FTS query
         var vectorQuery = new VectorQueryBuilder(this)
             .WithVectorData(VectorData)
+            .NProbes(NumProbes)
+            .RefineFactor(RefinementFactor)
+            .Metric(DistanceMetric)
             .SelectColumns(SelectColumnsList)
             .WithRowId(true)
             .Limit(LimitCount > 1 ? (int)LimitCount : 0)
             .ToArrow();
         var ftsQuery = new QueryBuilder(ConnectionId, TableId)
-            .WithRowId(true)
             .Text(FullTextSearch)
+            .SelectColumns(SelectColumnsList)
+            .WithRowId(true)
             .Limit(LimitCount > 1 ? (int)LimitCount : 0)
             .ToArrow();
         
