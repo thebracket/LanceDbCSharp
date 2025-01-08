@@ -37,6 +37,28 @@ public partial class Tests
     }
     
     [Test]
+    public void TestNewDatabaseCreationAndDroppingWithStorageOptions()
+    {
+        var uri = new Uri("file:///tmp/test_new_db_opts");
+        var options = new Dictionary<string, string>() { { "timeout", "30s" } };
+        using (var cnn = new Connection(uri, options))
+        {
+            Assert.That(cnn.IsOpen, Is.True);
+            Assert.That(cnn.Uri, Is.EqualTo(uri));
+        }
+        Assert.That(Directory.Exists(uri.LocalPath), Is.True);
+        using (var cnn = new Connection(uri, options))
+        {
+            Assert.That(cnn.IsOpen, Is.True);
+            cnn.DropDatabase();
+            Assert.That(cnn.IsOpen, Is.False);
+        }
+        
+        Assert.That(Directory.Exists(uri.LocalPath), Is.False);
+        Assert.Pass();
+    }
+    
+    [Test]
     public async Task TestNewDatabaseCreationAndDroppingAsync()
     {
         var uri = new Uri("file:///tmp/test_new_db_async");

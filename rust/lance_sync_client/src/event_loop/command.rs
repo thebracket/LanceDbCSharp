@@ -22,7 +22,7 @@ pub(crate) fn get_completion_pair() -> (CompletionSender, tokio::sync::oneshot::
 #[derive(Debug)]
 pub(crate) enum LanceDbCommand {
     /// Request to create a new connection to the database.
-    ConnectionRequest { uri: String },
+    ConnectionRequest { uri: String, storage_options: Option<Vec<(String, String)>> },
 
     /// Request to disconnect a connection from the database.
     Disconnect { handle: ConnectionHandle },

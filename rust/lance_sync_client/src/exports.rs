@@ -17,14 +17,40 @@ pub type BlobCallback = Option<extern "C" fn(bytes: *const u8, len: u64) -> bool
 ///
 /// Parameters:
 /// - `uri`: The URI to connect to.
+/// - `options_length`: The number of options in the `options` array. Must be an even number.
+/// - `options`: An array of strings representing options for the connection.
 ///
 /// Return values:
 /// - A handle to the connection, or -1 if an error occurred.
 #[no_mangle]
-pub extern "C" fn connect(uri: *const c_char, reply_tx: ErrorReportFn) {
+pub extern "C" fn connect(uri: *const c_char, options_length: u64, options: *const *const c_char, reply_tx: ErrorReportFn) {
+    if options_length % 2 != 0 {
+        report_result_sync(Err("Options length must be an even number, representing key/value pairs.".to_string()), reply_tx, None);
+        return;
+    }
+    let storage_options = if options_length == 0 {
+        None
+    } else {
+        let mut storage_options = Vec::new();
+        for i in 0..options_length/2 {
+            let key = unsafe {
+                std::ffi::CStr::from_ptr(*options.offset(i as isize))
+                    .to_string_lossy()
+                    .to_string()
+            };
+            let value = unsafe {
+                std::ffi::CStr::from_ptr(*options.offset((i + 1) as isize))
+                    .to_string_lossy()
+                    .to_string()
+            };
+            storage_options.push((key, value));
+        }
+        Some(storage_options)
+    };
+
     let uri = unsafe { std::ffi::CStr::from_ptr(uri).to_string_lossy().to_string() };
     command_from_ffi!(
-        LanceDbCommand::ConnectionRequest { uri },
+        LanceDbCommand::ConnectionRequest { uri, storage_options },
         "ConnectionRequest",
         reply_tx
     );

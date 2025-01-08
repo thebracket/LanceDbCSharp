@@ -43,12 +43,14 @@ pub(crate) async fn do_connection_request(
     uri: String,
     reply_sender: ErrorReportFn,
     completion_sender: CompletionSender,
+    storage_options: Option<Vec<(String, String)>>,
 ) {
     let _ = connections
         .send(ConnectionCommand::NewConnection {
             uri,
             reply_sender,
             completion_sender,
+            storage_options,
         })
         .await;
 }

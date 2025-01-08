@@ -41,7 +41,7 @@ static partial class Ffi
 
     /* FFI functions */
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern void connect(string uri, ResultCallback onResult);
+    internal static extern void connect(string uri, ulong numStorageOptions, string[]? storageOptions, ResultCallback onResult);
     
     [LibraryImport(DllName)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
