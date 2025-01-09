@@ -63,12 +63,14 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
         System.Console.WriteLine($"Table 1 row count (expected {numEntries * (i+1)}) actual {table1.CountRows()}" );
     }
 
+    //await table1.OptimizeAsync(TimeSpan.FromDays(0));
+    
     Metric metric = Metric.Dot;
     //table1.CreateIndex("vector", metric, 33, 2);
     //table1.CreateScalarIndex("id");
     await table1.CreateIndexAsync("vector", metric, 33, 2);
     await table1.CreateScalarIndexAsync("id");
-
+    
     var indexes = table1.ListIndices();
     foreach (var index in indexes)
     {
@@ -160,11 +162,14 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     await table1.DeleteAsync("id < 100");
     System.Console.WriteLine($"Rows after delete: {table1.CountRows()}");
     
+    await table1.OptimizeAsync(TimeSpan.FromDays(0));
     //cleanup_older_than=timedelta(days=0
+    /*
     var optimizeResult = await table1.OptimizeAsync(TimeSpan.FromDays(0));
     System.Console.WriteLine("Optimize Result: " + optimizeResult.Compaction + optimizeResult.Prune);
     System.Console.WriteLine($"Rows after optimize(): {table1.CountRows()}");
-
+*/
+    
     // Now we'll drop table1
     await table1.CloseAsync();
     await table1.CloseAsync();
@@ -181,7 +186,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
 
     // Let's add some data
     var recordBatch = Helpers.CreateSampleRecordBatch(
-        Helpers.GetSchema(), 4096, 8
+        Helpers.GetSchema(), 0, 4096, 8
     );
     await table2.AddAsync([recordBatch]);
     System.Console.WriteLine("Table 2 row count (expect 4096): " + await table2.CountRowsAsync());
@@ -288,13 +293,13 @@ async Task RowOptimizationChecks()
 
     // Insert numRows batches of numEntries rows each
     string[] columns = new[] { "id" };
-    const int numRows = 1024;
+    const int numRows = 10;
     const int numEntries = 128;
     for (int i = 0; i < numRows; i++)
     {
         var builder = await table.MergeInsertAsync(columns);
         var rb = Helpers.CreateSampleRecordBatch(
-            Helpers.GetSchema(), numEntries * (i + 1), 128
+            Helpers.GetSchema(), i*numEntries, numEntries, 128
         );
         // Note that the interface defines a list, so we'll use that
         var tmp = new List<RecordBatch>();
