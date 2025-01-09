@@ -1,6 +1,8 @@
 ﻿// Setup the LanceDB client (creates a command processor)
 
 using System.Collections;
+using System.Diagnostics;
+using System.Drawing;
 using Apache.Arrow;
 using Apache.Arrow.Types;
 using System.Collections.Generic;
@@ -256,8 +258,57 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     await cnn.CloseAsync();
     var open = cnn.IsOpen ? "open" : "closed";
     System.Console.WriteLine($"connection is: {open}");
+    
+    // Optimize Checks
+    await RowOptimizationChecks();
 }
 System.Console.WriteLine("Complete");
+
+void countFiles(string path, string stage)
+{
+    var fileNames = Directory.GetFiles(path, "*.*", SearchOption.AllDirectories);
+    ulong size = 0;
+    foreach (var fileName in fileNames)
+    {
+        // Get the file size
+        var fi = new FileInfo(fileName);
+        size += (ulong)fi.Length;
+    }
+    Console.WriteLine("[" + stage + "] # Files: " + fileNames.Length + " Size: " + size + " bytes.");
+}
+
+async Task RowOptimizationChecks()
+{
+    const string path = "/tmp/test_table_optimize";
+    var uri = new Uri("file://" + path);
+    using var cnn = new Connection(uri);
+    var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+
+    countFiles(path, "Make table");
+
+    // Insert numRows batches of numEntries rows each
+    string[] columns = new[] { "id" };
+    const int numRows = 1024;
+    const int numEntries = 128;
+    for (int i = 0; i < numRows; i++)
+    {
+        var builder = await table.MergeInsertAsync(columns);
+        var rb = Helpers.CreateSampleRecordBatch(
+            Helpers.GetSchema(), numEntries * (i + 1), 128
+        );
+        // Note that the interface defines a list, so we'll use that
+        var tmp = new List<RecordBatch>();
+        tmp.Add(rb);
+        await builder.WhenMatchedUpdateAll().WhenNotMatchedInsertAll().ExecuteAsync(tmp);
+        //System.Console.WriteLine($"Table 1 row count (expected {numEntries * (i + 1)}) actual {await table.CountRowsAsync()}");
+    }
+    
+    countFiles(path, "Inserts - Pre Optimize");
+    await table.OptimizeAsync(TimeSpan.FromDays(0));
+    countFiles(path, "Inserts - Post Optimize");
+
+    cnn.DropDatabase();
+}
 
 // Helper functions
 
