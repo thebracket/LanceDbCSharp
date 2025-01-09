@@ -251,18 +251,19 @@ pub(crate) async fn do_optimize_table(
     };
 
     if prune_older_than.is_some() || delete_unverified {
-        let optimize = table.optimize(OptimizeAction::Prune {
+        // 1: Prune
+        let pruning = table.optimize(OptimizeAction::Prune {
             older_than: prune_older_than,
             delete_unverified: Some(delete_unverified),
             error_if_tagged_old_versions: None,
         }).await;
-
-        // Run this as a two-step process, optimize and then compact
-        if let Err(e) = optimize {
+        if let Err(e) = pruning {
             let err = format!("Error pruning table: {:?}", e);
             report_result(Err(err), reply_tx, Some(completion_sender)).await;
             return;
         }
+
+        // 2: Compact
         let compact = table.optimize(OptimizeAction::Compact { options: Default::default(), remap_options: None }).await;
         if let Err(e) = compact {
             let err = format!("Error compacting table: {:?}", e);
@@ -270,8 +271,15 @@ pub(crate) async fn do_optimize_table(
             return;
         }
 
+        // 3: Index Optimization
+        if let Err(e) = table.optimize(OptimizeAction::Index(OptimizeOptions::default())).await {
+            let err = format!("Error optimizing indices: {:?}", e);
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
+            return;
+        }
+
         // We know they are good, so unwrap is ok
-        let optimize_stats = optimize.unwrap();
+        let optimize_stats = pruning.unwrap();
         let compact_stats = compact.unwrap();
 
         if let Some(stats) = optimize_stats.prune {
@@ -284,13 +292,6 @@ pub(crate) async fn do_optimize_table(
                 stats.fragments_added as u64,
                 stats.fragments_removed as u64,
             );
-        }
-
-        // Index Optimization
-        if let Err(e) = table.optimize(OptimizeAction::Index(OptimizeOptions::default())).await {
-            let err = format!("Error optimizing indices: {:?}", e);
-            report_result(Err(err), reply_tx, Some(completion_sender)).await;
-            return;
         }
 
         // Complete
