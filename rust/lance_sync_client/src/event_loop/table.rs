@@ -251,19 +251,29 @@ pub(crate) async fn do_optimize_table(
     };
 
     if prune_older_than.is_some() || delete_unverified {
-        // 1: Prune
-        let pruning = table.optimize(OptimizeAction::Prune {
+        // Run this as a three-step process, optimize and then compact
+        // First - Prune
+        let optimize = table.optimize(OptimizeAction::Prune {
             older_than: prune_older_than,
             delete_unverified: Some(delete_unverified),
             error_if_tagged_old_versions: None,
         }).await;
-        if let Err(e) = pruning {
+
+        if let Err(e) = optimize {
             let err = format!("Error pruning table: {:?}", e);
             report_result(Err(err), reply_tx, Some(completion_sender)).await;
             return;
         }
 
-        // 2: Compact
+        // Then - Index Optimization
+        if let Err(e) = table.optimize(OptimizeAction::Index(OptimizeOptions::default())).await {
+            let err = format!("Error optimizing indices: {:?}", e);
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
+            return;
+        }
+
+
+        // Finally compact
         let compact = table.optimize(OptimizeAction::Compact { options: Default::default(), remap_options: None }).await;
         if let Err(e) = compact {
             let err = format!("Error compacting table: {:?}", e);
@@ -271,15 +281,8 @@ pub(crate) async fn do_optimize_table(
             return;
         }
 
-        // 3: Index Optimization
-        if let Err(e) = table.optimize(OptimizeAction::Index(OptimizeOptions::default())).await {
-            let err = format!("Error optimizing indices: {:?}", e);
-            report_result(Err(err), reply_tx, Some(completion_sender)).await;
-            return;
-        }
-
         // We know they are good, so unwrap is ok
-        let optimize_stats = pruning.unwrap();
+        let optimize_stats = optimize.unwrap();
         let compact_stats = compact.unwrap();
 
         if let Some(stats) = optimize_stats.prune {
