@@ -17,14 +17,16 @@ const int Dimension = 4;
 string tableName1 = "table1";
 string tableName2 = "table2";
 
+/*
 Dictionary<string, string> options = new Dictionary<string, string>();
 options["allow_http"] = "true";
 options["access_key_id"] = "Jsgc7wrCdlNANf8Qlh4x";
 options["secret_access_key"] = "acnjThAidTAJGJ8AgrWCSEGGx2XEO0pp8eRetyni";
 options["endpoint"] = "http://10.43.135.1:9000";
 using (var cnn = new Connection(new Uri("s3://lancedb-bucket"), options))
-    
-//using (var cnn = new Connection(new Uri("file:///tmp/test_lance"))) 
+*/
+
+using (var cnn = new Connection(new Uri("file:///tmp/test_lance"))) 
 {
     System.Console.WriteLine("Connection Opened. There should be 0 tables.");
     Console.WriteLine($"The URI is: {cnn.Uri.AbsoluteUri}");
@@ -49,7 +51,7 @@ using (var cnn = new Connection(new Uri("s3://lancedb-bucket"), options))
     
     string[] columns = new[] { "id" };    
     ILanceMergeInsertBuilder builder = await table1.MergeInsertAsync(columns);
-    numEntries = 100000;
+    numEntries = 1000;
     // generate multiple files so that we can test optimize later.
     int numFiles = 5;
     for (int i = 0; i < numFiles; i++)
