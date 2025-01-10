@@ -32,11 +32,11 @@ internal static class Helpers
         return schema;
     }
     
-    internal static RecordBatch CreateSampleRecordBatch(Schema schema, int total, int dim)
+    internal static RecordBatch CreateSampleRecordBatch(Schema schema, int total, int dim, int start=0)
     {
         // Step 1: Create Int32Array for the "id" field
         var idBuilder = new StringArray.Builder();
-        for (int i = 0; i < total; i++)
+        for (int i = start; i < start + total; i++)
         {
             idBuilder.Append(i.ToString());
         }

@@ -122,13 +122,13 @@ async Task RowOptimizationChecks()
 
     // Insert numRows batches of numEntries rows each
     string[] columns = new[] { "id" };
-    const int numRows = 1024;
+    const int numRows = 10;
     const int numEntries = 128;
     for (int i = 0; i < numRows; i++)
     {
         var builder = await table.MergeInsertAsync(columns);
         var rb = Helpers.CreateSampleRecordBatch(
-            Helpers.GetSchema(), numEntries * (i + 1), 128
+            Helpers.GetSchema(), numEntries, 128, i * numEntries
         );
         // Note that the interface defines a list, so we'll use that
         var tmp = new List<RecordBatch>();
@@ -138,8 +138,10 @@ async Task RowOptimizationChecks()
     }
     
     countFiles(path, "Inserts - Pre Optimize");
+    countFiles(path + "/table1.lance/data", "Inserts - Post Optimize in data");
     await table.OptimizeAsync(TimeSpan.FromDays(0));
     countFiles(path, "Inserts - Post Optimize");
+    countFiles(path + "/table1.lance/data", "Inserts - Post Optimize in data");
 
     cnn.DropDatabase();
 }
