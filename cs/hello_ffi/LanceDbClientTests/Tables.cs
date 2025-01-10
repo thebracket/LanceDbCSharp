@@ -1195,7 +1195,7 @@ public partial class Tests
                 {
                     var builder = await table.MergeInsertAsync(columns);
                     var rb = Helpers.CreateSampleRecordBatch(
-                        Helpers.GetSchema(), numEntries * (i+1), 128
+                        Helpers.GetSchema(), numEntries, 128, i*numEntries
                     );
                     // Note that the interface defines a list, so we'll use that
                     var tmp = new List<RecordBatch>();
@@ -1209,9 +1209,13 @@ public partial class Tests
                 var stats = await table.OptimizeAsync(TimeSpan.FromSeconds(0));
                 Assert.That(stats.Compaction, Is.Not.Null);
                 Assert.That(stats.Prune, Is.Not.Null);
-                Assert.That(stats.Prune.OldVersionsRemoved, Is.EqualTo(10));
+                // lancedb alway creates 2 more extra files, so it should be 12 files, we use greater than 10 here in case lancedb changes his implementation.
+                Assert.That(stats.Prune.OldVersionsRemoved, Is.GreaterThan((10)));
                 var countFilesPostOptimize = Directory.GetFiles("/tmp/test_table_optimize_async", "*.*", SearchOption.AllDirectories).Length;
                 Assert.That(countFilesPostOptimize, Is.LessThan(countFilesPreOptimize));
+                // make sure the data file is only one after compaction and prune.
+                var countDataFilesAfterOptimize = Directory.GetFiles("/tmp/test_table_optimize_async/table1.lance/data", "*.*", SearchOption.AllDirectories).Length;
+                Assert.That(countDataFilesAfterOptimize, Is.EqualTo(1));
             }
         }
         finally

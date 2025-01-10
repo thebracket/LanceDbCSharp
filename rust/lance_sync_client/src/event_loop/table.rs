@@ -252,7 +252,16 @@ pub(crate) async fn do_optimize_table(
 
     if prune_older_than.is_some() || delete_unverified {
         // Run this as a three-step process, optimize and then compact
-        // First - Prune
+
+        // First compact
+        let compact = table.optimize(OptimizeAction::Compact { options: Default::default(), remap_options: None }).await;
+        if let Err(e) = compact {
+            let err = format!("Error compacting table: {:?}", e);
+            report_result(Err(err), reply_tx, Some(completion_sender)).await;
+            return;
+        }
+
+        // Second - Prune
         let optimize = table.optimize(OptimizeAction::Prune {
             older_than: prune_older_than,
             delete_unverified: Some(delete_unverified),
@@ -265,7 +274,7 @@ pub(crate) async fn do_optimize_table(
             return;
         }
 
-        // Then - Index Optimization
+        // Last - Index Optimization
         if let Err(e) = table.optimize(OptimizeAction::Index(OptimizeOptions::default())).await {
             let err = format!("Error optimizing indices: {:?}", e);
             report_result(Err(err), reply_tx, Some(completion_sender)).await;
@@ -273,13 +282,6 @@ pub(crate) async fn do_optimize_table(
         }
 
 
-        // Finally compact
-        let compact = table.optimize(OptimizeAction::Compact { options: Default::default(), remap_options: None }).await;
-        if let Err(e) = compact {
-            let err = format!("Error compacting table: {:?}", e);
-            report_result(Err(err), reply_tx, Some(completion_sender)).await;
-            return;
-        }
 
         // We know they are good, so unwrap is ok
         let optimize_stats = optimize.unwrap();
