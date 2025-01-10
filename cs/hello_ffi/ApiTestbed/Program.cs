@@ -53,7 +53,7 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     
     string[] columns = new[] { "id" };    
     ILanceMergeInsertBuilder builder = await table1.MergeInsertAsync(columns);
-    numEntries = 1000;
+    numEntries = 100000;
     // generate multiple files so that we can test optimize later.
     int numFiles = 5;
     for (int i = 0; i < numFiles; i++)
@@ -162,13 +162,10 @@ using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
     await table1.DeleteAsync("id < 100");
     System.Console.WriteLine($"Rows after delete: {table1.CountRows()}");
     
-    await table1.OptimizeAsync(TimeSpan.FromDays(0));
     //cleanup_older_than=timedelta(days=0
-    /*
     var optimizeResult = await table1.OptimizeAsync(TimeSpan.FromDays(0));
     System.Console.WriteLine("Optimize Result: " + optimizeResult.Compaction + optimizeResult.Prune);
     System.Console.WriteLine($"Rows after optimize(): {table1.CountRows()}");
-*/
     
     // Now we'll drop table1
     await table1.CloseAsync();
