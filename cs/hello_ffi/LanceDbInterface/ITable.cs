@@ -29,11 +29,11 @@ namespace LanceDbInterface
         void Add(IEnumerable<Dictionary<string, object>> data, WriteMode mode = WriteMode.Append, BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0.0F);
         Task AddAsync(IEnumerable<Dictionary<string, object>> data, WriteMode mode = WriteMode.Append, BadVectorHandling badVectorHandling = BadVectorHandling.Error, float fillValue = 0.0F, CancellationToken token = default);
 
-        void Update(IDictionary<string, Object> updates, string? whereClause = null);
-        Task UpdateAsync(IDictionary<string, Object> updates, string? whereClause = null, CancellationToken token = default);
+        ulong Update(IDictionary<string, Object> updates, string? whereClause = null);
+        Task<ulong> UpdateAsync(IDictionary<string, Object> updates, string? whereClause = null, CancellationToken token = default);
 
-        void UpdateSql(IDictionary<string, string> updates, string? whereClause = null);
-        Task UpdateSqlAsync(IDictionary<string, string> updates, string? whereClause = null, CancellationToken token = default);
+        ulong UpdateSql(IDictionary<string, string> updates, string? whereClause = null);
+        Task<ulong> UpdateSqlAsync(IDictionary<string, string> updates, string? whereClause = null, CancellationToken token = default);
 
         void Delete(string whereClause);
         Task DeleteAsync(string whereClause, CancellationToken token = default);
@@ -59,7 +59,7 @@ namespace LanceDbInterface
         IEnumerable<IndexConfig> ListIndices();
         Task<IEnumerable<IndexConfig>> ListIndicesAsync(CancellationToken token = default);
         
-        IndexStatistics GetIndexStatistics(string columnName);
+        IndexStatistics GetIndexStatistics(string indexName);
         Task<IndexStatistics> GetIndexStatisticsAsync(string columnName, CancellationToken token = default);
     }
 }

@@ -3,20 +3,29 @@ name = "lancedb_cs_workspace"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
 [dependencies]
 
 [workspace]
 members = [
-    "test_library", # Minimal test to check that FFI is working.
-    "test_autobind", # Minimal test to make sure `csbindgen` works.
-    "hello_lancedb", # Quick Rust test to make sure that LanceDb itself is working.
+    "lance_sync_client", # Quick Rust test to make sure that LanceDb itself is working.
+    "batch_testing",
 ]
 
 [workspace.dependencies]
-lancedb = { path = "../vendor/lancedb/rust/lancedb" }
+lancedb = { version = "=0.14.0" } # Pinned to a released version to avoid breaking changes.
 tokio = { version = "1", features = ["full"] }
 futures = "0.3.31"
 anyhow = "1"
 # Note that we have to be careful to match the version Lance is using
-arrow-array = "52.2"
-arrow-schema = "52.2"
+arrow-array = "53.2.0"
+arrow-schema = "53.2.0"
+arrow-ipc = "53.2.0"
+once_cell = "1.20.2"
+half = { "version" = "=2.4.1", default-features = false, features = [
+    "num-traits",
+] }

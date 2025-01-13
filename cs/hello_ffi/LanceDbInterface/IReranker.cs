@@ -7,7 +7,7 @@ public interface IReranker
 {
     Table RerankVector(string query, Table vectorResults);
     Table RerankFts(string query, Table ftsResults);
-    Table RerankHybrid(string query, Table vectorResults, Table ftsResults);
+    Table RerankHybrid(string query, Table vectorResults, Table ftsResults, int limit = 0);
     Table MergeResults(Table vectorResults, Table ftsResults);
     Table RerankMultiVector(IEnumerable<Table> vectorResults, string? query = null, bool deduplicate = false);
     Table RerankMultiVector(IEnumerable<ILanceVectorQueryBuilder> vectorResults, string? query = null, bool deduplicate = false);
