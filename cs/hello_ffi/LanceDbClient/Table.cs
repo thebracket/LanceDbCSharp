@@ -1,5 +1,4 @@
 using Apache.Arrow;
-using LanceDbInterface;
 using MathNet.Numerics.LinearAlgebra;
 using Array = Apache.Arrow.Array;
 

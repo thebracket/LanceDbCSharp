@@ -1,6 +1,4 @@
-using System.Net.Mail;
 using Apache.Arrow;
-using LanceDbInterface;
 
 namespace LanceDbClient;
 

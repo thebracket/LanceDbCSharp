@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Apache.Arrow;
 using Apache.Arrow.Types;
-using LanceDbInterface;
 using Array = Apache.Arrow.Array;
 
 namespace LanceDbClient;

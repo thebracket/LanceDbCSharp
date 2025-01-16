@@ -1,5 +1,4 @@
 using Apache.Arrow;
-using LanceDbInterface;
 
 namespace LanceDbClient;
 
@@ -8,7 +7,7 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
     internal HybridQueryBuilder(long connectionId, long tableId) : base(connectionId, tableId)
     {
         // Defaults
-        DistanceMetric = LanceDbInterface.Metric.L2;
+        DistanceMetric = LanceDbClient.Metric.L2;
         NumProbes = 0;
         RefinementFactor = 0;
     }
@@ -96,7 +95,7 @@ public class HybridQueryBuilder : VectorQueryBuilder, ILanceHybridQueryBuilder
         }
     }
 
-    public new ILanceHybridQueryBuilder Metric(Metric metric = LanceDbInterface.Metric.L2)
+    public new ILanceHybridQueryBuilder Metric(Metric metric = LanceDbClient.Metric.L2)
     {
         DistanceMetric = metric;
         return this;

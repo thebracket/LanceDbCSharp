@@ -1,5 +1,4 @@
 using Apache.Arrow;
-using LanceDbInterface;
 using MathNet.Numerics.LinearAlgebra;
 using Array = Apache.Arrow.Array;
 
@@ -28,7 +27,7 @@ public sealed partial class Table
         return tcs.Task;
     }
 
-    public Task CreateScalarIndexAsync(string columnName, LanceDbInterface.ScalarIndexType indexType = LanceDbInterface.ScalarIndexType.BTree, bool replace = true,
+    public Task CreateScalarIndexAsync(string columnName, LanceDbClient.ScalarIndexType indexType = LanceDbClient.ScalarIndexType.BTree, bool replace = true,
         CancellationToken token = default)
     {
         var tcs = new TaskCompletionSource();

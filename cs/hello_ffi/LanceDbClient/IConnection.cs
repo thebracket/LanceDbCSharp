@@ -1,6 +1,6 @@
 ﻿using Apache.Arrow;
 
-namespace LanceDbInterface
+namespace LanceDbClient
 {
     public interface IConnection : IDisposable
     {

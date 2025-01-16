@@ -2,7 +2,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using Apache.Arrow;
-using LanceDbInterface;
 
 namespace LanceDbClient;
 
@@ -15,7 +14,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
 
     internal VectorQueryBuilder(long connectionId, long tableId) : base(connectionId, tableId)
     {
-        DistanceMetric = LanceDbInterface.Metric.L2;
+        DistanceMetric = LanceDbClient.Metric.L2;
         NumProbes = 1;
         RefinementFactor = 1;
     }
@@ -30,7 +29,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
         Reranker = parent.Reranker;
         
         // Defaults
-        DistanceMetric = LanceDbInterface.Metric.L2;
+        DistanceMetric = LanceDbClient.Metric.L2;
         NumProbes = 0;
         RefinementFactor = 0;
     }
@@ -43,7 +42,7 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
         };
     }
     
-    public ILanceVectorQueryBuilder Metric(Metric metric = LanceDbInterface.Metric.L2)
+    public ILanceVectorQueryBuilder Metric(Metric metric = LanceDbClient.Metric.L2)
     {
         DistanceMetric = metric;
         return this;

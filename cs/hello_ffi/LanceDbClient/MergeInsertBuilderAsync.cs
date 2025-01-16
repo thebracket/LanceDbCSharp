@@ -1,5 +1,4 @@
 using Apache.Arrow;
-using LanceDbInterface;
 
 namespace LanceDbClient;
 

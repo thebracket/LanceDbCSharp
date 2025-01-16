@@ -6,7 +6,6 @@ using Apache.Arrow;
 using Apache.Arrow.Types;
 using ApiTestbed;
 using LanceDbClient;
-using LanceDbInterface;
 
 using (var cnn = new Connection(new Uri("file:///tmp/test_lance")))
 {

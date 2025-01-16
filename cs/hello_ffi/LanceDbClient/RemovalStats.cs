@@ -1,4 +1,4 @@
-﻿namespace LanceDbInterface;
+﻿namespace LanceDbClient;
 
 public class RemovalStats
 {

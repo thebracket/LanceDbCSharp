@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>LanceDbClient</id>
+    <version>1.0.0</version>
+    <title>LanceDbClient</title>
+    <authors>JSI Telecom</authors>
+    <owners>JSI Telecom</owners>
+    <licenseUrl>https://JSITelecom.com</licenseUrl>
+    <projectUrl>https://JSITelecom.com</projectUrl>
+    <iconUrl>https://JSITelecom.com</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>C# FFI layer for LanceDb Rust Lib</description>
+    <releaseNotes></releaseNotes>
+    <copyright>Copyright 2025</copyright>
+    <tags>LanceDbClient</tags>
+    <dependencies>
+      <group targetFramework="net8.0">
+        <!-- Add dependencies if needed -->
+        <dependency id="Apache.Arrow" version="17.0.0" />
+        <dependency id="MathNet.Numerics" version="5.0.0" />
+      </group>
+    </dependencies>
+    <references>
+	    <reference file="LanceDbClient.dll" />
+    </references>
+  </metadata>
+
+  <files>
+    <file src="bin/Release/net8.0/liblance_sync_client.so" target="runtimes/linux-x64/native/liblance_sync_client.so" />
+    <file src="bin/Release/net8.0/LanceDbClient.dll" target="lib/net8.0/LanceDbClient.dll" />
+  </files>  
+</package>

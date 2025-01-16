@@ -1,7 +1,7 @@
 ﻿using Apache.Arrow;
 using MathNet.Numerics.LinearAlgebra;
 
-namespace LanceDbInterface
+namespace LanceDbClient
 {
     public interface ITable :IDisposable
     {

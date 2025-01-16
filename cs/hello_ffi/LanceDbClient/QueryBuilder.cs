@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Runtime.InteropServices;
 using Apache.Arrow;
-using LanceDbInterface;
 using MathNet.Numerics.LinearAlgebra;
 
 namespace LanceDbClient;

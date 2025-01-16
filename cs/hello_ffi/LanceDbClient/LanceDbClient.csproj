@@ -10,10 +10,6 @@
 
     <ItemGroup>
         <PackageReference Include="Apache.Arrow" Version="17.0.0" />
+        <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
     </ItemGroup>
-
-    <ItemGroup>
-      <ProjectReference Include="..\LanceDbInterface\LanceDbInterface.csproj" />
-    </ItemGroup>
-
 </Project>
