@@ -1,4 +1,3 @@
-using LanceDbInterface;
 
 namespace LanceDbClient;
 

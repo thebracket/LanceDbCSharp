@@ -2,7 +2,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using Apache.Arrow;
-using LanceDbInterface;
 using MathNet.Numerics.LinearAlgebra;
 
 namespace LanceDbClient;

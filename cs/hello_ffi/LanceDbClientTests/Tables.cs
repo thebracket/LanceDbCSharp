@@ -1,6 +1,5 @@
 using Apache.Arrow;
 using LanceDbClient;
-using LanceDbInterface;
 
 namespace LanceDbClientTests;
 
