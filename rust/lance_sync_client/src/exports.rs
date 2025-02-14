@@ -49,6 +49,7 @@ pub extern "C" fn connect(uri: *const c_char, options_length: u64, options: *con
     };
 
     let uri = unsafe { std::ffi::CStr::from_ptr(uri).to_string_lossy().to_string() };
+    let uri = uri.replace("file://", ""); // LanceDb really doesn't like file:// prefixes
     command_from_ffi!(
         LanceDbCommand::ConnectionRequest { uri, storage_options },
         "ConnectionRequest",

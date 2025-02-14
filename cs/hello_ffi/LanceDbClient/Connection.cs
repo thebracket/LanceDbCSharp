@@ -15,7 +15,7 @@ public sealed partial class Connection : IConnection
         if (IsOpen) throw new Exception("Connection is already open");
         _connectionId = -1L;
         Exception? exception = null;
-        Ffi.connect(uri.AbsolutePath, 0, null, ((result, message) =>
+        Ffi.connect(uri.AbsoluteUri, 0, null, ((result, message) =>
         {
             _connectionId = result;
             if (result < 0 && message != null)
@@ -46,7 +46,7 @@ public sealed partial class Connection : IConnection
         }
         _connectionId = -1L;
         Exception? exception = null;
-        Ffi.connect(uri.AbsolutePath, (ulong)optionStrings.Count, optionStrings.ToArray(), ((result, message) =>
+        Ffi.connect(uri.AbsoluteUri, (ulong)optionStrings.Count, optionStrings.ToArray(), ((result, message) =>
         {
             _connectionId = result;
             if (result < 0 && message != null)
