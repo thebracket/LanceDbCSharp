@@ -14,6 +14,47 @@ public partial class Tests
         using var cnn = new Connection(uri);
         cnn.DropDatabase();
     }
+
+    /*[Test]
+    public void TestLocalMinio()
+    {
+        // Connect with options
+        var uri = new Uri("s3://lance");
+        var options = new Dictionary<String, String>()
+        {
+            { "AWS_ACCESS_KEY_ID", "MyKey" },
+            { "AWS_SECRET_ACCESS_KEY", "MySecretKey" },
+            { "AWS_REGION", "can-1" },
+            { "AWS_ENDPOINT", "http://localhost:9000" },
+            { "AWS_DEFAULT_REGION", "true" },
+            { "allow_http", "true" },
+        };
+        // Connect
+        using (var cnn = new Connection(uri, options))
+        {
+            Assert.That(cnn.IsOpen, Is.True);
+            Assert.That(cnn.Uri, Is.EqualTo(uri));
+            
+            // There should be no tables
+            Assert.That(cnn.TableNames(), Is.Empty);
+            
+            // Create a table and make sure it's present
+            var table = cnn.CreateTable("table1", Helpers.GetSchema());
+            Assert.Multiple(() =>
+            {
+                Assert.That(table, Is.Not.Null);
+                Assert.That(cnn.TableNames(), Does.Contain("table1"));
+            });
+            
+            // Remove the table and make sure it's gone
+            cnn.DropTable("table1");
+            Assert.That(cnn.TableNames(), Is.Empty);
+            
+            // Clean up
+            cnn.DropDatabase();
+            Assert.That(cnn.IsOpen, Is.False);
+        }
+    }*/
     
     [Test]
     public void TestNewDatabaseCreationAndDropping()

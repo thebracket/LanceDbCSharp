@@ -33,13 +33,14 @@ pub extern "C" fn connect(uri: *const c_char, options_length: u64, options: *con
     } else {
         let mut storage_options = Vec::new();
         for i in 0..options_length/2 {
+            let base = (i * 2) as isize;
             let key = unsafe {
-                std::ffi::CStr::from_ptr(*options.offset(i as isize))
+                std::ffi::CStr::from_ptr(*options.offset(base))
                     .to_string_lossy()
                     .to_string()
             };
             let value = unsafe {
-                std::ffi::CStr::from_ptr(*options.offset((i + 1) as isize))
+                std::ffi::CStr::from_ptr(*options.offset(base+1))
                     .to_string_lossy()
                     .to_string()
             };
