@@ -44,6 +44,8 @@ impl ConnectionActor {
                         storage_options,
                     } => {
                         let mut connection = connect(&uri);
+                        //println!("Connecting to {uri}");
+                        //println!("Storage options: {storage_options:?}");
                         if let Some(storage_options) = storage_options {
                             for (key, value) in storage_options {
                                 connection = connection.storage_option(key, value);
