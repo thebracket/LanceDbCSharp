@@ -16,8 +16,18 @@ const BATCH_LENGTH: u32 = 2;
 #[tokio::main]
 async fn main() -> Result<()> {
     // Connect to the database
-    let uri = "/tmp/test-batching";
-    let db = connect(uri).execute().await?;
+    //let uri = "/tmp/test-batching";
+    //let db = connect(uri).execute().await?;
+
+    let uri = "s3://lance";
+    let db = connect(uri)
+        .storage_option("AWS_ACCESS_KEY_ID", "DQ0BYWgxZabV1dLHI3lV")
+        .storage_option("AWS_SECRET_ACCESS_KEY", "eVohlSvZtuKKw25T3XdTPCtR4aFhbnazMzsmE16g")
+        .storage_option("AWS_REGION", "can-1")
+        .storage_option("AWS_ENDPOINT", "http://localhost:9000")
+        .storage_option("AWS_DEFAULT_REGION", "true")
+        .storage_option("allow_http", "true")
+        .execute().await?;
 
     // Create some initial data
     let initial_data = create_some_records()?;
@@ -61,7 +71,7 @@ async fn main() -> Result<()> {
     }
 
     // Clean up
-    db.drop_db().await?;
+    db.drop_all_tables().await?;
 
     // Return success if nothing goes wrong
     Ok(())
