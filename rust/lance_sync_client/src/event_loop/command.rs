@@ -178,6 +178,8 @@ pub(crate) enum LanceDbCommand {
         n_probes: usize,
         refine_factor: u32,
         batch_size: u32,
+        distance_range_min: Option<f32>,
+        distance_range_max: Option<f32>,
     },
 
     /// List indices for a table.

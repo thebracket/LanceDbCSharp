@@ -32,7 +32,7 @@ internal static class Helpers
         return schema;
     }
     
-    internal static RecordBatch CreateSampleRecordBatch(Schema schema, int total, int dim, int start=0)
+    internal static RecordBatch CreateSampleRecordBatch(Schema schema, int total, int dim, int start=0, bool increaseSample=false)
     {
         // Step 1: Create Int32Array for the "id" field
         var idBuilder = new StringArray.Builder();
@@ -49,7 +49,14 @@ internal static class Helpers
 
         for (int i = 0; i < total * dim; i++)
         {
-            floatBuilder.Append(1.0f); // Sample value as 1.0
+            if (!increaseSample)
+            {
+                floatBuilder.Append(1.0f); // Sample value as 1.0
+            }
+            else
+            {
+                floatBuilder.Append((float)(i / dim)); // Sample value as i
+            }
         }
 
         var floatArray = floatBuilder.Build();

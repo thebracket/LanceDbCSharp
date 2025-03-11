@@ -290,6 +290,8 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<Handle>) {
                 n_probes,
                 refine_factor,
                 batch_size,
+                distance_range_min,
+                distance_range_max,
             } => {
                 tokio::spawn(queries::do_vector_query(
                     connection_handle,
@@ -308,6 +310,8 @@ async fn event_loop(ready_tx: tokio::sync::oneshot::Sender<Handle>) {
                     n_probes,
                     refine_factor,
                     batch_size,
+                    distance_range_min,
+                    distance_range_max,
                 ));
             }
             LanceDbCommand::CreateScalarIndex {

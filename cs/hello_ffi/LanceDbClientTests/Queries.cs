@@ -1406,6 +1406,59 @@ public partial class Tests
         Assert.Pass();
     }
     
+    /// <summary>
+    /// Check that the distance range feature works.
+    /// </summary>
+    [Test]
+    public async Task BasicVectorQueryAsyncDistanceRange()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_vec_query_select_async_distance_range");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.Multiple(async () =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(await cnn.TableNamesAsync(), Does.Contain("table1"));
+                });
+                
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128, increaseSample:true
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+
+                var target = new List<float>();
+                for (var i=0; i<128; i++) target.Add(4.0f);
+                var list = await table.Search().Vector(target).DistanceRange(0.0f, 1.0f).SelectColumns(["id", "vector"]).ToListAsync();
+                Assert.That(list, Is.Not.Null);
+                Assert.That(list, Is.Not.Empty);
+                Assert.That(list.Count, Is.EqualTo(1));
+                
+                list = await table.Search().Vector(target).DistanceRange(Single.NaN, Single.NaN).SelectColumns(["id", "vector"]).ToListAsync();
+                Assert.That(list, Is.Not.Null);
+                Assert.That(list, Is.Not.Empty);
+                Assert.That(list.Count, Is.EqualTo(8));
+                
+                list = await table.Search().Vector(target).DistanceRange(Single.NaN, 1520.0f).SelectColumns(["id", "vector"]).ToListAsync();
+                Assert.That(list, Is.Not.Null);
+                Assert.That(list, Is.Not.Empty);
+                Assert.That(list.Count, Is.EqualTo(7));
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
+    
     [Test]
     public async Task BatchSizeVectorQuery()
     {

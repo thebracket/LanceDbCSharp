@@ -546,6 +546,8 @@ pub extern "C" fn vector_query(
     n_probes: u64,
     refine_factor: u32,
     batch_size: u32,
+    distance_range_min: f32,
+    distance_range_max: f32,
 ) {
     let Some(metric) = MetricType::from_repr(metric) else {
         report_result_sync(Err("Invalid metric.".to_string()), reply_tx, None);
@@ -603,6 +605,16 @@ pub extern "C" fn vector_query(
             n_probes: n_probes as usize,
             refine_factor,
             batch_size,
+            distance_range_min: if distance_range_min.is_nan() {
+                None
+            } else {
+                Some(distance_range_min)
+            },
+            distance_range_max: if distance_range_max.is_nan() {
+                None
+            } else {
+                Some(distance_range_max)
+            },
         },
         "Query",
         reply_tx
@@ -702,6 +714,8 @@ pub extern "C" fn explain_vector_query(
     metric: u32,
     n_probes: u64,
     refine_factor: u32,
+    distance_range_min: f32,
+    distance_range_max: f32,
 ) {
     let Some(metric) = MetricType::from_repr(metric) else {
         report_result_sync(Err("Invalid metric.".to_string()), reply_tx, None);
@@ -759,6 +773,16 @@ pub extern "C" fn explain_vector_query(
             n_probes: n_probes as usize,
             refine_factor,
             batch_size: 0,
+            distance_range_min: if distance_range_min.is_nan() {
+                None
+            } else {
+                Some(distance_range_min)
+            },
+            distance_range_max: if distance_range_max.is_nan() {
+                None
+            } else {
+                Some(distance_range_max)
+            },
         },
         "Query",
         reply_tx
