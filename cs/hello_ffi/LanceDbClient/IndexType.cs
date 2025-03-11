@@ -8,6 +8,7 @@
         Fts = 3,
         HnswPq = 4,
         HnswSq = 5,
-        IvfPq = 6
+        IvfPq = 6,
+        IvfFlat = 7
     }
 }

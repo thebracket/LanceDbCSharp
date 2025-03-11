@@ -212,6 +212,7 @@ pub(crate) enum IndexType {
     HnswPq = 4,
     HnswSq = 5,
     IvfPq = 6,
+    IvfFlat = 7,
 }
 
 /// Scalar Index types that can be created.
@@ -233,6 +234,7 @@ impl From<lancedb::index::IndexType> for IndexType {
             lancedb::index::IndexType::IvfPq => Self::IvfPq,
             lancedb::index::IndexType::IvfHnswPq => Self::HnswPq,
             lancedb::index::IndexType::IvfHnswSq => Self::HnswSq,
+            lancedb::index::IndexType::IvfFlat => Self::IvfFlat,
         }
     }
 }

@@ -77,7 +77,7 @@ pub(crate) async fn do_drop_database(
     completion_sender: CompletionSender,
 ) {
     if let Some(cnn) = get_connection(connections.clone(), connection_handle).await {
-        match cnn.drop_db().await {
+        match cnn.drop_all_tables().await {
             Ok(_) => {
                 report_result(Ok(0), reply_sender, Some(completion_sender)).await;
             }
