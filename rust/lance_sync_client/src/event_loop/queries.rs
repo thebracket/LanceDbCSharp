@@ -225,6 +225,8 @@ pub(crate) async fn do_vector_query(
     n_probes: usize,
     refine_factor: u32,
     batch_size: u32,
+    distance_range_min: Option<f32>,
+    distance_range_max: Option<f32>,
 ) {
     let Some(table) = get_table(tables.clone(), connection_handle, table_handle).await else {
         let err = format!("Table not found: {table_handle:?}");
@@ -280,6 +282,10 @@ pub(crate) async fn do_vector_query(
 
     if refine_factor > 0 {
         query_builder = query_builder.refine_factor(refine_factor);
+    }
+
+    if distance_range_min.is_some() || distance_range_max.is_some() {
+        query_builder = query_builder.distance_range(distance_range_min, distance_range_max);
     }
 
     // Explain handling

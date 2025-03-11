@@ -1159,6 +1159,105 @@ public partial class Tests
         Assert.Pass();
     }
     
+    /// <summary>
+    /// Check that basic vector queries include the _distance field.
+    /// </summary>
+    [Test]
+    public void BasicVectorQueryIncludesDistance()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_vec_query_select_distance");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.Multiple(() =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(cnn.TableNames(), Does.Contain("table1"));
+                });
+                
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+
+                var target = new List<float>();
+                for (var i=0; i<128; i++) target.Add(1.0f);
+                var batches = table.Search().Vector(target).SelectColumns(["id", "vector"]).ToBatches(0);
+                Assert.That(batches, Is.Not.Empty);
+                foreach (var batch in batches)
+                {
+                    Assert.That(batch, Is.Not.Null);
+                    var foundDistance = false;
+                    foreach (var field in batch.Schema.FieldsList)
+                    {
+                        if (field.Name == "_distance")
+                        {
+                            foundDistance = true;
+                            break;
+                        }
+                    }
+                    Assert.That(foundDistance, Is.True);
+                }
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
+    
+    /// <summary>
+    /// Check that basic vector queries include the _distance field in the
+    /// C# mapping.
+    /// </summary>
+    [Test]
+    public void BasicVectorQueryIncludesDistanceMap()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_vec_query_select_distance");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = cnn.CreateTable("table1", Helpers.GetSchema());
+                Assert.Multiple(() =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(cnn.TableNames(), Does.Contain("table1"));
+                });
+
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                table.Add(array);
+
+                var target = new List<float>();
+                for (var i = 0; i < 128; i++) target.Add(1.0f);
+                var listDict = table.Search().Vector(target).SelectColumns(["id", "vector"]).ToList();
+                Assert.That(listDict, Is.Not.Empty);
+                foreach (var row in listDict)
+                {
+                    Assert.That(row.ContainsKey("_distance"));
+                }
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
+    
     [Test]
     public async Task BasicVectorQueryAsync()
     {
@@ -1191,6 +1290,165 @@ public partial class Tests
                     batches.Add(batch);
                 }
                 Assert.That(batches, Is.Not.Empty);
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
+    
+    /// <summary>
+    /// Check that basic vector queries include the _distance field in
+    /// the C# mapping.
+    /// </summary>
+    [Test]
+    public async Task BasicVectorQueryAsyncIncludesDistanceMap()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_vec_query_select_async_distance");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.Multiple(async () =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(await cnn.TableNamesAsync(), Does.Contain("table1"));
+                });
+                
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+
+                var target = new List<float>();
+                for (var i=0; i<128; i++) target.Add(1.0f);
+
+                var rows = await table.Search().Vector(target).SelectColumns(["id", "vector"]).ToListAsync();
+                Assert.That(rows, Is.Not.Null);
+                foreach (var row in rows)
+                {
+                    Assert.That(row.ContainsKey("_distance"));
+                }
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
+    
+    /// <summary>
+    /// Check that basic vector queries include the _distance field.
+    /// </summary>
+    [Test]
+    public async Task BasicVectorQueryAsyncIncludesDistance()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_vec_query_select_async_distance");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.Multiple(async () =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(await cnn.TableNamesAsync(), Does.Contain("table1"));
+                });
+                
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+
+                var target = new List<float>();
+                for (var i=0; i<128; i++) target.Add(1.0f);
+                var batches = new List<RecordBatch>();
+                await foreach (var batch in table.Search().Vector(target).SelectColumns(["id", "vector"]).ToBatchesAsync(0))
+                {
+                    batches.Add(batch);
+                }
+                Assert.That(batches, Is.Not.Empty);
+                foreach (var batch in batches)
+                {
+                    Assert.That(batch, Is.Not.Null);
+                    var foundDistance = false;
+                    foreach (var field in batch.Schema.FieldsList)
+                    {
+                        if (field.Name == "_distance")
+                        {
+                            foundDistance = true;
+                            break;
+                        }
+                    }
+                    Assert.That(foundDistance, Is.True);
+                }
+            }
+        }
+        finally
+        {
+            Cleanup(uri);
+        }
+
+        Assert.Pass();
+    }
+    
+    /// <summary>
+    /// Check that the distance range feature works.
+    /// </summary>
+    [Test]
+    public async Task BasicVectorQueryAsyncDistanceRange()
+    {
+        var uri = new Uri("file:///tmp/test_open_table_vec_query_select_async_distance_range");
+        try
+        {
+            using (var cnn = new Connection(uri))
+            {
+                Assert.That(cnn.IsOpen, Is.True);
+                var table = await cnn.CreateTableAsync("table1", Helpers.GetSchema());
+                Assert.Multiple(async () =>
+                {
+                    Assert.That(table, Is.Not.Null);
+                    Assert.That(await cnn.TableNamesAsync(), Does.Contain("table1"));
+                });
+                
+                var recordBatch = Helpers.CreateSampleRecordBatch(
+                    Helpers.GetSchema(), 8, 128, increaseSample:true
+                );
+                // Note that the interface defines a list, so we'll use that
+                var array = new List<RecordBatch>();
+                array.Add(recordBatch);
+                await table.AddAsync(array);
+
+                var target = new List<float>();
+                for (var i=0; i<128; i++) target.Add(4.0f);
+                var list = await table.Search().Vector(target).DistanceRange(0.0f, 1.0f).SelectColumns(["id", "vector"]).ToListAsync();
+                Assert.That(list, Is.Not.Null);
+                Assert.That(list, Is.Not.Empty);
+                Assert.That(list.Count, Is.EqualTo(1));
+                
+                list = await table.Search().Vector(target).DistanceRange(Single.NaN, Single.NaN).SelectColumns(["id", "vector"]).ToListAsync();
+                Assert.That(list, Is.Not.Null);
+                Assert.That(list, Is.Not.Empty);
+                Assert.That(list.Count, Is.EqualTo(8));
+                
+                list = await table.Search().Vector(target).DistanceRange(Single.NaN, 1520.0f).SelectColumns(["id", "vector"]).ToListAsync();
+                Assert.That(list, Is.Not.Null);
+                Assert.That(list, Is.Not.Empty);
+                Assert.That(list.Count, Is.EqualTo(7));
             }
         }
         finally

@@ -11,6 +11,8 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
     protected Metric DistanceMetric;
     protected int NumProbes;
     protected int RefinementFactor;
+    private float _minDistance = Single.NaN;
+    private float _maxDistance = -Single.NaN;
 
     internal VectorQueryBuilder(long connectionId, long tableId) : base(connectionId, tableId)
     {
@@ -59,6 +61,19 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
         RefinementFactor = refineFactor;
         return this;
     }
+
+    /// <summary>
+    /// Set the distance range for the query.
+    /// </summary>
+    /// <param name="distanceRangeMin">Minimum range, or Single.NaN for none.</param>
+    /// <param name="distanceRangeMax">Maximum range, or Single.NaN for none.</param>
+    /// <returns>The updated query builder.</returns>
+    public ILanceVectorQueryBuilder DistanceRange(float distanceRangeMin, float distanceRangeMax)
+    {
+        _minDistance = distanceRangeMin;
+        _maxDistance = distanceRangeMax;
+        return this;
+    }
     
     /// <summary>
     /// Submit the query and retrieve the query plan from the LanceDb engine.
@@ -100,7 +115,9 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
                 VectorData.Length,
                 (uint)DistanceMetric,
                 (ulong)NumProbes,
-                (uint)RefinementFactor
+                (uint)RefinementFactor,
+                _minDistance,
+                _maxDistance
             );
         }
 
@@ -149,7 +166,8 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
                     }
                 }, LimitCount, WhereSql, WithRowIdent, selectColumns!, (ulong)SelectColumnsList.Count,
                 (uint)VectorData.DataType, b, (ulong)VectorData.Data.Length, VectorData.Length,
-                (uint)DistanceMetric, (ulong)NumProbes, (uint)RefinementFactor, (uint)batchSize);
+                (uint)DistanceMetric, (ulong)NumProbes, (uint)RefinementFactor, (uint)batchSize,
+                _minDistance, _maxDistance);
         }
 
         if (exception != null) throw exception;
@@ -201,7 +219,8 @@ public class VectorQueryBuilder : QueryBuilder, ILanceVectorQueryBuilder
                     Ffi.vector_query(ConnectionId, TableId, blobCallback, resultCallback,
                         LimitCount, WhereSql, WithRowIdent, selectColumns!, (ulong)SelectColumnsList.Count,
                         (uint)VectorData.DataType, b, (ulong)VectorData.Data.Length, VectorData.Length,
-                        (uint)DistanceMetric, (ulong)NumProbes, (uint)RefinementFactor, (uint)batchSize);
+                        (uint)DistanceMetric, (ulong)NumProbes, (uint)RefinementFactor, (uint)batchSize,
+                        _minDistance, _maxDistance);
                     channel.Writer.Complete();
                 }
             }
